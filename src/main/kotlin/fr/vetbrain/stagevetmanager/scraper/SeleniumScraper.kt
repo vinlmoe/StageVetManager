@@ -45,23 +45,25 @@ class SeleniumScraper(
         }
     }
 
-    fun scrapeAllPages(): ScraperResult {
+    fun scrapeAllPages(onPageScraped: (List<Internship>) -> Unit = {}): ScraperResult {
         val d = driver ?: return ScraperResult.Failure("Navigateur non initialisé")
         return try {
             d.get("https://www.stagevet.fr/dashboard")
             val wait = WebDriverWait(d, Duration.ofSeconds(15))
             wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.card")))
 
-            val allInternships = mutableListOf<Internship>()
+            var totalCount = 0
             var pageCount = 0
 
             while (true) {
                 Thread.sleep(1500)
                 val html = d.pageSource
                 val pageInternships = DashboardParser.parse(html)
-                allInternships.addAll(pageInternships)
                 pageCount++
-                onProgress("Page $pageCount : ${pageInternships.size} stage(s) extraits (total : ${allInternships.size})")
+                totalCount += pageInternships.size
+
+                onPageScraped(pageInternships)
+                onProgress("Page $pageCount : ${pageInternships.size} stage(s) extraits (total : $totalCount)")
 
                 val nextBtn = findNextButton(d)
                 if (nextBtn == null) break
@@ -82,8 +84,8 @@ class SeleniumScraper(
                 }
             }
 
-            onProgress("Extraction terminée : ${allInternships.size} stage(s) sur $pageCount page(s)")
-            ScraperResult.Success(allInternships, pageCount)
+            onProgress("Extraction terminée : $totalCount stage(s) sur $pageCount page(s)")
+            ScraperResult.Success(totalCount, pageCount)
         } catch (e: Exception) {
             ScraperResult.Failure("Erreur lors du scraping : ${e.message}", e)
         }

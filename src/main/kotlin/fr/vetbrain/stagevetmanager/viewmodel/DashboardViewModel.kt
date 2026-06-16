@@ -61,6 +61,7 @@ class DashboardViewModel {
         scope.launch {
             isLoading.value = true
             errorMessage.value = null
+            allInternships.value = emptyList()
             statusMessage.value = "Connexion en cours..."
 
             val result = withContext(Dispatchers.IO) {
@@ -76,7 +77,12 @@ class DashboardViewModel {
                     if (!loggedIn) {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                     } else {
-                        scraper.scrapeAllPages()
+                        scraper.scrapeAllPages { pageInternships ->
+                            // Appelé sur IO thread après chaque page → on met à jour le StateFlow sur Main
+                            scope.launch(Dispatchers.Main) {
+                                allInternships.value = allInternships.value + pageInternships
+                            }
+                        }
                     }
                 } finally {
                     scraper.close()
@@ -84,11 +90,9 @@ class DashboardViewModel {
             }
 
             when (result) {
-                is ScraperResult.Success -> {
-                    allInternships.value = result.internships
+                is ScraperResult.Success ->
                     statusMessage.value =
-                        "${result.internships.size} stage(s) extraits depuis ${result.pageCount} page(s)"
-                }
+                        "${result.totalCount} stage(s) extraits depuis ${result.pageCount} page(s)"
                 is ScraperResult.Failure -> {
                     errorMessage.value = result.message
                     statusMessage.value = "Erreur lors de l'extraction"
