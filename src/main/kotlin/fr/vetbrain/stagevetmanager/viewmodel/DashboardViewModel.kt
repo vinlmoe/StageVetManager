@@ -2,6 +2,7 @@ package fr.vetbrain.stagevetmanager.viewmodel
 
 import fr.vetbrain.stagevetmanager.export.ExcelExporter
 import fr.vetbrain.stagevetmanager.model.Internship
+import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
@@ -16,6 +17,7 @@ class DashboardViewModel {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     val allInternships = MutableStateFlow<List<Internship>>(emptyList())
+    val scrapeFilters  = MutableStateFlow(ScrapeFilters())
     val filterText     = MutableStateFlow("")
     val activeFilter   = MutableStateFlow(ViewFilter.ALL)
     val isLoading      = MutableStateFlow(false)
@@ -41,6 +43,7 @@ class DashboardViewModel {
 
     fun setFilter(text: String) { filterText.value = text }
     fun setView(filter: ViewFilter) { activeFilter.value = filter }
+    fun setScrapeFilters(f: ScrapeFilters) { scrapeFilters.value = f }
 
     fun toggleSort(col: SortColumn) {
         if (sortColumn.value == col) {
@@ -77,7 +80,7 @@ class DashboardViewModel {
                     if (!loggedIn) {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                     } else {
-                        scraper.scrapeAllPages { pageInternships ->
+                        scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
                             // Appelé sur IO thread après chaque page → on met à jour le StateFlow sur Main
                             scope.launch(Dispatchers.Main) {
                                 allInternships.value = allInternships.value + pageInternships

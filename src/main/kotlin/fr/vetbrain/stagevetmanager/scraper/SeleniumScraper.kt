@@ -1,8 +1,10 @@
 package fr.vetbrain.stagevetmanager.scraper
 
 import fr.vetbrain.stagevetmanager.model.Internship
+import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import io.github.bonigarcia.wdm.WebDriverManager
 import org.openqa.selenium.By
+import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
@@ -45,12 +47,27 @@ class SeleniumScraper(
         }
     }
 
-    fun scrapeAllPages(onPageScraped: (List<Internship>) -> Unit = {}): ScraperResult {
+    fun scrapeAllPages(
+        filters: ScrapeFilters = ScrapeFilters(),
+        onPageScraped: (List<Internship>) -> Unit = {},
+    ): ScraperResult {
         val d = driver ?: return ScraperResult.Failure("Navigateur non initialisé")
         return try {
             d.get("https://www.stagevet.fr/dashboard")
             val wait = WebDriverWait(d, Duration.ofSeconds(15))
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.card")))
+            // Attendre que le formulaire soit disponible
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("form#filtre")))
+
+            onProgress("Application des filtres...")
+            applyFilters(d, filters)
+
+            // Attendre les résultats (ou absence de résultats)
+            Thread.sleep(1500)
+            try {
+                wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.card")))
+            } catch (_: Exception) {
+                return ScraperResult.Success(0, 0)
+            }
 
             var totalCount = 0
             var pageCount = 0
@@ -94,6 +111,38 @@ class SeleniumScraper(
     fun close() {
         try { driver?.quit() } catch (_: Exception) {}
         driver = null
+    }
+
+    // Les selects stagevet.fr sont des widgets Select2 : on force la valeur via JS
+    // puis on déclenche l'événement change pour que le widget se synchronise.
+    private fun applyFilters(d: WebDriver, filters: ScrapeFilters) {
+        val js = d as? JavascriptExecutor ?: return
+
+        fun setSelect(name: String, value: String) {
+            js.executeScript(
+                """
+                var el = document.querySelector('[name="${name}"]');
+                if (el) {
+                    el.value = arguments[0];
+                    el.dispatchEvent(new Event('change'));
+                }
+                """.trimIndent(),
+                value
+            )
+        }
+
+        setSelect("periode", filters.periode)
+        setSelect("anneeetude", filters.anneeEtude)
+        setSelect("theme", filters.theme)
+        setSelect("status", filters.status)
+        setSelect("order", filters.order)
+
+        // Clic sur "Rechercher"
+        try {
+            d.findElement(By.cssSelector("input[type='submit'][value='Rechercher']")).click()
+        } catch (_: Exception) {
+            d.findElement(By.cssSelector("form#filtre input[type='submit']")).click()
+        }
     }
 
     private fun findNextButton(d: WebDriver): WebElement? {

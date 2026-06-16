@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
+import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
 import fr.vetbrain.stagevetmanager.ui.components.StatusBar
 import fr.vetbrain.stagevetmanager.viewmodel.DashboardViewModel
 import fr.vetbrain.stagevetmanager.viewmodel.SortColumn
@@ -28,14 +29,15 @@ fun DashboardScreen(
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
 ) {
-    val displayed  by vm.displayed.collectAsState()
-    val filterText by vm.filterText.collectAsState()
-    val activeFilter by vm.activeFilter.collectAsState()
-    val isLoading  by vm.isLoading.collectAsState()
-    val status     by vm.statusMessage.collectAsState()
-    val error      by vm.errorMessage.collectAsState()
-    val sortCol    by vm.sortColumn.collectAsState()
-    val sortAsc    by vm.sortAscending.collectAsState()
+    val displayed     by vm.displayed.collectAsState()
+    val filterText    by vm.filterText.collectAsState()
+    val activeFilter  by vm.activeFilter.collectAsState()
+    val isLoading     by vm.isLoading.collectAsState()
+    val status        by vm.statusMessage.collectAsState()
+    val error         by vm.errorMessage.collectAsState()
+    val sortCol       by vm.sortColumn.collectAsState()
+    val sortAsc       by vm.sortAscending.collectAsState()
+    val scrapeFilters by vm.scrapeFilters.collectAsState()
 
     Scaffold(
         topBar = {
@@ -93,6 +95,11 @@ fun DashboardScreen(
                         vm.exportToExcel(path)
                     }
                 },
+            )
+
+            ScrapeFiltersPanel(
+                filters = scrapeFilters,
+                onFiltersChange = vm::setScrapeFilters,
             )
 
             HorizontalDivider()
