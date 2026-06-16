@@ -4,6 +4,8 @@ import fr.vetbrain.stagevetmanager.export.ExcelExporter
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
+import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
+import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import kotlinx.coroutines.*
@@ -21,10 +23,11 @@ class DashboardViewModel {
     val filterText     = MutableStateFlow("")
     val activeFilter   = MutableStateFlow(ViewFilter.ALL)
     val isLoading      = MutableStateFlow(false)
-    val statusMessage  = MutableStateFlow("")
+    val statusMessage  = MutableStateFlow("Initialisation…")
     val errorMessage   = MutableStateFlow<String?>(null)
     val sortColumn     = MutableStateFlow(SortColumn.STUDENT)
     val sortAscending  = MutableStateFlow(true)
+    val dbCount        = MutableStateFlow(0)
 
     val displayed: StateFlow<List<Internship>> = combine(
         allInternships, filterText, activeFilter, sortColumn, sortAscending
@@ -41,6 +44,13 @@ class DashboardViewModel {
         if (asc) sorted else sorted.reversed()
     }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
+    init {
+        scope.launch {
+            withContext(Dispatchers.IO) { LocalDatabase.init() }
+            loadFromDatabase()
+        }
+    }
+
     fun setFilter(text: String) { filterText.value = text }
     fun setView(filter: ViewFilter) { activeFilter.value = filter }
     fun setScrapeFilters(f: ScrapeFilters) { scrapeFilters.value = f }
@@ -51,6 +61,21 @@ class DashboardViewModel {
         } else {
             sortColumn.value = col
             sortAscending.value = true
+        }
+    }
+
+    fun loadFromDatabase() {
+        scope.launch {
+            statusMessage.value = "Chargement depuis la base locale…"
+            val (internships, count) = withContext(Dispatchers.IO) {
+                LocalDatabase.loadAll() to LocalDatabase.count()
+            }
+            allInternships.value = internships
+            dbCount.value = count
+            statusMessage.value = if (internships.isEmpty())
+                "Base locale vide — cliquez sur Extraire"
+            else
+                "${internships.size} stage(s) chargés depuis la base locale"
         }
     }
 
@@ -65,7 +90,11 @@ class DashboardViewModel {
             isLoading.value = true
             errorMessage.value = null
             allInternships.value = emptyList()
-            statusMessage.value = "Connexion en cours..."
+            statusMessage.value = "Connexion en cours…"
+
+            // Stats cumulées sur toutes les pages
+            var totalAdded = 0
+            var totalUpdated = 0
 
             val result = withContext(Dispatchers.IO) {
                 val scraper = SeleniumScraper(
@@ -81,7 +110,10 @@ class DashboardViewModel {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                     } else {
                         scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
-                            // Appelé sur IO thread après chaque page → on met à jour le StateFlow sur Main
+                            // IO thread : upsert en base, puis mettre à jour l'UI
+                            val stats: UpsertStats = LocalDatabase.upsertAll(pageInternships)
+                            totalAdded += stats.added
+                            totalUpdated += stats.updated
                             scope.launch(Dispatchers.Main) {
                                 allInternships.value = allInternships.value + pageInternships
                             }
@@ -93,10 +125,22 @@ class DashboardViewModel {
             }
 
             when (result) {
-                is ScraperResult.Success ->
-                    statusMessage.value =
-                        "${result.totalCount} stage(s) extraits depuis ${result.pageCount} page(s)"
+                is ScraperResult.Success -> {
+                    // Recharger depuis la DB pour avoir l'état dédoublonné final
+                    val (fromDb, count) = withContext(Dispatchers.IO) {
+                        LocalDatabase.loadAll() to LocalDatabase.count()
+                    }
+                    allInternships.value = fromDb
+                    dbCount.value = count
+                    statusMessage.value = buildString {
+                        append("${result.totalCount} stage(s) extraits — ")
+                        append("$totalAdded nouveau(x), $totalUpdated mis à jour")
+                        append(" — base : $count au total")
+                    }
+                }
                 is ScraperResult.Failure -> {
+                    // Même en cas d'erreur, recharger ce qui est en base
+                    loadFromDatabase()
                     errorMessage.value = result.message
                     statusMessage.value = "Erreur lors de l'extraction"
                 }
@@ -105,10 +149,19 @@ class DashboardViewModel {
         }
     }
 
+    fun clearDatabase() {
+        scope.launch {
+            withContext(Dispatchers.IO) { LocalDatabase.clear() }
+            allInternships.value = emptyList()
+            dbCount.value = 0
+            statusMessage.value = "Base locale vidée"
+        }
+    }
+
     fun exportToExcel(path: Path) {
         scope.launch {
             isLoading.value = true
-            statusMessage.value = "Export Excel en cours..."
+            statusMessage.value = "Export Excel en cours…"
             withContext(Dispatchers.IO) {
                 try {
                     ExcelExporter.export(allInternships.value, path)

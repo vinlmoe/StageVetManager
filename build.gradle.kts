@@ -31,6 +31,8 @@ dependencies {
 
     implementation("org.jsoup:jsoup:1.18.3")
 
+    implementation("org.xerial:sqlite-jdbc:3.47.1.0")
+
     implementation("org.slf4j:slf4j-simple:2.0.16")
 }
 

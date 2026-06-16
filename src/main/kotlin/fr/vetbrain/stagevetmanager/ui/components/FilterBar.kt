@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,10 +21,12 @@ fun FilterBar(
     filterText: String,
     activeFilter: ViewFilter,
     count: Int,
+    dbCount: Int,
     isLoading: Boolean,
     onTextChange: (String) -> Unit,
     onViewChange: (ViewFilter) -> Unit,
     onRefresh: () -> Unit,
+    onLoadFromDb: () -> Unit,
     onExport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -50,8 +53,22 @@ fun FilterBar(
                 shape = RoundedCornerShape(8.dp),
             )
             Spacer(Modifier.width(12.dp))
-            Text("$count résultat(s)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            Spacer(Modifier.width(12.dp))
+            Text(
+                "$count affiché(s)",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.width(8.dp))
+            // Indicateur base locale
+            AssistChip(
+                onClick = onLoadFromDb,
+                label = { Text("Base : $dbCount", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(14.dp))
+                },
+                enabled = !isLoading,
+            )
+            Spacer(Modifier.width(8.dp))
             Button(
                 onClick = onRefresh,
                 enabled = !isLoading,
