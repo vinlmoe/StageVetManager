@@ -96,7 +96,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Text("Se connecter et extraire les données", fontSize = 14.sp)
+                    Text("Se connecter", fontSize = 14.sp)
                 }
 
                 TextButton(onClick = onOpenSettings) {

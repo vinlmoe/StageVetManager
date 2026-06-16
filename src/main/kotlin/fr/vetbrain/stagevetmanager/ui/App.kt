@@ -40,9 +40,7 @@ fun App() {
                     savedUsername = user
                     savedPassword = pass
                     prefs.put("username", user)
-                    // Mot de passe non persisté : ressaisi à chaque session
                     screen = Screen.DASHBOARD
-                    vm.scrape(user, pass, browserType, headless)
                 },
                 onOpenSettings = { screen = Screen.SETTINGS },
             )
