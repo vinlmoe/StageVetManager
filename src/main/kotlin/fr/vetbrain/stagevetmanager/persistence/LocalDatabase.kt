@@ -33,22 +33,34 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
         connect().use { conn ->
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS internships (
-                    id                  TEXT PRIMARY KEY,
-                    student_name        TEXT NOT NULL,
-                    study_year          TEXT,
-                    organization        TEXT,
-                    address             TEXT,
-                    convention_number   TEXT,
-                    convention_gen_date TEXT,
-                    signing_date        TEXT,
-                    start_date          TEXT,
-                    end_date            TEXT,
-                    raw_date_stage      TEXT,
-                    theme               TEXT,
-                    created_at          TEXT NOT NULL,
-                    last_seen           TEXT NOT NULL
+                    id                   TEXT PRIMARY KEY,
+                    student_name         TEXT NOT NULL,
+                    study_year           TEXT,
+                    organization         TEXT,
+                    address              TEXT,
+                    convention_number    TEXT,
+                    convention_gen_date  TEXT,
+                    signing_date         TEXT,
+                    start_date           TEXT,
+                    end_date             TEXT,
+                    raw_date_stage       TEXT,
+                    theme                TEXT,
+                    convention_pdf_url   TEXT,
+                    convention_sign_url  TEXT,
+                    created_at           TEXT NOT NULL,
+                    last_seen            TEXT NOT NULL
                 )
             """.trimIndent())
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN convention_pdf_url TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN convention_sign_url TEXT"
+                )
+            }
         }
     }
 
@@ -65,14 +77,17 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     INSERT INTO internships
                         (id, student_name, study_year, organization, address,
                          convention_number, convention_gen_date, signing_date,
-                         start_date, end_date, raw_date_stage, theme, created_at, last_seen)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         start_date, end_date, raw_date_stage, theme,
+                         convention_pdf_url, convention_sign_url,
+                         created_at, last_seen)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """.trimIndent())
                 val updateStmt = conn.prepareStatement("""
                     UPDATE internships
                     SET student_name=?, study_year=?, organization=?, address=?,
                         convention_number=?, convention_gen_date=?, signing_date=?,
-                        start_date=?, end_date=?, raw_date_stage=?, theme=?, last_seen=?
+                        start_date=?, end_date=?, raw_date_stage=?, theme=?,
+                        convention_pdf_url=?, convention_sign_url=?, last_seen=?
                     WHERE id=?
                 """.trimIndent())
 
@@ -94,8 +109,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(9, s.endDate?.toString())
                             setString(10, s.rawDateStage)
                             setString(11, s.theme)
-                            setString(12, now)
-                            setString(13, id)
+                            setString(12, s.conventionPdfUrl)
+                            setString(13, s.conventionSignUrl)
+                            setString(14, now)
+                            setString(15, id)
                             executeUpdate()
                         }
                         updated++
@@ -113,8 +130,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(10, s.endDate?.toString())
                             setString(11, s.rawDateStage)
                             setString(12, s.theme)
-                            setString(13, now)
-                            setString(14, now)
+                            setString(13, s.conventionPdfUrl)
+                            setString(14, s.conventionSignUrl)
+                            setString(15, now)
+                            setString(16, now)
                             executeUpdate()
                         }
                         added++
@@ -148,8 +167,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         signingDate     = rs.getString("signing_date")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                         startDate       = rs.getString("start_date")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                         endDate         = rs.getString("end_date")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
-                        rawDateStage    = rs.getString("raw_date_stage") ?: "",
-                        theme           = rs.getString("theme") ?: "",
+                        rawDateStage     = rs.getString("raw_date_stage") ?: "",
+                        theme            = rs.getString("theme") ?: "",
+                        conventionPdfUrl = rs.getString("convention_pdf_url") ?: "",
+                        conventionSignUrl = rs.getString("convention_sign_url") ?: "",
                     ))
                 }
             }

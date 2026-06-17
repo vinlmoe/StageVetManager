@@ -14,6 +14,8 @@ data class Internship(
     val endDate: LocalDate?,
     val rawDateStage: String,
     val theme: String,
+    val conventionPdfUrl: String = "",
+    val conventionSignUrl: String = "",
 ) {
     fun matchesText(query: String): Boolean {
         if (query.isBlank()) return true

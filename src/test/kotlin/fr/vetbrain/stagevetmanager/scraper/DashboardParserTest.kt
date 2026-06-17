@@ -90,4 +90,36 @@ class DashboardParserTest {
         val results = DashboardParser.parse(fixtureHtml)
         assertFalse(results[0].theme.contains("Thème du stage"))
     }
+
+    @Test
+    fun `conventionPdfUrl is extracted from btn-success link without signature`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1",
+            results[0].conventionPdfUrl
+        )
+    }
+
+    @Test
+    fun `conventionSignUrl is extracted from btn-success link with signature path`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1/signature/xyz789xyz789xyz789xyz789xyz789xyz789xyz7",
+            results[0].conventionSignUrl
+        )
+    }
+
+    @Test
+    fun `conventionSignUrl is empty when no signing link is present`() {
+        val html = fixtureHtml.replace(
+            """<a class="btn btn-success" href="https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1/signature/xyz789xyz789xyz789xyz789xyz789xyz789xyz7">Signer la convention (DEVE)</a>""",
+            ""
+        )
+        val results = DashboardParser.parse(html)
+        assertEquals("", results[0].conventionSignUrl)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1",
+            results[0].conventionPdfUrl
+        )
+    }
 }

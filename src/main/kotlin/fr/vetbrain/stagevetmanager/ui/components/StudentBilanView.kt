@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
@@ -18,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.vetbrain.stagevetmanager.model.Internship
+import java.awt.Desktop
+import java.net.URI
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -170,7 +175,7 @@ fun StudentBilanView(
                             ) {
                                 Text(
                                     stage.organization,
-                                    modifier = Modifier.weight(0.22f).padding(end = 4.dp),
+                                    modifier = Modifier.weight(0.20f).padding(end = 4.dp),
                                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
@@ -180,12 +185,12 @@ fun StudentBilanView(
                                         stage.rawDateStage.isNotBlank() -> stage.rawDateStage
                                         else -> "—"
                                     },
-                                    modifier = Modifier.weight(0.22f).padding(end = 4.dp),
+                                    modifier = Modifier.weight(0.20f).padding(end = 4.dp),
                                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     stage.signingDate?.format(DATE_FMT) ?: "—",
-                                    modifier = Modifier.weight(0.14f).padding(end = 4.dp),
+                                    modifier = Modifier.weight(0.12f).padding(end = 4.dp),
                                     fontSize = 11.sp, maxLines = 1,
                                     color = if (stage.signingDate != null)
                                         MaterialTheme.colorScheme.onSurface
@@ -193,15 +198,46 @@ fun StudentBilanView(
                                 )
                                 Text(
                                     stage.theme,
-                                    modifier = Modifier.weight(0.24f).padding(end = 4.dp),
+                                    modifier = Modifier.weight(0.22f).padding(end = 4.dp),
                                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     stage.conventionNumber,
-                                    modifier = Modifier.weight(0.18f),
+                                    modifier = Modifier.weight(0.16f).padding(end = 4.dp),
                                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 )
+                                // Convention actions: signed indicator + PDF link + sign link
+                                Row(
+                                    modifier = Modifier.weight(0.10f),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (stage.signingDate != null) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Convention signée le ${stage.signingDate.format(DATE_FMT)}",
+                                            modifier = Modifier.size(14.dp),
+                                            tint = Color(0xFF2E7D32),
+                                        )
+                                    }
+                                    if (stage.conventionPdfUrl.isNotEmpty()) {
+                                        Icon(
+                                            Icons.Default.Description,
+                                            contentDescription = "Voir la convention PDF",
+                                            modifier = Modifier.size(14.dp).clickable { openInBrowser(stage.conventionPdfUrl) },
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    if (stage.conventionSignUrl.isNotEmpty()) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Signer la convention",
+                                            modifier = Modifier.size(14.dp).clickable { openInBrowser(stage.conventionSignUrl) },
+                                            tint = Color(0xFFE65100),
+                                        )
+                                    }
+                                }
                             }
                             HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
                         }
@@ -225,4 +261,11 @@ private fun RowScope.HeaderCell(label: String, weight: Float) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+private fun openInBrowser(url: String) {
+    runCatching {
+        val desktop = Desktop.getDesktop()
+        if (desktop.isSupported(Desktop.Action.BROWSE)) desktop.browse(URI(url))
+    }
 }

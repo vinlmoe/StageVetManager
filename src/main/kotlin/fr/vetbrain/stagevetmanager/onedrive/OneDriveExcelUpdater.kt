@@ -30,7 +30,8 @@ class OneDriveExcelUpdater(
         private val HEADERS = listOf(
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
-            "Début stage", "Fin stage", "Dates brutes", "Thème"
+            "Début stage", "Fin stage", "Dates brutes", "Thème",
+            "URL Convention PDF", "URL Signature"
         )
         private val LAST_COL = ('A' + HEADERS.size - 1).toString() // "K"
     }
@@ -166,6 +167,7 @@ class OneDriveExcelUpdater(
                     s.startDate?.format(DATE_FMT) ?: "",
                     s.endDate?.format(DATE_FMT) ?: "",
                     s.rawDateStage, s.theme,
+                    s.conventionPdfUrl, s.conventionSignUrl,
                 ))
             }
         }

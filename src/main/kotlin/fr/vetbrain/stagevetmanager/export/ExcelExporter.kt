@@ -63,7 +63,8 @@ object ExcelExporter {
         val headers = listOf(
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
-            "Début stage", "Fin stage", "Dates brutes", "Thème"
+            "Début stage", "Fin stage", "Dates brutes", "Thème",
+            "URL Convention PDF", "URL Signature"
         )
 
         val headerRow = sheet.createRow(0)
@@ -87,6 +88,8 @@ object ExcelExporter {
             row.createCell(8).setCellValue(s.endDate?.format(DATE_FMT) ?: "")
             row.createCell(9).setCellValue(s.rawDateStage)
             row.createCell(10).setCellValue(s.theme)
+            row.createCell(11).setCellValue(s.conventionPdfUrl)
+            row.createCell(12).setCellValue(s.conventionSignUrl)
         }
 
         headers.indices.forEach { sheet.autoSizeColumn(it) }

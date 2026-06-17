@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -20,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.viewmodel.SortColumn
+import java.awt.Desktop
+import java.net.URI
 import java.time.format.DateTimeFormatter
 
 private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -35,12 +40,13 @@ private val COLUMNS = listOf(
     ColumnDef("Étudiant",   0.18f, SortColumn.STUDENT)      { it.studentName },
     ColumnDef("Année",      0.07f, SortColumn.YEAR)         { it.studyYear },
     ColumnDef("Organisme",  0.18f, SortColumn.ORGANIZATION) { it.organization },
-    ColumnDef("Adresse",    0.15f, null)                    { it.address },
+    ColumnDef("Adresse",    0.12f, null)                    { it.address },
     ColumnDef("Début stage",0.10f, SortColumn.START_DATE)   { it.startDate?.format(DATE_FMT) ?: "" },
-    ColumnDef("Fin stage",  0.10f, null)                    { it.endDate?.format(DATE_FMT) ?: "" },
+    ColumnDef("Fin stage",  0.07f, null)                    { it.endDate?.format(DATE_FMT) ?: "" },
     ColumnDef("Signature",  0.10f, SortColumn.SIGN_DATE)    { it.signingDate?.format(DATE_FMT) ?: "" },
-    ColumnDef("Thème",      0.12f, SortColumn.THEME)        { it.theme },
+    ColumnDef("Thème",      0.10f, SortColumn.THEME)        { it.theme },
 )
+// weights above sum to 0.92 — remaining 0.08 goes to the Conv. actions column
 
 @Composable
 fun InternshipTable(
@@ -91,6 +97,14 @@ fun InternshipTable(
                     }
                 }
             }
+            Text(
+                "Conv.",
+                modifier = Modifier.weight(0.08f).padding(horizontal = 4.dp),
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+            )
         }
 
         if (internships.isEmpty()) {
@@ -119,10 +133,47 @@ fun InternshipTable(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                        Row(
+                            modifier = Modifier.weight(0.08f).padding(horizontal = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (internship.signingDate != null) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = "Convention signée",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFF2E7D32),
+                                )
+                            }
+                            if (internship.conventionPdfUrl.isNotEmpty()) {
+                                Icon(
+                                    Icons.Default.Description,
+                                    contentDescription = "Voir la convention PDF",
+                                    modifier = Modifier.size(14.dp).clickable { openInBrowser(internship.conventionPdfUrl) },
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            if (internship.conventionSignUrl.isNotEmpty()) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = "Signer la convention",
+                                    modifier = Modifier.size(14.dp).clickable { openInBrowser(internship.conventionSignUrl) },
+                                    tint = Color(0xFFE65100),
+                                )
+                            }
+                        }
                     }
                     HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 0.5.dp)
                 }
             }
         }
+    }
+}
+
+private fun openInBrowser(url: String) {
+    runCatching {
+        val desktop = Desktop.getDesktop()
+        if (desktop.isSupported(Desktop.Action.BROWSE)) desktop.browse(URI(url))
     }
 }

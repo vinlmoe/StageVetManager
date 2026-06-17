@@ -126,6 +126,18 @@ class LocalDatabaseTest {
     // ── clear / count ─────────────────────────────────────────────────────────
 
     @Test
+    fun `upsertAll persists and loadAll restores conventionPdfUrl and conventionSignUrl`() {
+        val s = internship().copy(
+            conventionPdfUrl = "https://www.stagevet.fr/convention/pdf/abc123",
+            conventionSignUrl = "https://www.stagevet.fr/convention/pdf/abc123/signature/xyz789",
+        )
+        db.upsertAll(listOf(s))
+        val loaded = db.loadAll()[0]
+        assertEquals(s.conventionPdfUrl, loaded.conventionPdfUrl)
+        assertEquals(s.conventionSignUrl, loaded.conventionSignUrl)
+    }
+
+    @Test
     fun `clear empties the database and count returns zero`() {
         db.upsertAll(listOf(internship()))
         assertEquals(1, db.count())

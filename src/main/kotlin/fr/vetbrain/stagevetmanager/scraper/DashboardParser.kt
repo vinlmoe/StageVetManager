@@ -46,6 +46,11 @@ object DashboardParser {
             ?.removePrefix(":")
             ?.trim() ?: ""
 
+        val conventionPdfUrl = card.selectFirst("a.btn-success[href*='/convention/pdf/']:not([href*='/signature/'])")
+            ?.attr("href") ?: ""
+        val conventionSignUrl = card.selectFirst("a.btn-success[href*='/signature/']")
+            ?.attr("href") ?: ""
+
         val signingDate = signingDateStr?.let { parseDate(it) }
         val (startDate, endDate) = parseDateRange(rawDateStage)
 
@@ -61,6 +66,8 @@ object DashboardParser {
             endDate = endDate,
             rawDateStage = rawDateStage,
             theme = theme,
+            conventionPdfUrl = conventionPdfUrl,
+            conventionSignUrl = conventionSignUrl,
         )
     }
 
