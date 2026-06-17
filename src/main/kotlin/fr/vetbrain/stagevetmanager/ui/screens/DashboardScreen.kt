@@ -3,7 +3,9 @@ package fr.vetbrain.stagevetmanager.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,10 +15,13 @@ import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
 import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
 import fr.vetbrain.stagevetmanager.ui.components.StatusBar
+import fr.vetbrain.stagevetmanager.ui.components.StudentBilanView
 import fr.vetbrain.stagevetmanager.viewmodel.DashboardViewModel
 import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Paths
+
+private enum class DisplayMode { INTERNSHIPS, BILAN }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +45,7 @@ fun DashboardScreen(
     val dbCount       by vm.dbCount.collectAsState()
 
     var showClearDialog by remember { mutableStateOf(false) }
+    var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     if (showClearDialog) {
         AlertDialog(
@@ -63,6 +69,17 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("StageVet Manager — Tableau de bord") },
                 actions = {
+                    // Bascule liste ↔ bilan
+                    IconButton(onClick = {
+                        displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
+                            DisplayMode.BILAN else DisplayMode.INTERNSHIPS
+                    }) {
+                        if (displayMode == DisplayMode.INTERNSHIPS) {
+                            Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
+                        } else {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
+                        }
+                    }
                     IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
                         Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
                     }
@@ -129,13 +146,19 @@ fun DashboardScreen(
 
             HorizontalDivider()
 
-            InternshipTable(
-                internships = displayed,
-                sortColumn = sortCol,
-                sortAscending = sortAsc,
-                onSort = vm::toggleSort,
-                modifier = Modifier.weight(1f),
-            )
+            when (displayMode) {
+                DisplayMode.INTERNSHIPS -> InternshipTable(
+                    internships = displayed,
+                    sortColumn = sortCol,
+                    sortAscending = sortAsc,
+                    onSort = vm::toggleSort,
+                    modifier = Modifier.weight(1f),
+                )
+                DisplayMode.BILAN -> StudentBilanView(
+                    internships = displayed,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
