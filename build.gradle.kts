@@ -37,6 +37,28 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("org.slf4j:slf4j-simple:2.0.16")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+// Tests don't use any Compose/UI code, so we can exclude androidx transitive
+// deps that Compose pulls in but are unavailable from the network policy.
+configurations.testRuntimeClasspath {
+    exclude(group = "androidx.annotation")
+    exclude(group = "androidx.collection")
+    exclude(group = "androidx.lifecycle")
+    exclude(group = "androidx.arch.core")
+    exclude(group = "org.jetbrains.compose.annotation-internal")
+    exclude(group = "org.jetbrains.compose.collection-internal")
+    exclude(group = "org.jetbrains.androidx.lifecycle")
 }
 
 compose.desktop {

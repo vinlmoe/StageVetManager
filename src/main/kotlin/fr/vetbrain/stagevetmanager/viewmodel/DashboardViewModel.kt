@@ -48,7 +48,7 @@ class DashboardViewModel {
 
     init {
         scope.launch {
-            withContext(Dispatchers.IO) { LocalDatabase.init() }
+            withContext(Dispatchers.IO) { LocalDatabase.instance.init() }
             loadFromDatabase()
         }
     }
@@ -70,7 +70,7 @@ class DashboardViewModel {
         scope.launch {
             statusMessage.value = "Chargement depuis la base locale…"
             val (internships, count) = withContext(Dispatchers.IO) {
-                LocalDatabase.loadAll() to LocalDatabase.count()
+                LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
             }
             allInternships.value = internships
             dbCount.value = count
@@ -113,7 +113,7 @@ class DashboardViewModel {
                     } else {
                         scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
                             // IO thread : upsert en base, puis mettre à jour l'UI
-                            val stats: UpsertStats = LocalDatabase.upsertAll(pageInternships)
+                            val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
                             totalAdded += stats.added
                             totalUpdated += stats.updated
                             scope.launch(Dispatchers.Main) {
@@ -130,7 +130,7 @@ class DashboardViewModel {
                 is ScraperResult.Success -> {
                     // Recharger depuis la DB pour avoir l'état dédoublonné final
                     val (fromDb, count) = withContext(Dispatchers.IO) {
-                        LocalDatabase.loadAll() to LocalDatabase.count()
+                        LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
                     }
                     allInternships.value = fromDb
                     dbCount.value = count
@@ -153,7 +153,7 @@ class DashboardViewModel {
 
     fun clearDatabase() {
         scope.launch {
-            withContext(Dispatchers.IO) { LocalDatabase.clear() }
+            withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
             allInternships.value = emptyList()
             dbCount.value = 0
             statusMessage.value = "Base locale vidée"

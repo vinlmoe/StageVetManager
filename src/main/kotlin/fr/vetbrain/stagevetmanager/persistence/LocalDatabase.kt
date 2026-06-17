@@ -1,6 +1,7 @@
 package fr.vetbrain.stagevetmanager.persistence
 
 import fr.vetbrain.stagevetmanager.model.Internship
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
 import java.sql.Connection
@@ -13,11 +14,14 @@ data class UpsertStats(val added: Int, val updated: Int) {
     override fun toString() = "$added nouveau(x), $updated mis à jour"
 }
 
-object LocalDatabase {
+class LocalDatabase(private val dbPath: Path = defaultDbPath) {
 
-    private val dbPath = Paths.get(
-        System.getProperty("user.home"), ".stagevetmanager", "internships.db"
-    )
+    companion object {
+        val defaultDbPath: Path = Paths.get(
+            System.getProperty("user.home"), ".stagevetmanager", "internships.db"
+        )
+        val instance = LocalDatabase()
+    }
 
     private fun connect(): Connection {
         dbPath.parent.toFile().mkdirs()
@@ -164,7 +168,7 @@ object LocalDatabase {
 }
 
 // Clé stable : étudiant + organisme + dates brutes → SHA-256 tronqué à 24 hex chars
-fun Internship.localId(): String {
+internal fun Internship.localId(): String {
     val key = "${studentName.trim().lowercase()}|${organization.trim().lowercase()}|${rawDateStage.trim()}"
     return MessageDigest.getInstance("SHA-256")
         .digest(key.toByteArray(Charsets.UTF_8))

@@ -12,7 +12,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-class OneDriveExcelUpdater(private val accessToken: String) {
+class OneDriveExcelUpdater(
+    private val accessToken: String,
+    private val graphBase: String = GRAPH_BASE,
+) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -67,7 +70,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
 
     private fun ensureFileExists(remotePath: String) {
         val req = Request.Builder()
-            .url("$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}")
+            .url("$graphBase/me/drive/root:/${encPath(remotePath)}")
             .get()
             .auth()
             .build()
@@ -83,7 +86,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
 
     private fun createSession(remotePath: String): String {
         val req = Request.Builder()
-            .url("$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}:/workbook/createSession")
+            .url("$graphBase/me/drive/root:/${encPath(remotePath)}:/workbook/createSession")
             .post("""{"persistChanges":true}""".toRequestBody(JSON))
             .auth()
             .build()
@@ -96,7 +99,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
 
     private fun closeSession(remotePath: String, sessionId: String) {
         val req = Request.Builder()
-            .url("$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}:/workbook/closeSession")
+            .url("$graphBase/me/drive/root:/${encPath(remotePath)}:/workbook/closeSession")
             .post("".toRequestBody(JSON))
             .auth()
             .session(sessionId)
@@ -108,7 +111,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
 
     private fun listWorksheets(remotePath: String, sessionId: String): Set<String> {
         val req = Request.Builder()
-            .url("$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets")
+            .url("$graphBase/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets")
             .get()
             .auth()
             .session(sessionId)
@@ -124,7 +127,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
 
     private fun addWorksheet(remotePath: String, sessionId: String, name: String) {
         val req = Request.Builder()
-            .url("$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets/add")
+            .url("$graphBase/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets/add")
             .post("""{"name":"${name.jsonEscape()}"}""".toRequestBody(JSON))
             .auth()
             .session(sessionId)
@@ -143,7 +146,7 @@ class OneDriveExcelUpdater(private val accessToken: String) {
         sheetName: String,
         internships: List<Internship>,
     ) {
-        val base = "$GRAPH_BASE/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets('${enc(sheetName)}')"
+        val base = "$graphBase/me/drive/root:/${encPath(remotePath)}:/workbook/worksheets('${enc(sheetName)}')"
 
         // 1. Effacer les données existantes (large range pour supprimer les anciennes lignes)
         val clearReq = Request.Builder()
@@ -186,21 +189,21 @@ class OneDriveExcelUpdater(private val accessToken: String) {
     private fun Request.Builder.session(id: String) = header("workbook-session-id", id)
 
     /** Encode un chemin en préservant les '/' comme séparateurs. */
-    private fun encPath(path: String) = path.split("/").joinToString("/") { enc(it) }
+    internal fun encPath(path: String) = path.split("/").joinToString("/") { enc(it) }
 
     /** Encode un segment d'URL (espace → %20). */
-    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+    internal fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     /** Échappe les caractères spéciaux JSON dans une chaîne. */
     private fun String.jsonEscape() = replace("\\", "\\\\").replace("\"", "\\\"")
         .replace("\n", " ").replace("\r", "")
 
     /** Extrait la valeur d'une clé string dans un JSON simple (regex légère). */
-    private fun extractJsonString(json: String, key: String): String? =
+    internal fun extractJsonString(json: String, key: String): String? =
         Regex(""""$key"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)
 
     /** Construit le corps JSON {"values":[[...],[...],...]}. */
-    private fun buildValuesBody(rows: List<List<String>>): String {
+    internal fun buildValuesBody(rows: List<List<String>>): String {
         val sb = StringBuilder("""{"values":[""")
         rows.forEachIndexed { i, row ->
             if (i > 0) sb.append(',')
