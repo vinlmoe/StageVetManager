@@ -5,7 +5,7 @@ import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
-import fr.vetbrain.stagevetmanager.onedrive.OneDriveUploader
+import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
@@ -195,11 +195,10 @@ class DashboardViewModel {
                     val token = auth.acquireToken { code ->
                         scope.launch(Dispatchers.Main) { statusMessage.value = code }
                     }
-                    scope.launch(Dispatchers.Main) { statusMessage.value = "Upload OneDrive en cours…" }
-                    val bytes = ExcelExporter.exportToBytes(allInternships.value)
-                    OneDriveUploader.upload(bytes, remotePath, token)
+                    scope.launch(Dispatchers.Main) { statusMessage.value = "Mise à jour OneDrive en cours…" }
+                    OneDriveExcelUpdater(token).update(allInternships.value, remotePath)
                     scope.launch(Dispatchers.Main) {
-                        statusMessage.value = "Export OneDrive réussi : $remotePath"
+                        statusMessage.value = "OneDrive mis à jour : $remotePath"
                     }
                 } catch (e: Exception) {
                     scope.launch(Dispatchers.Main) {
