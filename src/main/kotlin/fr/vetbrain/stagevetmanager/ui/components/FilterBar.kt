@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -28,6 +29,7 @@ fun FilterBar(
     onRefresh: () -> Unit,
     onLoadFromDb: () -> Unit,
     onExport: () -> Unit,
+    onExportOneDrive: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -83,6 +85,12 @@ fun FilterBar(
                 Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Excel", fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = onExportOneDrive, enabled = !isLoading && count > 0) {
+                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("OneDrive", fontSize = 13.sp)
             }
         }
 

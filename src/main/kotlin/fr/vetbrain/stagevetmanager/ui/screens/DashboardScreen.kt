@@ -26,6 +26,7 @@ fun DashboardScreen(
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
+    onExportOneDrive: () -> Unit,
 ) {
     val displayed     by vm.displayed.collectAsState()
     val filterText    by vm.filterText.collectAsState()
@@ -106,6 +107,7 @@ fun DashboardScreen(
                 onViewChange = vm::setView,
                 onRefresh = onRequestScrape,
                 onLoadFromDb = vm::loadFromDatabase,
+                onExportOneDrive = onExportOneDrive,
                 onExport = {
                     val filename = vm.suggestedExportFileName()
                     val dir = exportDir.ifBlank { System.getProperty("user.home") }

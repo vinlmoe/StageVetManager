@@ -3,6 +3,7 @@ package fr.vetbrain.stagevetmanager.export
 import fr.vetbrain.stagevetmanager.model.Internship
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import java.io.ByteArrayOutputStream
 import java.io.FileOutputStream
 import java.nio.file.Path
 import java.time.LocalDate
@@ -13,6 +14,20 @@ object ExcelExporter {
     private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
     fun export(internships: List<Internship>, path: Path) {
+        val wb = buildWorkbook(internships)
+        FileOutputStream(path.toFile()).use { wb.write(it) }
+        wb.close()
+    }
+
+    fun exportToBytes(internships: List<Internship>): ByteArray {
+        val wb = buildWorkbook(internships)
+        val out = ByteArrayOutputStream()
+        wb.write(out)
+        wb.close()
+        return out.toByteArray()
+    }
+
+    private fun buildWorkbook(internships: List<Internship>): XSSFWorkbook {
         val wb = XSSFWorkbook()
         val today = LocalDate.now()
 
@@ -26,9 +41,7 @@ object ExcelExporter {
         writeSheet(wb, "Tous les stages", internships)
         writeSheet(wb, "Débuts 15 prochains jours", startingSoon)
         writeSheet(wb, "Signés 15 derniers jours", recentlySigned)
-
-        FileOutputStream(path.toFile()).use { wb.write(it) }
-        wb.close()
+        return wb
     }
 
     private fun writeSheet(wb: XSSFWorkbook, name: String, rows: List<Internship>) {

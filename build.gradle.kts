@@ -33,6 +33,9 @@ dependencies {
 
     implementation("org.xerial:sqlite-jdbc:3.47.1.0")
 
+    implementation("com.microsoft.azure:msal4j:1.19.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     implementation("org.slf4j:slf4j-simple:2.0.16")
 }
 

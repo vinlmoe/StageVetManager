@@ -4,6 +4,8 @@ import fr.vetbrain.stagevetmanager.export.ExcelExporter
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
+import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
+import fr.vetbrain.stagevetmanager.onedrive.OneDriveUploader
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
@@ -174,6 +176,46 @@ class DashboardViewModel {
             }
             statusMessage.value = "Export réussi : ${path.fileName}"
             isLoading.value = false
+        }
+    }
+
+    fun exportToOneDrive(clientId: String, remotePath: String) {
+        if (clientId.isBlank()) {
+            errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
+            return
+        }
+        if (isLoading.value) return
+        scope.launch {
+            isLoading.value = true
+            errorMessage.value = null
+            statusMessage.value = "Authentification Microsoft…"
+            withContext(Dispatchers.IO) {
+                try {
+                    val auth = OneDriveAuthClient(clientId)
+                    val token = auth.acquireToken { code ->
+                        scope.launch(Dispatchers.Main) { statusMessage.value = code }
+                    }
+                    scope.launch(Dispatchers.Main) { statusMessage.value = "Upload OneDrive en cours…" }
+                    val bytes = ExcelExporter.exportToBytes(allInternships.value)
+                    OneDriveUploader.upload(bytes, remotePath, token)
+                    scope.launch(Dispatchers.Main) {
+                        statusMessage.value = "Export OneDrive réussi : $remotePath"
+                    }
+                } catch (e: Exception) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Export OneDrive échoué : ${e.message}"
+                        statusMessage.value = "Erreur export OneDrive"
+                    }
+                }
+            }
+            isLoading.value = false
+        }
+    }
+
+    fun signOutOneDrive(clientId: String) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { OneDriveAuthClient(clientId).signOut() }
+            scope.launch(Dispatchers.Main) { statusMessage.value = "Déconnecté de Microsoft" }
         }
     }
 

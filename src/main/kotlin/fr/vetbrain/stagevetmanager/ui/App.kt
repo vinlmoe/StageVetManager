@@ -15,18 +15,22 @@ private enum class Screen { LOGIN, DASHBOARD, SETTINGS }
 fun App() {
     val prefs = remember { Preferences.userRoot().node("fr/vetbrain/stagevetmanager") }
 
-    var screen by remember { mutableStateOf(Screen.LOGIN) }
+    var screen        by remember { mutableStateOf(Screen.LOGIN) }
     var savedUsername by remember { mutableStateOf(prefs.get("username", "")) }
     var savedPassword by remember { mutableStateOf("") } // jamais stocké
-    var browserType  by remember {
+    var browserType   by remember {
         mutableStateOf(
             SeleniumScraper.BrowserType.valueOf(
                 prefs.get("browser", SeleniumScraper.BrowserType.CHROME.name)
             )
         )
     }
-    var headless    by remember { mutableStateOf(prefs.getBoolean("headless", false)) }
-    var exportDir   by remember { mutableStateOf(prefs.get("exportDir", "")) }
+    var headless      by remember { mutableStateOf(prefs.getBoolean("headless", false)) }
+    var exportDir     by remember { mutableStateOf(prefs.get("exportDir", "")) }
+    var azureClientId by remember { mutableStateOf(prefs.get("azureClientId", "")) }
+    var oneDrivePath  by remember {
+        mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
+    }
 
     val vm = remember { DashboardViewModel() }
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
@@ -56,6 +60,9 @@ fun App() {
                 onRequestScrape = {
                     vm.scrape(savedUsername, savedPassword, browserType, headless)
                 },
+                onExportOneDrive = {
+                    vm.exportToOneDrive(azureClientId, oneDrivePath)
+                },
             )
 
             Screen.SETTINGS -> SettingsScreen(
@@ -74,6 +81,17 @@ fun App() {
                     exportDir = it
                     prefs.put("exportDir", it)
                 },
+                azureClientId = azureClientId,
+                oneDrivePath = oneDrivePath,
+                onAzureClientIdChange = {
+                    azureClientId = it
+                    prefs.put("azureClientId", it)
+                },
+                onOneDrivePathChange = {
+                    oneDrivePath = it
+                    prefs.put("oneDrivePath", it)
+                },
+                onSignOutOneDrive = { vm.signOutOneDrive(azureClientId) },
                 onBack = { screen = if (vm.allInternships.value.isEmpty()) Screen.LOGIN else Screen.DASHBOARD },
             )
         }

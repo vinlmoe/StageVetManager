@@ -1,10 +1,13 @@
 package fr.vetbrain.stagevetmanager.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,6 +22,12 @@ fun SettingsScreen(
     onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onHeadlessChange: (Boolean) -> Unit,
     onExportDirChange: (String) -> Unit,
+    // OneDrive
+    azureClientId: String,
+    oneDrivePath: String,
+    onAzureClientIdChange: (String) -> Unit,
+    onOneDrivePathChange: (String) -> Unit,
+    onSignOutOneDrive: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -37,14 +46,16 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(padding)
                 .padding(24.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
+            // --- Navigateur ---
             Text("Navigateur", style = MaterialTheme.typography.titleMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 SeleniumScraper.BrowserType.entries.forEach { type ->
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = browserType == type,
                             onClick = { onBrowserChange(type) },
@@ -54,7 +65,7 @@ fun SettingsScreen(
                 }
             }
 
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = headless, onCheckedChange = onHeadlessChange)
                 Spacer(Modifier.width(8.dp))
                 Column {
@@ -69,7 +80,8 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            Text("Dossier d'export Excel", style = MaterialTheme.typography.titleMedium)
+            // --- Export local ---
+            Text("Dossier d'export Excel local", style = MaterialTheme.typography.titleMedium)
 
             OutlinedTextField(
                 value = exportDir,
@@ -80,14 +92,52 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            HorizontalDivider()
+
+            // --- Export OneDrive ---
+            Text("Export OneDrive (Microsoft Graph)", style = MaterialTheme.typography.titleMedium)
+
             Text(
-                "Les fichiers Excel seront exportés dans ce dossier avec la date du jour comme nom.",
+                "Prérequis : créer une App Registration dans le portail Azure (Entra ID) " +
+                    "de type « Mobile and desktop application », redirect URI = http://localhost, " +
+                    "permissions : Files.ReadWrite + offline_access (déléguées).",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
 
+            OutlinedTextField(
+                value = azureClientId,
+                onValueChange = onAzureClientIdChange,
+                label = { Text("Client ID Azure (GUID)") },
+                placeholder = { Text("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = oneDrivePath,
+                onValueChange = onOneDrivePathChange,
+                label = { Text("Chemin OneDrive (relatif à la racine)") },
+                placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text(
+                "Au premier clic sur « OneDrive », votre navigateur s'ouvrira pour la " +
+                    "connexion Microsoft. Le token est ensuite mis en cache (~/.stagevetmanager/msal_cache.json) " +
+                    "pour les sessions suivantes.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            OutlinedButton(onClick = onSignOutOneDrive) {
+                Text("Se déconnecter de Microsoft", fontSize = 13.sp)
+            }
+
             HorizontalDivider()
 
+            // --- Info ---
             Text("Info", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Le pilote WebDriver (ChromeDriver ou GeckoDriver) est téléchargé automatiquement " +
