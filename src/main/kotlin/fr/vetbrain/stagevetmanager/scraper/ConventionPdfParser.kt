@@ -3,6 +3,9 @@ package fr.vetbrain.stagevetmanager.scraper
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 object ConventionPdfParser {
 
@@ -64,25 +67,43 @@ object ConventionPdfParser {
                 else -> lbl(recapSection, """La gratification mensuelle s'élève à""")
             }
 
+            // — Dates de présence effectives (entre "dates précises" et "c-") —
+            val datesPrecisesSection = section(recapSection, "Les dates précises de présence", "c-")
+            val workingDates: List<LocalDate> = Regex("""\d{2}/\d{2}/\d{4}""")
+                .findAll(datesPrecisesSection)
+                .mapNotNull { m -> runCatching {
+                    LocalDate.parse(m.value, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                }.getOrNull() }
+                .toList()
+
             // — Modalités particulières (art. 3.2) —
-            // Primary: read AcroForm checkbox fields while doc is open
-            // Fallback: look for non-whitespace prefix before each item in the text section
+            // Priority 1 (most reliable): validate against the explicit working-date list
+            // Priority 2: AcroForm checkbox fields (read while doc is still open)
+            // Priority 3: text-based heuristic (non-whitespace prefix before keyword)
             val checkedFields = buildSet<String> {
                 doc.documentCatalog.acroForm?.fields?.forEach { field ->
                     val value = runCatching { field.valueAsString }.getOrElse { "Off" }
                     if (value != "Off" && value.isNotBlank()) add(field.fullyQualifiedName.lowercase())
                 }
             }
-            val useAcroForm = checkedFields.isNotEmpty() || doc.documentCatalog.acroForm?.fields?.isNotEmpty() == true
+            val useAcroForm = checkedFields.isNotEmpty() ||
+                doc.documentCatalog.acroForm?.fields?.isNotEmpty() == true
 
             fun modalite(acroKeywords: List<String>, textKeyword: String): Boolean =
                 if (useAcroForm) checkedFields.any { f -> acroKeywords.any { k -> k in f } }
                 else isItemChecked(modaliteSection, textKeyword)
 
-            val nightPresence   = modalite(listOf("nuit", "night"), "nuit")
-            val sundayPresence  = modalite(listOf("dimanche", "dim", "sunday"), "dimanche")
-            val holidayPresence = modalite(listOf("feri", "holiday", "fér"), "jours f")
-            val homePresence    = modalite(listOf("domicile", "home"), "domicile")
+            val nightPresence = modalite(listOf("nuit", "night"), "nuit")
+            val homePresence  = modalite(listOf("domicile", "home"), "domicile")
+
+            // Sunday / holiday: use actual dates when available, otherwise checkbox fallback
+            val sundayPresence = if (workingDates.isNotEmpty())
+                workingDates.any { it.dayOfWeek == DayOfWeek.SUNDAY }
+            else modalite(listOf("dimanche", "dim", "sunday"), "dimanche")
+
+            val holidayPresence = if (workingDates.isNotEmpty())
+                workingDates.any { isFrenchPublicHoliday(it) }
+            else modalite(listOf("feri", "holiday", "fér"), "jours f")
 
             // — Signatures —
             val sigDates = Regex("""Date\s*:\s*(\d{2}-\d{2}-\d{4}\s+à\s+\d{2}:\d{2})""").findAll(text).toList()
@@ -152,5 +173,41 @@ object ConventionPdfParser {
         val prefix = section.substring(lineStart, idx)
         val emptyBoxChars = setOf('□', '☐', '◻', '❑')
         return prefix.any { !it.isWhitespace() && it !in emptyBoxChars }
+    }
+
+    /** Returns true if [date] is a French public holiday (métropole). */
+    private fun isFrenchPublicHoliday(date: LocalDate): Boolean {
+        val y = date.year
+        val fixed = setOf(
+            LocalDate.of(y,  1,  1),  // Jour de l'An
+            LocalDate.of(y,  5,  1),  // Fête du Travail
+            LocalDate.of(y,  5,  8),  // Victoire 1945
+            LocalDate.of(y,  7, 14),  // Fête Nationale
+            LocalDate.of(y,  8, 15),  // Assomption
+            LocalDate.of(y, 11,  1),  // Toussaint
+            LocalDate.of(y, 11, 11),  // Armistice
+            LocalDate.of(y, 12, 25),  // Noël
+        )
+        if (date in fixed) return true
+        val easter = computeEaster(y)
+        return date == easter.plusDays(1)   // Lundi de Pâques
+            || date == easter.plusDays(39)  // Ascension
+            || date == easter.plusDays(50)  // Lundi de Pentecôte
+    }
+
+    /** Gregorian (Anonymous) Easter algorithm. */
+    private fun computeEaster(year: Int): LocalDate {
+        val a = year % 19
+        val b = year / 100;  val c = year % 100
+        val d = b / 4;       val e = b % 4
+        val f = (b + 8) / 25
+        val g = (b - f + 1) / 3
+        val h = (19 * a + b - d - g + 15) % 30
+        val i = c / 4;       val k = c % 4
+        val l = (32 + 2 * e + 2 * i - h - k) % 7
+        val m = (a + 11 * h + 22 * l) / 451
+        val month = (h + l - 7 * m + 114) / 31
+        val day   = (h + l - 7 * m + 114) % 31 + 1
+        return LocalDate.of(year, month, day)
     }
 }
