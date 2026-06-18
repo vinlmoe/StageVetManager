@@ -72,6 +72,13 @@ fun ConventionPdfDialog(
                     FieldSection("Conditions") {
                         Field("Thème",            data.theme)
                         Field("Gratification",    data.gratification)
+                        val modalites = listOfNotNull(
+                            "nuit".takeIf { data.nightPresence },
+                            "dimanche".takeIf { data.sundayPresence },
+                            "jours fériés".takeIf { data.holidayPresence },
+                            "domicile".takeIf { data.homePresence },
+                        )
+                        if (modalites.isNotEmpty()) Field("Modalités", modalites.joinToString(", "))
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

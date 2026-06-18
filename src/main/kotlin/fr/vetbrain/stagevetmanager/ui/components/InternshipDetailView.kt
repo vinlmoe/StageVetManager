@@ -186,6 +186,13 @@ fun InternshipDetailView(
                         PdfSectionTitle("Conditions")
                         PdfField("Thème",          pdfData.theme)
                         PdfField("Gratification",  pdfData.gratification)
+                        val modalites = listOfNotNull(
+                            "nuit".takeIf { pdfData.nightPresence },
+                            "dimanche".takeIf { pdfData.sundayPresence },
+                            "jours fériés".takeIf { pdfData.holidayPresence },
+                            "domicile".takeIf { pdfData.homePresence },
+                        )
+                        if (modalites.isNotEmpty()) PdfField("Modalités", modalites.joinToString(", "))
                         if (pdfData.signingDateStudent.isNotBlank()) {
                             PdfSectionTitle("Signatures")
                             PdfField("Stagiaire",  pdfData.signingDateStudent)

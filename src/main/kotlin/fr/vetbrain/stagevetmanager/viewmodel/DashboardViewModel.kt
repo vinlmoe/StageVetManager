@@ -63,6 +63,8 @@ class DashboardViewModel {
         scope.launch {
             withContext(Dispatchers.IO) { LocalDatabase.instance.init() }
             loadFromDatabase()
+            val cache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
+            _pdfDataCache.value = cache
         }
     }
 
@@ -154,6 +156,13 @@ class DashboardViewModel {
                         append("$totalAdded nouveau(x), $totalUpdated mis à jour")
                         append(" — base : $count au total")
                     }
+                    // Lancer le parsing automatique des nouvelles conventions
+                    val urlsToAutoParse = fromDb
+                        .mapNotNull { it.conventionPdfUrl.takeIf { u -> u.isNotEmpty() && u !in _pdfDataCache.value } }
+                        .distinct()
+                    if (urlsToAutoParse.isNotEmpty()) {
+                        launch { autoParseNewPdfs(urlsToAutoParse) }
+                    }
                 }
                 is ScraperResult.Failure -> {
                     // Même en cas d'erreur, recharger ce qui est en base
@@ -184,6 +193,7 @@ class DashboardViewModel {
                 try {
                     val bytes = PdfDownloader(sessionCookies).download(url)
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
+                    LocalDatabase.instance.savePdfData(data)
                     scope.launch(Dispatchers.Main) {
                         selectedPdfData.value = data
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
@@ -197,6 +207,31 @@ class DashboardViewModel {
                 }
             }
             isPdfLoading.value = false
+        }
+    }
+
+    private suspend fun autoParseNewPdfs(urls: List<String>) {
+        val total = urls.size
+        statusMessage.value = "Analyse automatique de $total convention(s)…"
+        withContext(Dispatchers.IO) {
+            val downloader = PdfDownloader(sessionCookies)
+            var done = 0
+            for (url in urls) {
+                runCatching {
+                    val bytes = downloader.download(url)
+                    val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
+                    LocalDatabase.instance.savePdfData(data)
+                    scope.launch(Dispatchers.Main) {
+                        _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                    }
+                }
+                done++
+                val d = done
+                scope.launch(Dispatchers.Main) { statusMessage.value = "Conventions analysées : $d/$total" }
+            }
+            scope.launch(Dispatchers.Main) {
+                statusMessage.value = "$done/$total convention(s) analysée(s) et sauvegardées"
+            }
         }
     }
 

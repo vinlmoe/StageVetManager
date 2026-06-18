@@ -1,5 +1,6 @@
 package fr.vetbrain.stagevetmanager.persistence
 
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -61,6 +62,45 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE internships ADD COLUMN convention_sign_url TEXT"
                 )
             }
+
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS pdf_data (
+                    url                  TEXT PRIMARY KEY,
+                    parsed_at            TEXT NOT NULL,
+                    school_contact       TEXT,
+                    tutor_name           TEXT,
+                    tutor_function       TEXT,
+                    tutor_phone          TEXT,
+                    tutor_email          TEXT,
+                    host_organization    TEXT,
+                    host_address         TEXT,
+                    host_representative  TEXT,
+                    supervisor_quality   TEXT,
+                    host_phone           TEXT,
+                    host_email           TEXT,
+                    supervisor_name      TEXT,
+                    supervisor_function  TEXT,
+                    student_last_name    TEXT,
+                    student_first_name   TEXT,
+                    student_birth_date   TEXT,
+                    student_study_year   TEXT,
+                    student_address      TEXT,
+                    student_phone        TEXT,
+                    student_email        TEXT,
+                    academic_year        TEXT,
+                    start_date           TEXT,
+                    end_date             TEXT,
+                    duration_label       TEXT,
+                    night_presence       INTEGER DEFAULT 0,
+                    sunday_presence      INTEGER DEFAULT 0,
+                    holiday_presence     INTEGER DEFAULT 0,
+                    home_presence        INTEGER DEFAULT 0,
+                    theme                TEXT,
+                    gratification        TEXT,
+                    signing_date_student TEXT,
+                    signing_date_host    TEXT
+                )
+            """.trimIndent())
         }
     }
 
@@ -184,7 +224,113 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
     }
 
     fun clear() {
-        connect().use { it.createStatement().execute("DELETE FROM internships") }
+        connect().use { conn ->
+            conn.createStatement().execute("DELETE FROM internships")
+            conn.createStatement().execute("DELETE FROM pdf_data")
+        }
+    }
+
+    fun savePdfData(data: ConventionPdfData) {
+        if (data.sourceUrl.isBlank()) return
+        val now = LocalDateTime.now().toString()
+        connect().use { conn ->
+            conn.prepareStatement("""
+                INSERT OR REPLACE INTO pdf_data (
+                    url, parsed_at,
+                    school_contact, tutor_name, tutor_function, tutor_phone, tutor_email,
+                    host_organization, host_address, host_representative, supervisor_quality,
+                    host_phone, host_email, supervisor_name, supervisor_function,
+                    student_last_name, student_first_name, student_birth_date, student_study_year,
+                    student_address, student_phone, student_email,
+                    academic_year, start_date, end_date, duration_label,
+                    night_presence, sunday_presence, holiday_presence, home_presence,
+                    theme, gratification, signing_date_student, signing_date_host
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """.trimIndent()).use { stmt ->
+                stmt.setString(1, data.sourceUrl)
+                stmt.setString(2, now)
+                stmt.setString(3, data.schoolContact)
+                stmt.setString(4, data.tutorName)
+                stmt.setString(5, data.tutorFunction)
+                stmt.setString(6, data.tutorPhone)
+                stmt.setString(7, data.tutorEmail)
+                stmt.setString(8, data.hostOrganization)
+                stmt.setString(9, data.hostAddress)
+                stmt.setString(10, data.hostRepresentative)
+                stmt.setString(11, data.supervisorQuality)
+                stmt.setString(12, data.hostPhone)
+                stmt.setString(13, data.hostEmail)
+                stmt.setString(14, data.supervisorName)
+                stmt.setString(15, data.supervisorFunction)
+                stmt.setString(16, data.studentLastName)
+                stmt.setString(17, data.studentFirstName)
+                stmt.setString(18, data.studentBirthDate)
+                stmt.setString(19, data.studentStudyYear)
+                stmt.setString(20, data.studentAddress)
+                stmt.setString(21, data.studentPhone)
+                stmt.setString(22, data.studentEmail)
+                stmt.setString(23, data.academicYear)
+                stmt.setString(24, data.startDate)
+                stmt.setString(25, data.endDate)
+                stmt.setString(26, data.durationLabel)
+                stmt.setInt(27, if (data.nightPresence) 1 else 0)
+                stmt.setInt(28, if (data.sundayPresence) 1 else 0)
+                stmt.setInt(29, if (data.holidayPresence) 1 else 0)
+                stmt.setInt(30, if (data.homePresence) 1 else 0)
+                stmt.setString(31, data.theme)
+                stmt.setString(32, data.gratification)
+                stmt.setString(33, data.signingDateStudent)
+                stmt.setString(34, data.signingDateHost)
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun loadAllPdfData(): Map<String, ConventionPdfData> {
+        return connect().use { conn ->
+            val rs = conn.createStatement().executeQuery("SELECT * FROM pdf_data")
+            buildMap {
+                while (rs.next()) {
+                    val url = rs.getString("url") ?: continue
+                    put(url, ConventionPdfData(
+                        rawText            = "",
+                        sourceUrl          = url,
+                        schoolContact      = rs.getString("school_contact") ?: "",
+                        tutorName          = rs.getString("tutor_name") ?: "",
+                        tutorFunction      = rs.getString("tutor_function") ?: "",
+                        tutorPhone         = rs.getString("tutor_phone") ?: "",
+                        tutorEmail         = rs.getString("tutor_email") ?: "",
+                        hostOrganization   = rs.getString("host_organization") ?: "",
+                        hostAddress        = rs.getString("host_address") ?: "",
+                        hostRepresentative = rs.getString("host_representative") ?: "",
+                        supervisorQuality  = rs.getString("supervisor_quality") ?: "",
+                        hostPhone          = rs.getString("host_phone") ?: "",
+                        hostEmail          = rs.getString("host_email") ?: "",
+                        supervisorName     = rs.getString("supervisor_name") ?: "",
+                        supervisorFunction = rs.getString("supervisor_function") ?: "",
+                        studentLastName    = rs.getString("student_last_name") ?: "",
+                        studentFirstName   = rs.getString("student_first_name") ?: "",
+                        studentBirthDate   = rs.getString("student_birth_date") ?: "",
+                        studentStudyYear   = rs.getString("student_study_year") ?: "",
+                        studentAddress     = rs.getString("student_address") ?: "",
+                        studentPhone       = rs.getString("student_phone") ?: "",
+                        studentEmail       = rs.getString("student_email") ?: "",
+                        academicYear       = rs.getString("academic_year") ?: "",
+                        startDate          = rs.getString("start_date") ?: "",
+                        endDate            = rs.getString("end_date") ?: "",
+                        durationLabel      = rs.getString("duration_label") ?: "",
+                        nightPresence      = rs.getInt("night_presence") == 1,
+                        sundayPresence     = rs.getInt("sunday_presence") == 1,
+                        holidayPresence    = rs.getInt("holiday_presence") == 1,
+                        homePresence       = rs.getInt("home_presence") == 1,
+                        theme              = rs.getString("theme") ?: "",
+                        gratification      = rs.getString("gratification") ?: "",
+                        signingDateStudent = rs.getString("signing_date_student") ?: "",
+                        signingDateHost    = rs.getString("signing_date_host") ?: "",
+                    ))
+                }
+            }
+        }
     }
 }
 
