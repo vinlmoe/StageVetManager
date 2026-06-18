@@ -43,7 +43,7 @@ private data class StudentBilan(
 fun StudentBilanView(
     internships: List<Internship>,
     modifier: Modifier = Modifier,
-    onDownloadPdf: ((String) -> Unit)? = null,
+    onSelectInternship: ((Internship) -> Unit)? = null,
 ) {
     val bilans = remember(internships) {
         internships.groupBy { it.studentName.trim() }
@@ -231,11 +231,11 @@ fun StudentBilanView(
                                             tint = MaterialTheme.colorScheme.primary,
                                         )
                                     }
-                                    if (stage.conventionPdfUrl.isNotEmpty() && onDownloadPdf != null) {
+                                    if (stage.conventionPdfUrl.isNotEmpty() && onSelectInternship != null) {
                                         Icon(
                                             Icons.Default.FindInPage,
-                                            contentDescription = "Extraire les données du PDF",
-                                            modifier = Modifier.size(14.dp).clickable { onDownloadPdf(stage.conventionPdfUrl) },
+                                            contentDescription = "Voir le détail du stage",
+                                            modifier = Modifier.size(14.dp).clickable { onSelectInternship(stage) },
                                             tint = Color(0xFF6A1B9A),
                                         )
                                     }

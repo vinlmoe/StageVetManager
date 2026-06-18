@@ -2,6 +2,7 @@ package fr.vetbrain.stagevetmanager.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -11,8 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import fr.vetbrain.stagevetmanager.ui.components.ConventionPdfDialog
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
+import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
 import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
 import fr.vetbrain.stagevetmanager.ui.components.StatusBar
@@ -22,7 +23,7 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Paths
 
-private enum class DisplayMode { INTERNSHIPS, BILAN }
+private enum class DisplayMode { INTERNSHIPS, BILAN, DETAIL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,21 +45,13 @@ fun DashboardScreen(
     val sortAsc       by vm.sortAscending.collectAsState()
     val scrapeFilters by vm.scrapeFilters.collectAsState()
     val dbCount       by vm.dbCount.collectAsState()
-    val selectedPdf   by vm.selectedPdfData.collectAsState()
     val isPdfLoading  by vm.isPdfLoading.collectAsState()
+    val selectedInternship by vm.selectedInternship.collectAsState()
+    val pdfDataCache       by vm.pdfDataCache.collectAsState()
+    var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     var showClearDialog by remember { mutableStateOf(false) }
     var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
-
-    // Dialog d'extraction PDF
-    val pdfData = selectedPdf
-    if (pdfData != null || isPdfLoading) {
-        ConventionPdfDialog(
-            data = pdfData ?: fr.vetbrain.stagevetmanager.model.ConventionPdfData(rawText = ""),
-            isLoading = isPdfLoading,
-            onDismiss = { vm.selectedPdfData.value = null },
-        )
-    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -80,33 +73,52 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("StageVet Manager — Tableau de bord") },
-                actions = {
-                    // Bascule liste ↔ bilan
-                    IconButton(onClick = {
-                        displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
-                            DisplayMode.BILAN else DisplayMode.INTERNSHIPS
-                    }) {
-                        if (displayMode == DisplayMode.INTERNSHIPS) {
-                            Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
-                        } else {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
+                title = {
+                    if (displayMode == DisplayMode.DETAIL && selectedInternship != null) {
+                        Text(selectedInternship!!.studentName)
+                    } else {
+                        Text("StageVet Manager — Tableau de bord")
+                    }
+                },
+                navigationIcon = {
+                    if (displayMode == DisplayMode.DETAIL) {
+                        IconButton(onClick = {
+                            displayMode = previousMode
+                            vm.selectInternship(null)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
                     }
-                    IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Paramètres")
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Déconnexion")
+                },
+                actions = {
+                    if (displayMode != DisplayMode.DETAIL) {
+                        // Bascule liste ↔ bilan
+                        IconButton(onClick = {
+                            displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
+                                DisplayMode.BILAN else DisplayMode.INTERNSHIPS
+                        }) {
+                            if (displayMode == DisplayMode.INTERNSHIPS) {
+                                Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
+                            } else {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
+                            }
+                        }
+                        IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Default.Settings, contentDescription = "Paramètres")
+                        }
+                        IconButton(onClick = onLogout) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Déconnexion")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = androidx.compose.ui.graphics.Color.White,
                     actionIconContentColor = androidx.compose.ui.graphics.Color.White,
+                    navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
                 ),
             )
         },
@@ -166,12 +178,34 @@ fun DashboardScreen(
                     sortAscending = sortAsc,
                     onSort = vm::toggleSort,
                     modifier = Modifier.weight(1f),
+                    onSelectInternship = { internship ->
+                        previousMode = DisplayMode.INTERNSHIPS
+                        vm.selectInternship(internship)
+                        displayMode = DisplayMode.DETAIL
+                    },
                 )
                 DisplayMode.BILAN -> StudentBilanView(
                     internships = displayed,
                     modifier = Modifier.weight(1f),
-                    onDownloadPdf = vm::downloadConventionPdf,
+                    onSelectInternship = { internship ->
+                        previousMode = DisplayMode.BILAN
+                        vm.selectInternship(internship)
+                        displayMode = DisplayMode.DETAIL
+                    },
                 )
+                DisplayMode.DETAIL -> {
+                    val internship = selectedInternship
+                    if (internship != null) {
+                        InternshipDetailView(
+                            internship = internship,
+                            pdfData = pdfDataCache[internship.conventionPdfUrl],
+                            isPdfLoading = isPdfLoading,
+                            canDownloadPdf = vm.hasSessionCookies,
+                            onDownloadPdf = { vm.downloadConventionPdf(internship.conventionPdfUrl) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
         }
     }

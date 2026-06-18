@@ -27,10 +27,7 @@ fun ConventionPdfDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                if (data.conventionNumber.isNotEmpty())
-                    "Convention ${data.conventionNumber}"
-                else
-                    "Données extraites de la convention",
+                "Données extraites de la convention",
                 fontWeight = FontWeight.Bold,
             )
         },
@@ -46,28 +43,35 @@ fun ConventionPdfDialog(
                 ) {
                     // — Champs parsés ————————————————————————————————————
                     FieldSection("Stagiaire") {
-                        Field("Nom",              data.studentName)
+                        val fullName = listOf(data.studentLastName, data.studentFirstName)
+                            .filter { it.isNotBlank() }.joinToString(" ")
+                        Field("Nom",              fullName)
                         Field("Naissance",        data.studentBirthDate)
                         Field("Adresse",          data.studentAddress)
+                        Field("Tél",              data.studentPhone)
+                        Field("Email",            data.studentEmail)
                     }
-                    FieldSection("École") {
-                        Field("Tuteur / Référent", data.schoolTutor)
+                    FieldSection("Tuteur école") {
+                        Field("Nom",              data.tutorName)
+                        Field("Fonction",         data.tutorFunction)
+                        Field("Contact",          data.schoolContact)
                     }
                     FieldSection("Organisme d'accueil") {
                         Field("Raison sociale",   data.hostOrganization)
-                        Field("SIRET",            data.hostSiret)
                         Field("Adresse",          data.hostAddress)
+                        Field("Représentant",     data.hostRepresentative)
                         Field("Maître de stage",  data.supervisorName)
-                        Field("Fonction",         data.supervisorTitle)
+                        Field("Qualité",          data.supervisorQuality)
                     }
                     FieldSection("Période") {
+                        Field("Année univ.",      data.academicYear)
                         Field("Début",            data.startDate)
                         Field("Fin",              data.endDate)
-                        Field("Durée",            data.duration)
+                        Field("Durée",            data.durationLabel)
                     }
                     FieldSection("Conditions") {
+                        Field("Thème",            data.theme)
                         Field("Gratification",    data.gratification)
-                        Field("Objectifs",        data.objectives)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))

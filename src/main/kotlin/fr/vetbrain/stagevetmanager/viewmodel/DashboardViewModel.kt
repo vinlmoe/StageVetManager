@@ -37,6 +37,10 @@ class DashboardViewModel {
     // — PDF extraction ————————————————————————————————————————————————————
     val selectedPdfData = MutableStateFlow<ConventionPdfData?>(null)
     val isPdfLoading    = MutableStateFlow(false)
+    val selectedInternship = MutableStateFlow<Internship?>(null)
+    private val _pdfDataCache = MutableStateFlow<Map<String, ConventionPdfData>>(emptyMap())
+    val pdfDataCache: StateFlow<Map<String, ConventionPdfData>> = _pdfDataCache
+    val hasSessionCookies get() = sessionCookies.isNotEmpty()
     // Cookies Selenium récupérés après login — valides jusqu'à la prochaine extraction
     private var sessionCookies: Map<String, String> = emptyMap()
 
@@ -182,6 +186,7 @@ class DashboardViewModel {
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
                     scope.launch(Dispatchers.Main) {
                         selectedPdfData.value = data
+                        _pdfDataCache.value = _pdfDataCache.value + (url to data)
                         statusMessage.value = "Convention téléchargée et analysée"
                     }
                 } catch (e: Exception) {
@@ -193,6 +198,10 @@ class DashboardViewModel {
             }
             isPdfLoading.value = false
         }
+    }
+
+    fun selectInternship(internship: Internship?) {
+        selectedInternship.value = internship
     }
 
     fun clearDatabase() {

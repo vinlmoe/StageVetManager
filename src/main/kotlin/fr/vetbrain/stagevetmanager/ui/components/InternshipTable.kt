@@ -55,6 +55,7 @@ fun InternshipTable(
     sortAscending: Boolean,
     onSort: (SortColumn) -> Unit,
     modifier: Modifier = Modifier,
+    onSelectInternship: ((Internship) -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         // Header row
@@ -119,6 +120,7 @@ fun InternshipTable(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(bg)
+                            .then(if (onSelectInternship != null) Modifier.clickable { onSelectInternship(internship) } else Modifier)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

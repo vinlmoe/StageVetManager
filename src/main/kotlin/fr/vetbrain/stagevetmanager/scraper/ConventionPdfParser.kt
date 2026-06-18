@@ -4,45 +4,121 @@ import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
 
-/**
- * Extrait le texte d'un PDF de convention stagevet.fr via PDFBox, puis tente
- * de parser les champs usuels d'une convention de stage française.
- *
- * Les regex sont adaptées au format courant de stagevet.fr mais peuvent nécessiter
- * un affinage une fois les vrais PDFs observés. La propriété [ConventionPdfData.rawText]
- * contient le texte intégral pour faciliter ce travail.
- *
- * POUR AFFINER : lancer l'appli, cliquer sur l'icône 🔍 d'une convention,
- * copier rawText depuis la boîte de dialogue, puis adapter les regex ci-dessous.
- */
 object ConventionPdfParser {
 
     fun parse(pdfBytes: ByteArray, sourceUrl: String = ""): ConventionPdfData {
         val text = extractText(pdfBytes)
+
+        val ecoleSection    = section(text, "1 - L'ÉTABLISSEMENT D'ENSEIGNEMENT", "2 - L'ORGANISME D'ACCUEIL")
+        val orgSection      = section(text, "2 - L'ORGANISME D'ACCUEIL", "3 - LE STAGIAIRE")
+        val stagiaireSection = section(text, "3 - LE STAGIAIRE", "La présente convention")
+        val recapSection    = section(text, "La présente convention et ses annexes", "Article 1")
+        val encadSection    = section(text, "f- Encadrement pédagogique", "g- Informations complémentaires")
+
+        // — Stagiaire —
+        val studentLastName  = lbl(stagiaireSection, "Nom")
+        val studentFirstName = lbl(stagiaireSection, "Prénom")
+        val studentBirthDate = lbl(stagiaireSection, """Né\(e\) le""")
+        val studentStudyYear = Regex("""Etudiant\(e\) de\s+(\S+)\s+ann""").find(stagiaireSection)
+            ?.groupValues?.get(1) ?: ""
+        val studentAddress = lbl(stagiaireSection, "Adresse postale")
+        val studentPhone   = lbl(stagiaireSection, "Tel")
+        val studentEmail   = lbl(stagiaireSection, "Courriel")
+
+        // — Organisme —
+        val hostOrganization = lbl(orgSection, "Nom")
+        val hostAddress      = lbl(orgSection, "Adresse postale")
+        val hostRepresentative = lbl(orgSection, "Représenté par")
+        val supervisorQuality  = lbl(orgSection, "Qualité du maître de stage")
+        val hostPhone = lbl(orgSection, "Tel")
+        val hostEmail = lbl(orgSection, "Courriel")
+
+        // — École —
+        val schoolContact = lbl(ecoleSection, "Personne contact")
+
+        // — Encadrement —
+        val theme        = lbl(encadSection, "Thème du stage")
+        val tutorName    = lbl(encadSection, """Nom et prénom de l'enseignant tuteur""")
+        val tutorFunction = lbl(encadSection, "Fonction et discipline")
+        // tutor phone/email: first Tel/Courriel in encadSection (before "Maître de stage")
+        val tutorSubSection = section(encadSection, "Enseignant tuteur", "Maître de stage au sein")
+        val tutorPhone = lbl(tutorSubSection, "Tel")
+        val tutorEmail = lbl(tutorSubSection, "Courriel")
+        val supervisorName = lbl(encadSection, """Nom et prénom du maître de stage""")
+        // "Fonction :" in the supervisor subsection only (after "Maître de stage au sein")
+        val supervisorSubSection = section(encadSection, "Maître de stage au sein", "")
+        val supervisorFunction = lbl(supervisorSubSection, "Fonction")
+
+        // — Période —
+        val academicYear = lbl(recapSection, "Année universitaire").trimEnd()
+        val datesMatch = Regex("""Stage se déroulant du\s+(\d{2}/\d{2}/\d{4})\s+au\s+(\d{2}/\d{2}/\d{4})""")
+            .find(recapSection)
+        val startDate = datesMatch?.groupValues?.get(1) ?: ""
+        val endDate   = datesMatch?.groupValues?.get(2) ?: ""
+        val durationLabel = Regex("""durée totale\s*\(art\.\s*3\.1\)\s*de\s+(.+?)\s*;""")
+            .find(recapSection)?.groupValues?.get(1)?.trim() ?: ""
+
+        // — Gratification —
+        val gratification = when {
+            recapSection.contains("sans gratification") -> "sans gratification"
+            else -> lbl(recapSection, """La gratification mensuelle s'élève à""")
+                .let { if (it.isNotEmpty()) it else "" }
+        }
+
+        // — Signatures (pattern: "Date : DD-MM-YYYY à HH:MM") —
+        val sigDates = Regex("""Date\s*:\s*(\d{2}-\d{2}-\d{4}\s+à\s+\d{2}:\d{2})""").findAll(text).toList()
+        val signingDateStudent = sigDates.getOrNull(0)?.groupValues?.get(1) ?: ""
+        val signingDateHost    = sigDates.getOrNull(1)?.groupValues?.get(1) ?: ""
+
         return ConventionPdfData(
-            rawText        = text,
-            sourceUrl      = sourceUrl,
-            conventionNumber  = find(text, Regex("""[Cc]onvention\s+n[°o]?\s*[:\s]+([A-Z0-9\-/]+)""")),
-            studentName       = find(text, Regex("""[Ss]tagiaire\s*[:\-–]\s*([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)+)""")),
-            studentBirthDate  = find(text, Regex("""[Nn]é\(?e?\)?\s+le\s*[:\-–]?\s*(\d{2}[/\-]\d{2}[/\-]\d{4})""")),
-            studentAddress    = find(text, Regex("""[Aa]dresse\s+du\s+stagiaire\s*[:\-–]?\s*(.{5,120})""")),
-            schoolTutor       = find(text, Regex("""(?:[Tt]uteur|[Rr]éférent\s+pédagogique|[Ee]nseignant\s+référent)\s*[:\-–]?\s*(.{3,80})""")),
-            hostOrganization  = find(text, Regex("""(?:[Oo]rganisme|[Ee]ntreprise|[Ss]tructure)\s+d'accueil\s*[:\-–]?\s*(.{3,120})""")),
-            hostSiret         = find(text, Regex("""SIRET\s*[:\-–]?\s*(\d[\d\s]{12,16})""")),
-            hostAddress       = find(text, Regex("""[Aa]dresse\s+(?:de\s+l'organisme|de\s+la\s+structure|de\s+l'entreprise)\s*[:\-–]?\s*(.{5,120})""")),
-            supervisorName    = find(text, Regex("""[Mm]aître\s+de\s+stage\s*[:\-–]?\s*([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)+)""")),
-            supervisorTitle   = find(text, Regex("""[Ff]onction\s+du\s+(?:maître\s+de\s+stage|tuteur)\s*[:\-–]?\s*(.{3,80})""")),
-            startDate         = find(text, Regex("""[Dd]ébut\s+(?:du\s+stage)?\s*[:\-–]?\s*(\d{2}[/\-]\d{2}[/\-]\d{4})""")),
-            endDate           = find(text, Regex("""[Ff]in\s+(?:du\s+stage)?\s*[:\-–]?\s*(\d{2}[/\-]\d{2}[/\-]\d{4})""")),
-            duration          = find(text, Regex("""[Dd]urée\s+(?:totale\s+)?(?:du\s+stage)?\s*[:\-–]?\s*(.{1,60})""")),
-            gratification     = find(text, Regex("""[Gg]ratification\s*[:\-–]?\s*(.{1,120})""")),
-            objectives        = find(text, Regex("""[Oo]bjectifs?\s+(?:pédagogiques?\s+)?(?:du\s+stage\s+)?[:\-–]?\s*(.{10,600})""")),
+            rawText           = text,
+            sourceUrl         = sourceUrl,
+            schoolContact     = schoolContact,
+            tutorName         = tutorName,
+            tutorFunction     = tutorFunction,
+            tutorPhone        = tutorPhone,
+            tutorEmail        = tutorEmail,
+            hostOrganization  = hostOrganization,
+            hostAddress       = hostAddress,
+            hostRepresentative = hostRepresentative,
+            supervisorQuality  = supervisorQuality,
+            hostPhone         = hostPhone,
+            hostEmail         = hostEmail,
+            supervisorName    = supervisorName,
+            supervisorFunction = supervisorFunction,
+            studentLastName   = studentLastName,
+            studentFirstName  = studentFirstName,
+            studentBirthDate  = studentBirthDate,
+            studentStudyYear  = studentStudyYear,
+            studentAddress    = studentAddress,
+            studentPhone      = studentPhone,
+            studentEmail      = studentEmail,
+            academicYear      = academicYear,
+            startDate         = startDate,
+            endDate           = endDate,
+            durationLabel     = durationLabel,
+            theme             = theme,
+            gratification     = gratification,
+            signingDateStudent = signingDateStudent,
+            signingDateHost    = signingDateHost,
         )
     }
 
-    private fun extractText(bytes: ByteArray): String =
-        Loader.loadPDF(bytes).use { doc -> PDFTextStripper().getText(doc) }
+    /** Returns substring between [from] (exclusive) and [to] (exclusive, or end of text). */
+    private fun section(text: String, from: String, to: String): String {
+        val start = text.indexOf(from)
+        if (start < 0) return ""
+        val searchFrom = start + from.length
+        val end = if (to.isNotEmpty()) text.indexOf(to, searchFrom) else -1
+        return if (end < 0) text.substring(searchFrom) else text.substring(searchFrom, end)
+    }
 
-    private fun find(text: String, pattern: Regex): String =
-        pattern.find(text)?.groupValues?.getOrNull(1)?.trim()?.take(500) ?: ""
+    /** Extracts the value after "label : value" on one line. labelRegex is a raw regex string. */
+    private fun lbl(text: String, labelRegex: String): String =
+        Regex("""$labelRegex\s*:\s*(.+)""").find(text)?.groupValues?.get(1)?.trim() ?: ""
+
+    private fun extractText(bytes: ByteArray): String =
+        Loader.loadPDF(bytes).use { doc ->
+            PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+        }
 }
