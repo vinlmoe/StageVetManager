@@ -63,6 +63,24 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                 )
             }
 
+            // Migration : renommer les colonnes de signature mal nommées dans les versions
+            // antérieures (signing_date_student stockait en réalité la date du tuteur).
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data RENAME COLUMN signing_date_student TO signing_date_tutor"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data RENAME COLUMN signing_date_host TO signing_date_student"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data ADD COLUMN signing_date_host TEXT"
+                )
+            }
+
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS pdf_data (
                     url                  TEXT PRIMARY KEY,
@@ -97,6 +115,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     home_presence        INTEGER DEFAULT 0,
                     theme                TEXT,
                     gratification        TEXT,
+                    signing_date_tutor   TEXT,
                     signing_date_student TEXT,
                     signing_date_host    TEXT
                 )
@@ -244,8 +263,9 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     student_address, student_phone, student_email,
                     academic_year, start_date, end_date, duration_label,
                     night_presence, sunday_presence, holiday_presence, home_presence,
-                    theme, gratification, signing_date_student, signing_date_host
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    theme, gratification,
+                    signing_date_tutor, signing_date_student, signing_date_host
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, data.sourceUrl)
                 stmt.setString(2, now)
@@ -279,8 +299,9 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                 stmt.setInt(30, if (data.homePresence) 1 else 0)
                 stmt.setString(31, data.theme)
                 stmt.setString(32, data.gratification)
-                stmt.setString(33, data.signingDateStudent)
-                stmt.setString(34, data.signingDateHost)
+                stmt.setString(33, data.signingDateTutor)
+                stmt.setString(34, data.signingDateStudent)
+                stmt.setString(35, data.signingDateHost)
                 stmt.executeUpdate()
             }
         }
@@ -325,6 +346,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         homePresence       = rs.getInt("home_presence") == 1,
                         theme              = rs.getString("theme") ?: "",
                         gratification      = rs.getString("gratification") ?: "",
+                        signingDateTutor   = rs.getString("signing_date_tutor") ?: "",
                         signingDateStudent = rs.getString("signing_date_student") ?: "",
                         signingDateHost    = rs.getString("signing_date_host") ?: "",
                     ))

@@ -211,10 +211,16 @@ fun InternshipDetailView(
                             "domicile".takeIf { pdfData.homePresence },
                         )
                         if (modalites.isNotEmpty()) PdfField("Modalités", modalites.joinToString(", "))
-                        if (pdfData.signingDateStudent.isNotBlank()) {
+                        if (pdfData.signingDateTutor.isNotBlank() ||
+                            pdfData.signingDateStudent.isNotBlank() ||
+                            pdfData.signingDateHost.isNotBlank()) {
                             PdfSectionTitle("Signatures")
-                            PdfField("Stagiaire",  pdfData.signingDateStudent)
-                            PdfField("Organisme",  pdfData.signingDateHost)
+                            if (pdfData.signingDateTutor.isNotBlank())
+                                PdfField("Enseignant tuteur", pdfData.signingDateTutor)
+                            if (pdfData.signingDateStudent.isNotBlank())
+                                PdfField("Stagiaire",         pdfData.signingDateStudent)
+                            if (pdfData.signingDateHost.isNotBlank())
+                                PdfField("Maître de stage",   pdfData.signingDateHost)
                         }
                     }
                 }

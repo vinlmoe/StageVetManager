@@ -45,9 +45,25 @@ class DashboardViewModel {
     private var sessionCookies: Map<String, String> = emptyMap()
 
     val displayed: StateFlow<List<Internship>> = combine(
-        allInternships, filterText, activeFilter, sortColumn, sortAscending
-    ) { list, text, filter, col, asc ->
-        val filtered = list.filter(filter.predicate).filter { it.matchesText(text) }
+        combine(allInternships, filterText, activeFilter) { list, text, filter -> Triple(list, text, filter) },
+        combine(sortColumn, sortAscending, _pdfDataCache) { col, asc, cache -> Triple(col, asc, cache) }
+    ) { (list, text, filter), (col, asc, cache) ->
+        val filtered = list.filter { internship ->
+            val passesFilter = when (filter) {
+                ViewFilter.PENDING_SCHOOL_SIGNATURE -> {
+                    val pdf = cache[internship.conventionPdfUrl]
+                    if (pdf != null) {
+                        // Vérifier que les 3 signataires ont signé avant d'autoriser la signature école
+                        pdf.allPreSignaturesDone && internship.signingDate == null
+                    } else {
+                        // Fallback : conventionSignUrl présent = signataires précédents OK
+                        filter.predicate(internship)
+                    }
+                }
+                else -> filter.predicate(internship)
+            }
+            passesFilter && internship.matchesText(text)
+        }
         val sorted = when (col) {
             SortColumn.STUDENT      -> filtered.sortedBy { it.studentName }
             SortColumn.YEAR         -> filtered.sortedBy { it.studyYear }

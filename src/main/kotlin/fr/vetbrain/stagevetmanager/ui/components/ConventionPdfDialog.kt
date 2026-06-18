@@ -69,6 +69,13 @@ fun ConventionPdfDialog(
                         Field("Fin",              data.endDate)
                         Field("Durée",            data.durationLabel)
                     }
+                    if (data.signingDateTutor.isNotBlank() || data.signingDateStudent.isNotBlank() || data.signingDateHost.isNotBlank()) {
+                        FieldSection("Signatures") {
+                            Field("Enseignant tuteur", data.signingDateTutor)
+                            Field("Stagiaire",         data.signingDateStudent)
+                            Field("Maître de stage",   data.signingDateHost)
+                        }
+                    }
                     FieldSection("Conditions") {
                         Field("Thème",            data.theme)
                         Field("Gratification",    data.gratification)

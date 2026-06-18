@@ -105,10 +105,14 @@ object ConventionPdfParser {
                 workingDates.any { isFrenchPublicHoliday(it) }
             else modalite(listOf("feri", "holiday", "fér"), "jours f")
 
-            // — Signatures —
+            // — Signatures (col. gauche = tuteur, milieu = stagiaire, droite = maître) —
+            // sortByPosition extrait le texte gauche→droite dans la même bande horizontale,
+            // donc le tuteur (col. 1) donne la 1re "Date :", le stagiaire (col. 2) la 2e,
+            // le maître de stage (col. 3) la 3e — si elle existe.
             val sigDates = Regex("""Date\s*:\s*(\d{2}-\d{2}-\d{4}\s+à\s+\d{2}:\d{2})""").findAll(text).toList()
-            val signingDateStudent = sigDates.getOrNull(0)?.groupValues?.get(1) ?: ""
-            val signingDateHost    = sigDates.getOrNull(1)?.groupValues?.get(1) ?: ""
+            val signingDateTutor   = sigDates.getOrNull(0)?.groupValues?.get(1) ?: ""
+            val signingDateStudent = sigDates.getOrNull(1)?.groupValues?.get(1) ?: ""
+            val signingDateHost    = sigDates.getOrNull(2)?.groupValues?.get(1) ?: ""
 
             ConventionPdfData(
                 rawText            = text,
@@ -143,6 +147,7 @@ object ConventionPdfParser {
                 homePresence       = homePresence,
                 theme              = theme,
                 gratification      = gratification,
+                signingDateTutor   = signingDateTutor,
                 signingDateStudent = signingDateStudent,
                 signingDateHost    = signingDateHost,
             )
