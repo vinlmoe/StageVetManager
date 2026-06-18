@@ -213,7 +213,8 @@ fun InternshipDetailView(
                         if (modalites.isNotEmpty()) PdfField("Modalités", modalites.joinToString(", "))
                         if (pdfData.signingDateTutor.isNotBlank() ||
                             pdfData.signingDateStudent.isNotBlank() ||
-                            pdfData.signingDateHost.isNotBlank()) {
+                            pdfData.signingDateHost.isNotBlank() ||
+                            pdfData.signingDateSchool.isNotBlank()) {
                             PdfSectionTitle("Signatures")
                             if (pdfData.signingDateTutor.isNotBlank())
                                 PdfField("Enseignant tuteur", pdfData.signingDateTutor)
@@ -221,6 +222,8 @@ fun InternshipDetailView(
                                 PdfField("Stagiaire",         pdfData.signingDateStudent)
                             if (pdfData.signingDateHost.isNotBlank())
                                 PdfField("Maître de stage",   pdfData.signingDateHost)
+                            if (pdfData.signingDateSchool.isNotBlank())
+                                PdfField("École (VetAgro Sup)", pdfData.signingDateSchool)
                         }
                     }
                 }

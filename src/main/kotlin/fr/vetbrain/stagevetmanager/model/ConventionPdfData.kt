@@ -46,12 +46,13 @@ data class ConventionPdfData(
     val theme: String = "",
     val gratification: String = "",
 
-    // — Signatures (ordre dans le PDF : Tuteur | Stagiaire | Maître de stage) ——
-    val signingDateTutor: String = "",    // enseignant tuteur (col. gauche)
-    val signingDateStudent: String = "",  // stagiaire         (col. milieu)
-    val signingDateHost: String = "",     // maître de stage   (col. droite)
+    // — Signatures (ordre PDF : Tuteur | Stagiaire | Maître de stage | École) —
+    val signingDateTutor: String = "",    // enseignant tuteur       (col. 1)
+    val signingDateStudent: String = "",  // stagiaire               (col. 2)
+    val signingDateHost: String = "",     // maître de stage         (col. 3)
+    val signingDateSchool: String = "",   // Pour VetAgro Sup (école, col. 4)
 ) {
-    /** True si les 3 signataires requis avant signature école ont tous signé. */
+    /** True si les 3 signataires requis AVANT la signature école ont tous signé. */
     val allPreSignaturesDone: Boolean get() =
         signingDateTutor.isNotBlank() && signingDateStudent.isNotBlank() && signingDateHost.isNotBlank()
 }

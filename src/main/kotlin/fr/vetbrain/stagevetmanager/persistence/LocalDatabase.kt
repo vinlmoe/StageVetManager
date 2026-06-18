@@ -80,6 +80,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE pdf_data ADD COLUMN signing_date_host TEXT"
                 )
             }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data ADD COLUMN signing_date_school TEXT"
+                )
+            }
 
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS pdf_data (
@@ -117,7 +122,8 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     gratification        TEXT,
                     signing_date_tutor   TEXT,
                     signing_date_student TEXT,
-                    signing_date_host    TEXT
+                    signing_date_host    TEXT,
+                    signing_date_school  TEXT
                 )
             """.trimIndent())
         }
@@ -264,8 +270,8 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     academic_year, start_date, end_date, duration_label,
                     night_presence, sunday_presence, holiday_presence, home_presence,
                     theme, gratification,
-                    signing_date_tutor, signing_date_student, signing_date_host
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    signing_date_tutor, signing_date_student, signing_date_host, signing_date_school
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, data.sourceUrl)
                 stmt.setString(2, now)
@@ -302,6 +308,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                 stmt.setString(33, data.signingDateTutor)
                 stmt.setString(34, data.signingDateStudent)
                 stmt.setString(35, data.signingDateHost)
+                stmt.setString(36, data.signingDateSchool)
                 stmt.executeUpdate()
             }
         }
@@ -349,6 +356,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         signingDateTutor   = rs.getString("signing_date_tutor") ?: "",
                         signingDateStudent = rs.getString("signing_date_student") ?: "",
                         signingDateHost    = rs.getString("signing_date_host") ?: "",
+                        signingDateSchool  = rs.getString("signing_date_school") ?: "",
                     ))
                 }
             }

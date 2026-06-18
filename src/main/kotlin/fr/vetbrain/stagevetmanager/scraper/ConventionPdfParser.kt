@@ -113,6 +113,7 @@ object ConventionPdfParser {
             val signingDateTutor   = sigDates.getOrNull(0)?.groupValues?.get(1) ?: ""
             val signingDateStudent = sigDates.getOrNull(1)?.groupValues?.get(1) ?: ""
             val signingDateHost    = sigDates.getOrNull(2)?.groupValues?.get(1) ?: ""
+            val signingDateSchool  = sigDates.getOrNull(3)?.groupValues?.get(1) ?: ""
 
             ConventionPdfData(
                 rawText            = text,
@@ -150,6 +151,7 @@ object ConventionPdfParser {
                 signingDateTutor   = signingDateTutor,
                 signingDateStudent = signingDateStudent,
                 signingDateHost    = signingDateHost,
+                signingDateSchool  = signingDateSchool,
             )
         }
     }
