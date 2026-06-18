@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import fr.vetbrain.stagevetmanager.ui.components.ConventionPdfDialog
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
 import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
@@ -43,9 +44,21 @@ fun DashboardScreen(
     val sortAsc       by vm.sortAscending.collectAsState()
     val scrapeFilters by vm.scrapeFilters.collectAsState()
     val dbCount       by vm.dbCount.collectAsState()
+    val selectedPdf   by vm.selectedPdfData.collectAsState()
+    val isPdfLoading  by vm.isPdfLoading.collectAsState()
 
     var showClearDialog by remember { mutableStateOf(false) }
     var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+
+    // Dialog d'extraction PDF
+    val pdfData = selectedPdf
+    if (pdfData != null || isPdfLoading) {
+        ConventionPdfDialog(
+            data = pdfData ?: fr.vetbrain.stagevetmanager.model.ConventionPdfData(rawText = ""),
+            isLoading = isPdfLoading,
+            onDismiss = { vm.selectedPdfData.value = null },
+        )
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -157,6 +170,7 @@ fun DashboardScreen(
                 DisplayMode.BILAN -> StudentBilanView(
                     internships = displayed,
                     modifier = Modifier.weight(1f),
+                    onDownloadPdf = vm::downloadConventionPdf,
                 )
             }
         }

@@ -1,6 +1,7 @@
 package fr.vetbrain.stagevetmanager.viewmodel
 
 import fr.vetbrain.stagevetmanager.export.ExcelExporter
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
@@ -8,6 +9,8 @@ import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
+import fr.vetbrain.stagevetmanager.scraper.ConventionPdfParser
+import fr.vetbrain.stagevetmanager.scraper.PdfDownloader
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import kotlinx.coroutines.*
@@ -20,16 +23,22 @@ class DashboardViewModel {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    val allInternships = MutableStateFlow<List<Internship>>(emptyList())
-    val scrapeFilters  = MutableStateFlow(ScrapeFilters())
-    val filterText     = MutableStateFlow("")
-    val activeFilter   = MutableStateFlow(ViewFilter.ALL)
-    val isLoading      = MutableStateFlow(false)
-    val statusMessage  = MutableStateFlow("Initialisation…")
-    val errorMessage   = MutableStateFlow<String?>(null)
-    val sortColumn     = MutableStateFlow(SortColumn.STUDENT)
-    val sortAscending  = MutableStateFlow(true)
-    val dbCount        = MutableStateFlow(0)
+    val allInternships  = MutableStateFlow<List<Internship>>(emptyList())
+    val scrapeFilters   = MutableStateFlow(ScrapeFilters())
+    val filterText      = MutableStateFlow("")
+    val activeFilter    = MutableStateFlow(ViewFilter.ALL)
+    val isLoading       = MutableStateFlow(false)
+    val statusMessage   = MutableStateFlow("Initialisation…")
+    val errorMessage    = MutableStateFlow<String?>(null)
+    val sortColumn      = MutableStateFlow(SortColumn.STUDENT)
+    val sortAscending   = MutableStateFlow(true)
+    val dbCount         = MutableStateFlow(0)
+
+    // — PDF extraction ————————————————————————————————————————————————————
+    val selectedPdfData = MutableStateFlow<ConventionPdfData?>(null)
+    val isPdfLoading    = MutableStateFlow(false)
+    // Cookies Selenium récupérés après login — valides jusqu'à la prochaine extraction
+    private var sessionCookies: Map<String, String> = emptyMap()
 
     val displayed: StateFlow<List<Internship>> = combine(
         allInternships, filterText, activeFilter, sortColumn, sortAscending
@@ -111,8 +120,7 @@ class DashboardViewModel {
                     if (!loggedIn) {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                     } else {
-                        scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
-                            // IO thread : upsert en base, puis mettre à jour l'UI
+                        val result = scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
                             val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
                             totalAdded += stats.added
                             totalUpdated += stats.updated
@@ -120,6 +128,9 @@ class DashboardViewModel {
                                 allInternships.value = allInternships.value + pageInternships
                             }
                         }
+                        // Capturer les cookies AVANT la fermeture du navigateur
+                        sessionCookies = scraper.getSessionCookies()
+                        result
                     }
                 } finally {
                     scraper.close()
@@ -148,6 +159,39 @@ class DashboardViewModel {
                 }
             }
             isLoading.value = false
+        }
+    }
+
+    /**
+     * Télécharge la convention PDF depuis [url] et extrait ses champs.
+     * Nécessite une session active (scraping préalable dans la même session).
+     * Le résultat est exposé dans [selectedPdfData].
+     */
+    fun downloadConventionPdf(url: String) {
+        if (sessionCookies.isEmpty()) {
+            errorMessage.value = "Session expirée — relancez une extraction pour reconnecter"
+            return
+        }
+        if (isPdfLoading.value) return
+        scope.launch {
+            isPdfLoading.value = true
+            statusMessage.value = "Téléchargement de la convention…"
+            withContext(Dispatchers.IO) {
+                try {
+                    val bytes = PdfDownloader(sessionCookies).download(url)
+                    val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
+                    scope.launch(Dispatchers.Main) {
+                        selectedPdfData.value = data
+                        statusMessage.value = "Convention téléchargée et analysée"
+                    }
+                } catch (e: Exception) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Téléchargement PDF échoué : ${e.message}"
+                        statusMessage.value = "Erreur téléchargement PDF"
+                    }
+                }
+            }
+            isPdfLoading.value = false
         }
     }
 

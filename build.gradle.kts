@@ -38,6 +38,8 @@ dependencies {
 
     implementation("org.slf4j:slf4j-simple:2.0.16")
 
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("io.mockk:mockk:1.13.11")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

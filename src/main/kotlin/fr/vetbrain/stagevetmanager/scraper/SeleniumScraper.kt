@@ -108,6 +108,15 @@ class SeleniumScraper(
         }
     }
 
+    /**
+     * Retourne tous les cookies de session du navigateur.
+     * À appeler AVANT [close] pour pouvoir réutiliser la session (ex. téléchargement PDF).
+     */
+    fun getSessionCookies(): Map<String, String> =
+        driver?.manage()?.cookies
+            ?.associate { it.name to it.value }
+            ?: emptyMap()
+
     fun close() {
         try { driver?.quit() } catch (_: Exception) {}
         driver = null

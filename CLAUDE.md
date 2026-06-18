@@ -10,12 +10,16 @@ en SQLite et les exporte vers Excel ou OneDrive.
 | Couche | Fichier principal | Rôle |
 |--------|------------------|------|
 | Modèle | `model/Internship.kt` | Data class + filtres `ViewFilter` |
+| Modèle PDF | `model/ConventionPdfData.kt` | Champs extraits d'une convention PDF |
 | Scraping | `scraper/SeleniumScraper.kt` | Connexion, pagination, filtres serveur |
-| Parsing | `scraper/DashboardParser.kt` | HTML → `Internship` via sélecteurs Jsoup |
+| Parsing HTML | `scraper/DashboardParser.kt` | HTML → `Internship` via sélecteurs Jsoup |
+| Téléchargement PDF | `scraper/PdfDownloader.kt` | OkHttp + cookies session → bytes |
+| Parsing PDF | `scraper/ConventionPdfParser.kt` | PDFBox → `ConventionPdfData` |
 | Persistance | `persistence/LocalDatabase.kt` | SQLite, upsert, déduplication |
 | ViewModel | `viewmodel/DashboardViewModel.kt` | StateFlows, tri, chargement, exports |
 | Vue liste | `ui/components/InternshipTable.kt` | Table triable, `COLUMNS` |
 | Vue bilan | `ui/components/StudentBilanView.kt` | Regroupement par étudiant, expansion |
+| Dialog PDF | `ui/components/ConventionPdfDialog.kt` | Affiche `ConventionPdfData` |
 | Export Excel | `export/ExcelExporter.kt` | Apache POI, 3 feuilles |
 | Export OneDrive | `onedrive/OneDriveExcelUpdater.kt` | Graph API, sessions Excel |
 
@@ -27,6 +31,14 @@ stagevet.fr → SeleniumScraper → DashboardParser → List<Internship>
     → displayed (filtré + trié)
     → InternshipTable  ou  StudentBilanView
     → ExcelExporter / OneDriveExcelUpdater
+
+Flux PDF (à la demande) :
+    Clic icône 🔍 dans StudentBilanView
+    → DashboardViewModel.downloadConventionPdf(url)
+    → PdfDownloader(sessionCookies).download(url)   ← cookies capturés avant close()
+    → ConventionPdfParser.parse(bytes)
+    → selectedPdfData (StateFlow)
+    → ConventionPdfDialog
 ```
 
 ---
@@ -203,6 +215,25 @@ add(listOf(
 | `LocalDatabaseTest.kt` | Vérifier que `upsertAll` puis `loadAll` mappent correctement le nouveau champ (ajouter un cas de test si la valeur peut être non nulle) |
 | `DashboardParserTest.kt` | Ajouter un cas vérifiant l'extraction du nouveau champ depuis la fixture HTML |
 | `src/test/resources/fixtures/sample_card.html` | Ajouter l'élément HTML correspondant au nouveau champ |
+
+---
+
+## Affiner le parser PDF (`ConventionPdfParser.kt`)
+
+Le parser extrait le texte brut via **PDFBox 3.x** (`Loader.loadPDF(bytes)`) et applique des
+regex sur le résultat. Les regex sont des approximations — affinez-les après avoir vu le
+texte réel d'une convention :
+
+1. Lancer l'appli, scraper des stages avec des `conventionPdfUrl` renseignées
+2. Passer en vue **Bilan**, développer un étudiant, cliquer sur **🔍** (icône violette)
+3. Dans le dialog, déplier **"Afficher le texte brut"** et copier le contenu
+4. Adapter les regex dans `ConventionPdfParser.kt` · champ `parse()`
+5. Ajouter un test dans `ConventionPdfParserTest.kt` avec le texte brut en fixture
+
+**Points d'attention PDFBox :**
+- API 3.x : `Loader.loadPDF(bytes)` (plus `PDDocument.load()`)
+- Le texte extrait peut contenir des sauts de ligne inattendus dans les libellés
+- Tester avec `PDFTextStripper().setSortByPosition(true)` si l'ordre des lignes est incohérent
 
 ---
 

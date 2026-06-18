@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +43,7 @@ private data class StudentBilan(
 fun StudentBilanView(
     internships: List<Internship>,
     modifier: Modifier = Modifier,
+    onDownloadPdf: ((String) -> Unit)? = null,
 ) {
     val bilans = remember(internships) {
         internships.groupBy { it.studentName.trim() }
@@ -227,6 +229,14 @@ fun StudentBilanView(
                                             contentDescription = "Voir la convention PDF",
                                             modifier = Modifier.size(14.dp).clickable { openInBrowser(stage.conventionPdfUrl) },
                                             tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                    if (stage.conventionPdfUrl.isNotEmpty() && onDownloadPdf != null) {
+                                        Icon(
+                                            Icons.Default.FindInPage,
+                                            contentDescription = "Extraire les données du PDF",
+                                            modifier = Modifier.size(14.dp).clickable { onDownloadPdf(stage.conventionPdfUrl) },
+                                            tint = Color(0xFF6A1B9A),
                                         )
                                     }
                                     if (stage.conventionSignUrl.isNotEmpty()) {

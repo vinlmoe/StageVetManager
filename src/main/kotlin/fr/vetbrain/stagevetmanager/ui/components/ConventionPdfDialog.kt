@@ -1,0 +1,145 @@
+package fr.vetbrain.stagevetmanager.ui.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
+import java.awt.Desktop
+import java.net.URI
+
+@Composable
+fun ConventionPdfDialog(
+    data: ConventionPdfData,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+) {
+    var showRawText by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (data.conventionNumber.isNotEmpty())
+                    "Convention ${data.conventionNumber}"
+                else
+                    "Données extraites de la convention",
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            if (isLoading) {
+                Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // — Champs parsés ————————————————————————————————————
+                    FieldSection("Stagiaire") {
+                        Field("Nom",              data.studentName)
+                        Field("Naissance",        data.studentBirthDate)
+                        Field("Adresse",          data.studentAddress)
+                    }
+                    FieldSection("École") {
+                        Field("Tuteur / Référent", data.schoolTutor)
+                    }
+                    FieldSection("Organisme d'accueil") {
+                        Field("Raison sociale",   data.hostOrganization)
+                        Field("SIRET",            data.hostSiret)
+                        Field("Adresse",          data.hostAddress)
+                        Field("Maître de stage",  data.supervisorName)
+                        Field("Fonction",         data.supervisorTitle)
+                    }
+                    FieldSection("Période") {
+                        Field("Début",            data.startDate)
+                        Field("Fin",              data.endDate)
+                        Field("Durée",            data.duration)
+                    }
+                    FieldSection("Conditions") {
+                        Field("Gratification",    data.gratification)
+                        Field("Objectifs",        data.objectives)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    // — Texte brut (pour affiner les regex) ——————————————
+                    TextButton(
+                        onClick = { showRawText = !showRawText },
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text(
+                            if (showRawText) "▲ Masquer le texte brut" else "▼ Afficher le texte brut",
+                            fontSize = 12.sp,
+                        )
+                    }
+                    if (showRawText) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Text(
+                                data.rawText,
+                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (data.sourceUrl.isNotEmpty()) {
+                    TextButton(onClick = { openInBrowser(data.sourceUrl) }) {
+                        Text("Ouvrir dans le navigateur")
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("Fermer") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun FieldSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    val hasContent = true // sections toujours rendues, les champs vides sont masqués
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.primary)
+        content()
+    }
+}
+
+@Composable
+private fun Field(label: String, value: String) {
+    if (value.isBlank()) return
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            "$label :",
+            modifier = Modifier.width(130.dp),
+            fontSize = 12.sp,
+            color = Color.Gray,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(value, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+private fun openInBrowser(url: String) {
+    runCatching {
+        val desktop = Desktop.getDesktop()
+        if (desktop.isSupported(Desktop.Action.BROWSE)) desktop.browse(URI(url))
+    }
+}
