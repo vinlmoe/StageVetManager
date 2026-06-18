@@ -187,6 +187,7 @@ fun DashboardScreen(
                 DisplayMode.BILAN -> StudentBilanView(
                     internships = displayed,
                     modifier = Modifier.weight(1f),
+                    pdfDataCache = pdfDataCache,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.BILAN
                         vm.selectInternship(internship)

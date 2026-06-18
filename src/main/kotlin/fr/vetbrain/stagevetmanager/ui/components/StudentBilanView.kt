@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.awt.Desktop
 import java.net.URI
@@ -43,6 +44,7 @@ private data class StudentBilan(
 fun StudentBilanView(
     internships: List<Internship>,
     modifier: Modifier = Modifier,
+    pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     onSelectInternship: ((Internship) -> Unit)? = null,
 ) {
     val bilans = remember(internships) {
@@ -64,6 +66,21 @@ fun StudentBilanView(
     }
 
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    // Stage en attente de signature avec incohérence détectée
+    var signAlertStage by remember { mutableStateOf<Internship?>(null) }
+    val signAlertStageValue = signAlertStage
+    if (signAlertStageValue != null) {
+        val pdf = pdfDataCache[signAlertStageValue.conventionPdfUrl]
+        SignInconsistencyDialog(
+            sundayPresence = pdf?.sundayPresence == true,
+            holidayPresence = pdf?.holidayPresence == true,
+            onConfirm = {
+                openInBrowser(signAlertStageValue.conventionSignUrl)
+                signAlertStage = null
+            },
+            onDismiss = { signAlertStage = null },
+        )
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         // ── En-tête ──────────────────────────────────────────────────────────
@@ -240,11 +257,18 @@ fun StudentBilanView(
                                         )
                                     }
                                     if (stage.conventionSignUrl.isNotEmpty()) {
+                                        val pdf = pdfDataCache[stage.conventionPdfUrl]
+                                        val hasInconsistency = pdf != null &&
+                                            (pdf.sundayPresence || pdf.holidayPresence)
                                         Icon(
                                             Icons.Default.Edit,
                                             contentDescription = "Signer la convention",
-                                            modifier = Modifier.size(14.dp).clickable { openInBrowser(stage.conventionSignUrl) },
-                                            tint = Color(0xFFE65100),
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                if (hasInconsistency) signAlertStage = stage
+                                                else openInBrowser(stage.conventionSignUrl)
+                                            },
+                                            tint = if (hasInconsistency) Color(0xFFB71C1C)
+                                                   else Color(0xFFE65100),
                                         )
                                     }
                                 }
@@ -270,6 +294,44 @@ private fun RowScope.HeaderCell(label: String, weight: Float) {
         fontSize = 12.sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+internal fun SignInconsistencyDialog(
+    sundayPresence: Boolean,
+    holidayPresence: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val warnings = listOfNotNull(
+        "présence le dimanche".takeIf { sundayPresence },
+        "présence un jour férié".takeIf { holidayPresence },
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Vérification avant signature") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Cette convention comporte une incohérence à vérifier :")
+                warnings.forEach { w ->
+                    Text("• $w", color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Medium)
+                }
+                Text(
+                    "Assurez-vous que la case correspondante est bien cochée dans la convention avant de valider.",
+                    fontSize = 12.sp, color = Color.Gray,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Signer quand même", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        },
     )
 }
 

@@ -37,5 +37,9 @@ enum class ViewFilter(val label: String, val predicate: (Internship) -> Boolean)
     RECENTLY_SIGNED("Signés 15 derniers j", {
         val now = LocalDate.now()
         it.signingDate != null && !it.signingDate.isBefore(now.minusDays(15)) && !it.signingDate.isAfter(now)
-    })
+    }),
+    PENDING_SCHOOL_SIGNATURE("À signer (école)", {
+        // conventionSignUrl présent = stagiaire + maître ont signé, il reste la signature école
+        it.conventionSignUrl.isNotEmpty() && it.signingDate == null
+    }),
 }

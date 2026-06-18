@@ -35,6 +35,19 @@ fun InternshipDetailView(
     onDownloadPdf: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showSignAlert by remember { mutableStateOf(false) }
+    if (showSignAlert && pdfData != null) {
+        SignInconsistencyDialog(
+            sundayPresence = pdfData.sundayPresence,
+            holidayPresence = pdfData.holidayPresence,
+            onConfirm = {
+                showSignAlert = false
+                openUrl(internship.conventionSignUrl)
+            },
+            onDismiss = { showSignAlert = false },
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -83,14 +96,19 @@ fun InternshipDetailView(
                     }
                 }
                 if (internship.conventionSignUrl.isNotEmpty()) {
+                    val hasInconsistency = pdfData != null &&
+                        (pdfData.sundayPresence || pdfData.holidayPresence)
+                    val signColor = if (hasInconsistency) Color(0xFFB71C1C) else Color(0xFFE65100)
                     OutlinedButton(
-                        onClick = { openUrl(internship.conventionSignUrl) },
+                        onClick = {
+                            if (hasInconsistency) showSignAlert = true
+                            else openUrl(internship.conventionSignUrl)
+                        },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     ) {
-                        Icon(Icons.Default.Edit, null, Modifier.size(16.dp),
-                            tint = Color(0xFFE65100))
+                        Icon(Icons.Default.Edit, null, Modifier.size(16.dp), tint = signColor)
                         Spacer(Modifier.width(4.dp))
-                        Text("Signer", fontSize = 12.sp, color = Color(0xFFE65100))
+                        Text("Signer", fontSize = 12.sp, color = signColor)
                     }
                 }
                 if (internship.conventionPdfUrl.isNotEmpty() && pdfData == null && !isPdfLoading) {
