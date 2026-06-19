@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +23,9 @@ import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.awt.Desktop
 import java.net.URI
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -109,6 +112,10 @@ fun InternshipDetailView(
                         Icon(Icons.Default.Edit, null, Modifier.size(16.dp), tint = signColor)
                         Spacer(Modifier.width(4.dp))
                         Text("Signer", fontSize = 12.sp, color = signColor)
+                    }
+                    // Alerte urgence : badge à côté du bouton Signer
+                    if (internship.signingDate == null) {
+                        SignUrgencyBadge(internship.startDate)
                     }
                 }
                 if (internship.conventionPdfUrl.isNotEmpty() && pdfData == null && !isPdfLoading) {
@@ -295,6 +302,27 @@ private fun PdfField(label: String, value: String) {
         Text(value, fontSize = 11.sp, modifier = Modifier.weight(1f),
             maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
+}
+
+@Composable
+internal fun SignUrgencyBadge(startDate: LocalDate?, iconSize: Int = 16) {
+    if (startDate == null) return
+    val today = LocalDate.now()
+    val daysUntil = ChronoUnit.DAYS.between(today, startDate)
+    val (color, label) = when {
+        daysUntil < 0  -> Color(0xFFB71C1C) to "Démarré il y a ${-daysUntil} j — non signé !"
+        daysUntil < 14 -> Color(0xFFE65100) to "Début dans $daysUntil j"
+        else           -> return
+    }
+    Spacer(Modifier.width(4.dp))
+    Icon(
+        Icons.Default.Warning,
+        contentDescription = label,
+        modifier = Modifier.size(iconSize.dp),
+        tint = color,
+    )
+    Spacer(Modifier.width(2.dp))
+    Text(label, fontSize = 11.sp, color = color)
 }
 
 private fun openUrl(url: String) {

@@ -270,6 +270,9 @@ fun StudentBilanView(
                                             tint = if (hasInconsistency) Color(0xFFB71C1C)
                                                    else Color(0xFFE65100),
                                         )
+                                        if (stage.signingDate == null) {
+                                            SignUrgencyBadge(stage.startDate, iconSize = 13)
+                                        }
                                     }
                                 }
                             }
