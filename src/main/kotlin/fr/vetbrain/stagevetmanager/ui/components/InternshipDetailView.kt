@@ -98,7 +98,15 @@ fun InternshipDetailView(
                         Text("Ouvrir PDF", fontSize = 12.sp)
                     }
                 }
-                if (internship.conventionSignUrl.isNotEmpty()) {
+                // Bouton Signer : visible seulement si les 3 pré-signataires ont signé
+                // (tuteur + stagiaire + maître) et que l'école n'a pas encore signé.
+                // Si le PDF n'est pas encore analysé, on se base sur conventionSignUrl.
+                val schoolNotSigned = internship.signingDate == null
+                val preSignaturesDone = if (pdfData != null)
+                    pdfData.allPreSignaturesDone && pdfData.signingDateSchool.isBlank()
+                else
+                    internship.conventionSignUrl.isNotEmpty()
+                if (schoolNotSigned && preSignaturesDone) {
                     val hasInconsistency = pdfData != null &&
                         (pdfData.sundayPresence || pdfData.holidayPresence)
                     val signColor = if (hasInconsistency) Color(0xFFB71C1C) else Color(0xFFE65100)
@@ -113,10 +121,7 @@ fun InternshipDetailView(
                         Spacer(Modifier.width(4.dp))
                         Text("Signer", fontSize = 12.sp, color = signColor)
                     }
-                    // Alerte urgence : badge à côté du bouton Signer
-                    if (internship.signingDate == null) {
-                        SignUrgencyBadge(internship.startDate)
-                    }
+                    SignUrgencyBadge(internship.startDate)
                 }
                 if (internship.conventionPdfUrl.isNotEmpty() && pdfData == null && !isPdfLoading) {
                     val enabled = canDownloadPdf

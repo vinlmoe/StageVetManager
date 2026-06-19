@@ -256,8 +256,15 @@ fun StudentBilanView(
                                             tint = Color(0xFF6A1B9A),
                                         )
                                     }
-                                    if (stage.conventionSignUrl.isNotEmpty()) {
-                                        val pdf = pdfDataCache[stage.conventionPdfUrl]
+                                    // Icône Signer : uniquement si les 3 pré-signataires ont signé
+                                    // et que l'école n'a pas encore signé.
+                                    val pdf = pdfDataCache[stage.conventionPdfUrl]
+                                    val schoolNotSigned = stage.signingDate == null
+                                    val preSignaturesDone = if (pdf != null)
+                                        pdf.allPreSignaturesDone && pdf.signingDateSchool.isBlank()
+                                    else
+                                        stage.conventionSignUrl.isNotEmpty()
+                                    if (schoolNotSigned && preSignaturesDone) {
                                         val hasInconsistency = pdf != null &&
                                             (pdf.sundayPresence || pdf.holidayPresence)
                                         Icon(
@@ -270,9 +277,7 @@ fun StudentBilanView(
                                             tint = if (hasInconsistency) Color(0xFFB71C1C)
                                                    else Color(0xFFE65100),
                                         )
-                                        if (stage.signingDate == null) {
-                                            SignUrgencyBadge(stage.startDate, iconSize = 13)
-                                        }
+                                        SignUrgencyBadge(stage.startDate, iconSize = 13)
                                     }
                                 }
                             }
