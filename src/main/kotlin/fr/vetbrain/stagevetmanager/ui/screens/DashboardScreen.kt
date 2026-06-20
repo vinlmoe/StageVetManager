@@ -178,6 +178,7 @@ fun DashboardScreen(
                     sortAscending = sortAsc,
                     onSort = vm::toggleSort,
                     modifier = Modifier.weight(1f),
+                    pdfDataCache = pdfDataCache,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.INTERNSHIPS
                         vm.selectInternship(internship)
