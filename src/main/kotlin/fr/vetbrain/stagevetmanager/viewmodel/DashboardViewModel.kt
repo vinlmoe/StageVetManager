@@ -9,6 +9,7 @@ import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
+import fr.vetbrain.stagevetmanager.persistence.localId
 import fr.vetbrain.stagevetmanager.scraper.ConventionPdfParser
 import fr.vetbrain.stagevetmanager.scraper.PdfDownloader
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
@@ -253,6 +254,21 @@ class DashboardViewModel {
 
     fun selectInternship(internship: Internship?) {
         selectedInternship.value = internship
+    }
+
+    fun toggleSuivi(internship: Internship, checked: Boolean) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                LocalDatabase.instance.updateSuiviTable(internship, checked)
+            }
+            val updated = internship.copy(inSuiviTable = checked)
+            allInternships.value = allInternships.value.map { i ->
+                if (i.localId() == internship.localId()) updated else i
+            }
+            if (selectedInternship.value?.localId() == internship.localId()) {
+                selectedInternship.value = updated
+            }
+        }
     }
 
     fun clearDatabase() {

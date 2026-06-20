@@ -46,8 +46,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     end_date             TEXT,
                     raw_date_stage       TEXT,
                     theme                TEXT,
-                    convention_pdf_url   TEXT,
+                    convention_pdf_url    TEXT,
                     convention_sign_url  TEXT,
+                    convention_cancel_url TEXT,
+                    in_suivi_table       INTEGER DEFAULT 0,
                     created_at           TEXT NOT NULL,
                     last_seen            TEXT NOT NULL
                 )
@@ -60,6 +62,16 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN convention_sign_url TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN convention_cancel_url TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN in_suivi_table INTEGER DEFAULT 0"
                 )
             }
 
@@ -143,16 +155,17 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         (id, student_name, study_year, organization, address,
                          convention_number, convention_gen_date, signing_date,
                          start_date, end_date, raw_date_stage, theme,
-                         convention_pdf_url, convention_sign_url,
-                         created_at, last_seen)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         convention_pdf_url, convention_sign_url, convention_cancel_url,
+                         in_suivi_table, created_at, last_seen)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """.trimIndent())
                 val updateStmt = conn.prepareStatement("""
                     UPDATE internships
                     SET student_name=?, study_year=?, organization=?, address=?,
                         convention_number=?, convention_gen_date=?, signing_date=?,
                         start_date=?, end_date=?, raw_date_stage=?, theme=?,
-                        convention_pdf_url=?, convention_sign_url=?, last_seen=?
+                        convention_pdf_url=?, convention_sign_url=?, convention_cancel_url=?,
+                        last_seen=?
                     WHERE id=?
                 """.trimIndent())
 
@@ -176,8 +189,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(11, s.theme)
                             setString(12, s.conventionPdfUrl)
                             setString(13, s.conventionSignUrl)
-                            setString(14, now)
-                            setString(15, id)
+                            setString(14, s.conventionCancelUrl)
+                            // in_suivi_table intentionnellement absent : annotation locale,
+                            // jamais écrasée par le scraper
+                            setString(15, now)
+                            setString(16, id)
                             executeUpdate()
                         }
                         updated++
@@ -197,8 +213,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(12, s.theme)
                             setString(13, s.conventionPdfUrl)
                             setString(14, s.conventionSignUrl)
-                            setString(15, now)
-                            setString(16, now)
+                            setString(15, s.conventionCancelUrl)
+                            setInt(16, 0) // in_suivi_table = false pour les nouveaux stages
+                            setString(17, now)
+                            setString(18, now)
                             executeUpdate()
                         }
                         added++
@@ -234,8 +252,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         endDate         = rs.getString("end_date")?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
                         rawDateStage     = rs.getString("raw_date_stage") ?: "",
                         theme            = rs.getString("theme") ?: "",
-                        conventionPdfUrl = rs.getString("convention_pdf_url") ?: "",
+                        conventionPdfUrl  = rs.getString("convention_pdf_url") ?: "",
                         conventionSignUrl = rs.getString("convention_sign_url") ?: "",
+                        conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
+                        inSuiviTable     = rs.getInt("in_suivi_table") == 1,
                     ))
                 }
             }
@@ -245,6 +265,18 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
     fun count(): Int = connect().use { conn ->
         conn.createStatement().executeQuery("SELECT COUNT(*) FROM internships").use {
             if (it.next()) it.getInt(1) else 0
+        }
+    }
+
+    fun updateSuiviTable(internship: Internship, checked: Boolean) {
+        connect().use { conn ->
+            conn.prepareStatement(
+                "UPDATE internships SET in_suivi_table=? WHERE id=?"
+            ).use { stmt ->
+                stmt.setInt(1, if (checked) 1 else 0)
+                stmt.setString(2, internship.localId())
+                stmt.executeUpdate()
+            }
         }
     }
 
@@ -365,7 +397,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
 }
 
 // Clé stable : étudiant + organisme + dates brutes → SHA-256 tronqué à 24 hex chars
-internal fun Internship.localId(): String {
+fun Internship.localId(): String {
     val key = "${studentName.trim().lowercase()}|${organization.trim().lowercase()}|${rawDateStage.trim()}"
     return MessageDigest.getInstance("SHA-256")
         .digest(key.toByteArray(Charsets.UTF_8))
