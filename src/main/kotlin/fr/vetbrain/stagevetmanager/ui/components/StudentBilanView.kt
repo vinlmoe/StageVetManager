@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -246,38 +247,37 @@ fun StudentBilanView(
                                     fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 )
-                                // Convention actions: signed indicator + PDF link + sign link
+                                // Convention actions
                                 Row(
                                     modifier = Modifier.weight(0.10f),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     if (stage.signingDate != null) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = "Convention signée le ${stage.signingDate.format(DATE_FMT)}",
-                                            modifier = Modifier.size(14.dp),
+                                        TipIcon(
+                                            tip = "Convention signée le ${stage.signingDate.format(DATE_FMT)}",
+                                            imageVector = Icons.Default.CheckCircle,
                                             tint = Color(0xFF2E7D32),
                                         )
                                     }
                                     if (stage.conventionPdfUrl.isNotEmpty()) {
-                                        Icon(
-                                            Icons.Default.Description,
-                                            contentDescription = "Voir la convention PDF",
-                                            modifier = Modifier.size(14.dp).clickable { openInBrowser(stage.conventionPdfUrl) },
+                                        TipIcon(
+                                            tip = "Voir la convention PDF",
+                                            imageVector = Icons.Default.Description,
                                             tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(14.dp)
+                                                .clickable { openInBrowser(stage.conventionPdfUrl) },
                                         )
                                     }
                                     if (stage.conventionPdfUrl.isNotEmpty() && onSelectInternship != null) {
-                                        Icon(
-                                            Icons.Default.FindInPage,
-                                            contentDescription = "Voir le détail du stage",
-                                            modifier = Modifier.size(14.dp).clickable { onSelectInternship(stage) },
+                                        TipIcon(
+                                            tip = "Voir le détail du stage",
+                                            imageVector = Icons.Default.FindInPage,
                                             tint = Color(0xFF6A1B9A),
+                                            modifier = Modifier.size(14.dp)
+                                                .clickable { onSelectInternship(stage) },
                                         )
                                     }
-                                    // Icône Signer : uniquement si les 3 pré-signataires ont signé
-                                    // et que l'école n'a pas encore signé.
                                     val pdf = pdfDataCache[stage.conventionPdfUrl]
                                     val schoolNotSigned = stage.signingDate == null
                                     val preSignaturesDone = if (pdf != null)
@@ -287,45 +287,45 @@ fun StudentBilanView(
                                     if (schoolNotSigned && preSignaturesDone) {
                                         val hasInconsistency = pdf != null &&
                                             (pdf.sundayPresence || pdf.holidayPresence)
-                                        Icon(
-                                            Icons.Default.Edit,
-                                            contentDescription = "Signer la convention",
+                                        TipIcon(
+                                            tip = if (hasInconsistency)
+                                                "Signer la convention (incohérence détectée)"
+                                            else
+                                                "Signer la convention",
+                                            imageVector = Icons.Default.Edit,
+                                            tint = if (hasInconsistency) Color(0xFFB71C1C)
+                                                   else Color(0xFFE65100),
                                             modifier = Modifier.size(14.dp).clickable {
                                                 if (hasInconsistency) signAlertStage = stage
                                                 else openInBrowser(stage.conventionSignUrl)
                                             },
-                                            tint = if (hasInconsistency) Color(0xFFB71C1C)
-                                                   else Color(0xFFE65100),
                                         )
                                         SignUrgencyBadge(stage.startDate, iconSize = 13)
                                     }
                                     if (stage.conventionCancelUrl.isNotEmpty()) {
-                                        Icon(
-                                            Icons.Default.Cancel,
-                                            contentDescription = "Annuler la convention",
-                                            modifier = Modifier.size(14.dp).clickable {
-                                                cancelAlertStage = stage
-                                            },
+                                        TipIcon(
+                                            tip = "Annuler la convention",
+                                            imageVector = Icons.Default.Cancel,
                                             tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(14.dp)
+                                                .clickable { cancelAlertStage = stage },
                                         )
                                     }
                                     if (stage.inSuiviTable) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = "Dans le tableau de suivi",
-                                            modifier = Modifier.size(14.dp).clickable {
-                                                onToggleSuivi?.invoke(stage, false)
-                                            },
+                                        TipIcon(
+                                            tip = "Dans le tableau de suivi — cliquer pour retirer",
+                                            imageVector = Icons.Default.CheckCircle,
                                             tint = Color(0xFF1565C0),
+                                            modifier = Modifier.size(14.dp)
+                                                .clickable { onToggleSuivi?.invoke(stage, false) },
                                         )
                                     } else if (onToggleSuivi != null) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = "Marquer dans le tableau de suivi",
-                                            modifier = Modifier.size(14.dp).clickable {
-                                                onToggleSuivi.invoke(stage, true)
-                                            },
+                                        TipIcon(
+                                            tip = "Marquer dans le tableau de suivi",
+                                            imageVector = Icons.Default.CheckCircle,
                                             tint = Color.LightGray,
+                                            modifier = Modifier.size(14.dp)
+                                                .clickable { onToggleSuivi.invoke(stage, true) },
                                         )
                                     }
                                 }
@@ -352,6 +352,23 @@ private fun RowScope.HeaderCell(label: String, weight: Float) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TipIcon(
+    tip: String,
+    imageVector: ImageVector,
+    tint: Color,
+    modifier: Modifier = Modifier.size(14.dp),
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(tip, fontSize = 11.sp) } },
+        state = rememberTooltipState(),
+    ) {
+        Icon(imageVector, contentDescription = tip, modifier = modifier, tint = tint)
+    }
 }
 
 @Composable
