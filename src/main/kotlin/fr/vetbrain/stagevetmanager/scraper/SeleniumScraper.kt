@@ -4,7 +4,6 @@ import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import io.github.bonigarcia.wdm.WebDriverManager
 import org.openqa.selenium.By
-import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
@@ -53,19 +52,19 @@ class SeleniumScraper(
     ): ScraperResult {
         val d = driver ?: return ScraperResult.Failure("Navigateur non initialisé")
         return try {
-            d.get("https://www.stagevet.fr/dashboard")
-            val wait = WebDriverWait(d, Duration.ofSeconds(15))
-            // Attendre que le formulaire soit disponible
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("form#filtre")))
+            // Navigate directly to the filtered URL — more reliable than manipulating
+            // the form via JS (listeners on stagevet.fr can reset values before submission).
+            val url = buildFilteredUrl(filters)
+            onProgress("Chargement du tableau de bord (filtres appliqués en URL)...")
+            d.get(url)
 
-            onProgress("Application des filtres...")
-            applyFilters(d, filters)
-
+            val wait = WebDriverWait(d, Duration.ofSeconds(20))
             // Attendre les résultats (ou absence de résultats)
             Thread.sleep(1500)
             try {
                 wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.card")))
             } catch (_: Exception) {
+                onProgress("Aucun stage trouvé avec ces filtres.")
                 return ScraperResult.Success(0, 0)
             }
 
@@ -122,37 +121,18 @@ class SeleniumScraper(
         driver = null
     }
 
-    // Les selects du formulaire #filtre sont des <select> HTML natifs (sauf la recherche
-    // étudiant qui utilise Select2). On positionne la valeur via JS puis on clique "Rechercher"
-    // pour que le formulaire GET soumette les bons paramètres à stagevet.fr.
-    private fun applyFilters(d: WebDriver, filters: ScrapeFilters) {
-        val js = d as? JavascriptExecutor ?: return
-
-        fun setSelect(name: String, value: String) {
-            js.executeScript(
-                """
-                var el = document.querySelector('[name="${name}"]');
-                if (el) {
-                    el.value = arguments[0];
-                    el.dispatchEvent(new Event('change'));
-                }
-                """.trimIndent(),
-                value
-            )
-        }
-
-        setSelect("periode", filters.periode)
-        setSelect("anneeetude", filters.anneeEtude)
-        setSelect("theme", filters.theme)
-        setSelect("status", filters.status)
-        setSelect("order", filters.order)
-
-        // Clic sur "Rechercher"
-        try {
-            d.findElement(By.cssSelector("input[type='submit'][value='Rechercher']")).click()
-        } catch (_: Exception) {
-            d.findElement(By.cssSelector("form#filtre input[type='submit']")).click()
-        }
+    // Construit l'URL du dashboard avec les filtres en paramètres GET.
+    // Équivaut exactement à ce que soumet le formulaire #filtre sur stagevet.fr.
+    // Les valeurs vides sont omises (stagevet.fr utilise alors son défaut serveur).
+    private fun buildFilteredUrl(filters: ScrapeFilters): String {
+        val params = mutableListOf<String>()
+        if (filters.periode.isNotEmpty())    params.add("periode=${filters.periode}")
+        if (filters.anneeEtude.isNotEmpty()) params.add("anneeetude=${filters.anneeEtude}")
+        if (filters.theme.isNotEmpty())      params.add("theme=${filters.theme}")
+        if (filters.status.isNotEmpty())     params.add("status=${filters.status}")
+        if (filters.order.isNotEmpty())      params.add("order=${filters.order}")
+        val qs = if (params.isEmpty()) "" else "?" + params.joinToString("&")
+        return "https://www.stagevet.fr/dashboard$qs"
     }
 
     private fun findNextButton(d: WebDriver): WebElement? {
