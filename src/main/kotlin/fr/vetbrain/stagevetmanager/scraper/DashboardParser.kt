@@ -50,10 +50,11 @@ object DashboardParser {
             ?.attr("href") ?: ""
         val conventionSignUrl = card.selectFirst("a.btn-success[href*='/signature/']")
             ?.attr("href") ?: ""
-        // Bouton d'annulation : généralement btn-danger ou lien contenant "annul"/"supprimer"
-        val conventionCancelUrl = card.selectFirst(
-            "a.btn-danger, a[href*='annul'], a[href*='supprimer']"
-        )?.attr("href") ?: ""
+        // Bouton d'annulation : utilise l'attribut stage-id + AJAX endpoint
+        val cancelStageId = card.selectFirst("a.stop-stage")?.attr("stage-id") ?: ""
+        val conventionCancelUrl = if (cancelStageId.isNotEmpty())
+            "https://www.stagevet.fr/profil/ecole/cancelstage/$cancelStageId"
+        else ""
 
         val signingDate = signingDateStr?.let { parseDate(it) }
         val (startDate, endDate) = parseDateRange(rawDateStage)

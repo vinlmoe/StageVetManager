@@ -183,6 +183,7 @@ fun DashboardScreen(
                         vm.selectInternship(internship)
                         displayMode = DisplayMode.DETAIL
                     },
+                    onToggleSuivi = { internship, checked -> vm.toggleSuivi(internship, checked) },
                 )
                 DisplayMode.BILAN -> StudentBilanView(
                     internships = displayed,
