@@ -3,6 +3,8 @@ package fr.vetbrain.stagevetmanager.viewmodel
 import fr.vetbrain.stagevetmanager.export.ExcelExporter
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
+import fr.vetbrain.stagevetmanager.model.LocalFilters
+import fr.vetbrain.stagevetmanager.model.ScrapeFilterOptions
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
@@ -20,12 +22,20 @@ import java.nio.file.Path
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+private data class FilterState(
+    val internships: List<Internship>,
+    val text: String,
+    val viewFilter: ViewFilter,
+    val localFilters: LocalFilters,
+)
+
 class DashboardViewModel {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     val allInternships  = MutableStateFlow<List<Internship>>(emptyList())
     val scrapeFilters   = MutableStateFlow(ScrapeFilters())
+    val localFilters    = MutableStateFlow(LocalFilters())
     val filterText      = MutableStateFlow("")
     val activeFilter    = MutableStateFlow(ViewFilter.ALL)
     val isLoading       = MutableStateFlow(false)
@@ -42,28 +52,26 @@ class DashboardViewModel {
     private val _pdfDataCache = MutableStateFlow<Map<String, ConventionPdfData>>(emptyMap())
     val pdfDataCache: StateFlow<Map<String, ConventionPdfData>> = _pdfDataCache
     val hasSessionCookies get() = sessionCookies.isNotEmpty()
-    // Cookies Selenium récupérés après login — valides jusqu'à la prochaine extraction
     private var sessionCookies: Map<String, String> = emptyMap()
 
     val displayed: StateFlow<List<Internship>> = combine(
-        combine(allInternships, filterText, activeFilter) { list, text, filter -> Triple(list, text, filter) },
+        combine(allInternships, filterText, activeFilter, localFilters) { list, text, vf, lf ->
+            FilterState(list, text, vf, lf)
+        },
         combine(sortColumn, sortAscending, _pdfDataCache) { col, asc, cache -> Triple(col, asc, cache) }
-    ) { (list, text, filter), (col, asc, cache) ->
-        val filtered = list.filter { internship ->
-            val passesFilter = when (filter) {
-                ViewFilter.PENDING_SCHOOL_SIGNATURE -> {
-                    val pdf = cache[internship.conventionPdfUrl]
-                    if (pdf != null) {
-                        // Vérifier que les 3 signataires ont signé avant d'autoriser la signature école
-                        pdf.allPreSignaturesDone && internship.signingDate == null
-                    } else {
-                        // Fallback : conventionSignUrl présent = signataires précédents OK
-                        filter.predicate(internship)
+    ) { fs, (col, asc, cache) ->
+        val filtered = fs.internships.filter { internship ->
+            internship.matchesLocalFilters(fs.localFilters) && run {
+                val passesView = when (fs.viewFilter) {
+                    ViewFilter.PENDING_SCHOOL_SIGNATURE -> {
+                        val pdf = cache[internship.conventionPdfUrl]
+                        if (pdf != null) pdf.allPreSignaturesDone && internship.signingDate == null
+                        else fs.viewFilter.predicate(internship)
                     }
+                    else -> fs.viewFilter.predicate(internship)
                 }
-                else -> filter.predicate(internship)
+                passesView && internship.matchesText(fs.text)
             }
-            passesFilter && internship.matchesText(text)
         }
         val sorted = when (col) {
             SortColumn.STUDENT      -> filtered.sortedBy { it.studentName }
@@ -88,6 +96,7 @@ class DashboardViewModel {
     fun setFilter(text: String) { filterText.value = text }
     fun setView(filter: ViewFilter) { activeFilter.value = filter }
     fun setScrapeFilters(f: ScrapeFilters) { scrapeFilters.value = f }
+    fun setLocalFilters(f: LocalFilters) { localFilters.value = f }
 
     fun toggleSort(col: SortColumn) {
         if (sortColumn.value == col) {
@@ -126,7 +135,6 @@ class DashboardViewModel {
             allInternships.value = emptyList()
             statusMessage.value = "Connexion en cours…"
 
-            // Stats cumulées sur toutes les pages
             var totalAdded = 0
             var totalUpdated = 0
 
@@ -151,7 +159,6 @@ class DashboardViewModel {
                                 allInternships.value = allInternships.value + pageInternships
                             }
                         }
-                        // Capturer les cookies AVANT la fermeture du navigateur
                         sessionCookies = scraper.getSessionCookies()
                         result
                     }
@@ -162,7 +169,6 @@ class DashboardViewModel {
 
             when (result) {
                 is ScraperResult.Success -> {
-                    // Recharger depuis la DB pour avoir l'état dédoublonné final
                     val (fromDb, count) = withContext(Dispatchers.IO) {
                         LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
                     }
@@ -173,7 +179,6 @@ class DashboardViewModel {
                         append("$totalAdded nouveau(x), $totalUpdated mis à jour")
                         append(" — base : $count au total")
                     }
-                    // Lancer le parsing automatique des nouvelles conventions
                     val urlsToAutoParse = fromDb
                         .mapNotNull { it.conventionPdfUrl.takeIf { u -> u.isNotEmpty() && u !in _pdfDataCache.value } }
                         .distinct()
@@ -182,7 +187,6 @@ class DashboardViewModel {
                     }
                 }
                 is ScraperResult.Failure -> {
-                    // Même en cas d'erreur, recharger ce qui est en base
                     loadFromDatabase()
                     errorMessage.value = result.message
                     statusMessage.value = "Erreur lors de l'extraction"
@@ -192,11 +196,6 @@ class DashboardViewModel {
         }
     }
 
-    /**
-     * Télécharge la convention PDF depuis [url] et extrait ses champs.
-     * Nécessite une session active (scraping préalable dans la même session).
-     * Le résultat est exposé dans [selectedPdfData].
-     */
     fun downloadConventionPdf(url: String) {
         if (sessionCookies.isEmpty()) {
             errorMessage.value = "Session expirée — relancez une extraction pour reconnecter"
@@ -346,6 +345,29 @@ class DashboardViewModel {
     fun dispose() {
         scope.cancel()
     }
+}
+
+private fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
+    if (lf.periode.isNotEmpty()) {
+        val months = lf.periode.toIntOrNull() ?: return true
+        val cutoff = LocalDate.now().minusMonths(months.toLong())
+        // Inclure les stages dont la date de début est dans la période ou à venir
+        if (startDate != null && startDate.isBefore(cutoff)) return false
+    }
+    if (lf.anneeEtude.isNotEmpty()) {
+        val matched = if (lf.anneeEtude == "99") {
+            studyYear.contains("99", ignoreCase = true) ||
+                studyYear.contains("reconvers", ignoreCase = true)
+        } else {
+            studyYear.trimStart().startsWith(lf.anneeEtude)
+        }
+        if (!matched) return false
+    }
+    if (lf.theme.isNotEmpty()) {
+        val label = ScrapeFilterOptions.themes.find { it.value == lf.theme }?.label ?: ""
+        if (label.isNotEmpty() && !theme.contains(label, ignoreCase = true)) return false
+    }
+    return true
 }
 
 enum class SortColumn { STUDENT, YEAR, ORGANIZATION, START_DATE, SIGN_DATE, THEME }

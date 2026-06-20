@@ -8,6 +8,13 @@ data class ScrapeFilters(
     val order: String = "1",
 )
 
+// Filtres appliqués localement sur les données déjà importées
+data class LocalFilters(
+    val periode: String = "",     // startDate >= aujourd'hui - N mois
+    val anneeEtude: String = "",  // match partiel sur studyYear
+    val theme: String = "",       // match sur le libellé du thème stocké
+)
+
 data class FilterOption(val value: String, val label: String)
 
 object ScrapeFilterOptions {

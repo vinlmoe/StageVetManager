@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
-import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
 import fr.vetbrain.stagevetmanager.ui.components.StatusBar
 import fr.vetbrain.stagevetmanager.ui.components.StudentBilanView
 import fr.vetbrain.stagevetmanager.viewmodel.DashboardViewModel
@@ -35,17 +34,18 @@ fun DashboardScreen(
     onRequestScrape: () -> Unit,
     onExportOneDrive: () -> Unit,
 ) {
-    val displayed     by vm.displayed.collectAsState()
-    val filterText    by vm.filterText.collectAsState()
-    val activeFilter  by vm.activeFilter.collectAsState()
-    val isLoading     by vm.isLoading.collectAsState()
-    val status        by vm.statusMessage.collectAsState()
-    val error         by vm.errorMessage.collectAsState()
-    val sortCol       by vm.sortColumn.collectAsState()
-    val sortAsc       by vm.sortAscending.collectAsState()
-    val scrapeFilters by vm.scrapeFilters.collectAsState()
-    val dbCount       by vm.dbCount.collectAsState()
-    val isPdfLoading  by vm.isPdfLoading.collectAsState()
+    val displayed      by vm.displayed.collectAsState()
+    val filterText     by vm.filterText.collectAsState()
+    val activeFilter   by vm.activeFilter.collectAsState()
+    val isLoading      by vm.isLoading.collectAsState()
+    val status         by vm.statusMessage.collectAsState()
+    val error          by vm.errorMessage.collectAsState()
+    val sortCol        by vm.sortColumn.collectAsState()
+    val sortAsc        by vm.sortAscending.collectAsState()
+    val scrapeFilters  by vm.scrapeFilters.collectAsState()
+    val localFilters   by vm.localFilters.collectAsState()
+    val dbCount        by vm.dbCount.collectAsState()
+    val isPdfLoading   by vm.isPdfLoading.collectAsState()
     val selectedInternship by vm.selectedInternship.collectAsState()
     val pdfDataCache       by vm.pdfDataCache.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
@@ -92,7 +92,6 @@ fun DashboardScreen(
                 },
                 actions = {
                     if (displayMode != DisplayMode.DETAIL) {
-                        // Bascule liste ↔ bilan
                         IconButton(onClick = {
                             displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
                                 DisplayMode.BILAN else DisplayMode.INTERNSHIPS
@@ -132,22 +131,19 @@ fun DashboardScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ScrapeFiltersPanel(
-                filters = scrapeFilters,
-                onFiltersChange = vm::setScrapeFilters,
-            )
-
-            HorizontalDivider()
-
             FilterBar(
                 filterText = filterText,
                 activeFilter = activeFilter,
                 count = displayed.size,
                 dbCount = dbCount,
                 isLoading = isLoading,
+                scrapeFilters = scrapeFilters,
+                localFilters = localFilters,
                 onTextChange = vm::setFilter,
                 onViewChange = vm::setView,
-                onRefresh = onRequestScrape,
+                onScrapeFiltersChange = vm::setScrapeFilters,
+                onLocalFiltersChange = vm::setLocalFilters,
+                onRequestScrape = onRequestScrape,
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,
                 onExport = {
