@@ -122,8 +122,9 @@ class SeleniumScraper(
         driver = null
     }
 
-    // Les selects stagevet.fr sont des widgets Select2 : on force la valeur via JS
-    // puis on déclenche l'événement change pour que le widget se synchronise.
+    // Les selects du formulaire #filtre sont des <select> HTML natifs (sauf la recherche
+    // étudiant qui utilise Select2). On positionne la valeur via JS puis on clique "Rechercher"
+    // pour que le formulaire GET soumette les bons paramètres à stagevet.fr.
     private fun applyFilters(d: WebDriver, filters: ScrapeFilters) {
         val js = d as? JavascriptExecutor ?: return
 
