@@ -19,6 +19,8 @@ object ConventionPdfParser {
             val recapSection     = section(text, "La présente convention et ses annexes", "Article 1")
             val encadSection     = section(text, "f- Encadrement pédagogique", "g- Informations complémentaires")
             val modaliteSection  = section(recapSection, "c-", "d-")
+            // Sous-section maître de stage (utilisée tôt comme fallback pour le Tel/Courriel de l'organisme)
+            val supervisorSub    = section(encadSection, "Maître de stage au sein", "")
 
             // — Stagiaire —
             val studentLastName  = lbl(stagiaireSection, "Nom")
@@ -27,16 +29,20 @@ object ConventionPdfParser {
             val studentStudyYear = Regex("""Etudiant\(e\) de\s+(\S+)\s+ann""").find(stagiaireSection)
                 ?.groupValues?.get(1) ?: ""
             val studentAddress = lbl(stagiaireSection, "Adresse postale")
-            val studentPhone   = lbl(stagiaireSection, "Tel")
-            val studentEmail   = lbl(stagiaireSection, "Courriel")
+            val studentPhone   = lbl(stagiaireSection, """T[eé]l(?:[eé]phone)?""")
+            val studentEmail   = lbl(stagiaireSection, "Courriel|E-?mail")
 
             // — Organisme —
             val hostOrganization   = lbl(orgSection, "Nom")
             val hostAddress        = lbl(orgSection, "Adresse postale")
             val hostRepresentative = lbl(orgSection, "Représenté par")
             val supervisorQuality  = lbl(orgSection, "Qualité du maître de stage")
-            val hostPhone          = lbl(orgSection, "Tel")
-            val hostEmail          = lbl(orgSection, "Courriel")
+            // "Tel" peut être écrit "Tél" ou "Téléphone" selon la version du document ;
+            // si absent de la section 2, on le cherche dans la sous-section maître de stage.
+            val hostPhone = lbl(orgSection, """T[eé]l(?:[eé]phone)?""")
+                .ifBlank { lbl(supervisorSub, """T[eé]l(?:[eé]phone)?""") }
+            val hostEmail = lbl(orgSection, "Courriel|E-?mail")
+                .ifBlank { lbl(supervisorSub, "Courriel|E-?mail") }
 
             // — École —
             val schoolContact = lbl(ecoleSection, "Personne contact")
@@ -46,10 +52,9 @@ object ConventionPdfParser {
             val tutorName     = lbl(encadSection, """Nom et prénom de l'enseignant tuteur""")
             val tutorFunction = lbl(encadSection, "Fonction et discipline")
             val tutorSub      = section(encadSection, "Enseignant tuteur", "Maître de stage au sein")
-            val tutorPhone    = lbl(tutorSub, "Tel")
-            val tutorEmail    = lbl(tutorSub, "Courriel")
-            val supervisorName = lbl(encadSection, """Nom et prénom du maître de stage""")
-            val supervisorSub  = section(encadSection, "Maître de stage au sein", "")
+            val tutorPhone    = lbl(tutorSub, """T[eé]l(?:[eé]phone)?""")
+            val tutorEmail    = lbl(tutorSub, "Courriel|E-?mail")
+            val supervisorName     = lbl(encadSection, """Nom et prénom du maître de stage""")
             val supervisorFunction = lbl(supervisorSub, "Fonction")
 
             // — Période —
