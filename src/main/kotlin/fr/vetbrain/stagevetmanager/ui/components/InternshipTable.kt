@@ -8,12 +8,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,6 +58,25 @@ fun InternshipTable(
     modifier: Modifier = Modifier,
     onSelectInternship: ((Internship) -> Unit)? = null,
 ) {
+    var cancelInternship by remember { mutableStateOf<Internship?>(null) }
+    val cancelInternshipValue = cancelInternship
+    if (cancelInternshipValue != null) {
+        AlertDialog(
+            onDismissRequest = { cancelInternship = null },
+            title = { Text("Annuler la convention ?") },
+            text  = { Text("Cette action annulera la convention de ${cancelInternshipValue.studentName} sur stagevet.fr.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    openInBrowser(cancelInternshipValue.conventionCancelUrl)
+                    cancelInternship = null
+                }) { Text("Annuler la convention", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { cancelInternship = null }) { Text("Garder") }
+            },
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         // Header row
         Row(
@@ -141,28 +161,35 @@ fun InternshipTable(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (internship.signingDate != null) {
-                                Icon(
-                                    Icons.Default.CheckCircle,
+                                Icon(Icons.Default.CheckCircle,
                                     contentDescription = "Convention signée",
                                     modifier = Modifier.size(14.dp),
-                                    tint = Color(0xFF2E7D32),
-                                )
+                                    tint = Color(0xFF2E7D32))
                             }
                             if (internship.conventionPdfUrl.isNotEmpty()) {
-                                Icon(
-                                    Icons.Default.Description,
+                                Icon(Icons.Default.Description,
                                     contentDescription = "Voir la convention PDF",
                                     modifier = Modifier.size(14.dp).clickable { openInBrowser(internship.conventionPdfUrl) },
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
+                                    tint = MaterialTheme.colorScheme.primary)
                             }
-                            if (internship.conventionSignUrl.isNotEmpty()) {
-                                Icon(
-                                    Icons.Default.Edit,
+                            // Signe : fallback sur conventionSignUrl (pas de cache PDF ici)
+                            if (internship.conventionSignUrl.isNotEmpty() && internship.signingDate == null) {
+                                Icon(Icons.Default.Edit,
                                     contentDescription = "Signer la convention",
                                     modifier = Modifier.size(14.dp).clickable { openInBrowser(internship.conventionSignUrl) },
-                                    tint = Color(0xFFE65100),
-                                )
+                                    tint = Color(0xFFE65100))
+                            }
+                            if (internship.conventionCancelUrl.isNotEmpty()) {
+                                Icon(Icons.Default.Cancel,
+                                    contentDescription = "Annuler la convention",
+                                    modifier = Modifier.size(14.dp).clickable { cancelInternship = internship },
+                                    tint = MaterialTheme.colorScheme.error)
+                            }
+                            if (internship.inSuiviTable) {
+                                Icon(Icons.Default.CheckCircle,
+                                    contentDescription = "Dans le tableau de suivi",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFF1565C0))
                             }
                         }
                     }

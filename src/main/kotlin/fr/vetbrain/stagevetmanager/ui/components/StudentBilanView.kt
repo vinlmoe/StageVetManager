@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
@@ -46,6 +47,7 @@ fun StudentBilanView(
     modifier: Modifier = Modifier,
     pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     onSelectInternship: ((Internship) -> Unit)? = null,
+    onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
     val bilans = remember(internships) {
         internships.groupBy { it.studentName.trim() }
@@ -66,8 +68,26 @@ fun StudentBilanView(
     }
 
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
-    // Stage en attente de signature avec incohérence détectée
-    var signAlertStage by remember { mutableStateOf<Internship?>(null) }
+    var signAlertStage  by remember { mutableStateOf<Internship?>(null) }
+    var cancelAlertStage by remember { mutableStateOf<Internship?>(null) }
+
+    val cancelAlertStageValue = cancelAlertStage
+    if (cancelAlertStageValue != null) {
+        AlertDialog(
+            onDismissRequest = { cancelAlertStage = null },
+            title = { Text("Annuler la convention ?") },
+            text  = { Text("Cette action annulera la convention de ${cancelAlertStageValue.studentName} sur stagevet.fr.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    openInBrowser(cancelAlertStageValue.conventionCancelUrl)
+                    cancelAlertStage = null
+                }) { Text("Annuler la convention", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { cancelAlertStage = null }) { Text("Garder") }
+            },
+        )
+    }
     val signAlertStageValue = signAlertStage
     if (signAlertStageValue != null) {
         val pdf = pdfDataCache[signAlertStageValue.conventionPdfUrl]
@@ -278,6 +298,35 @@ fun StudentBilanView(
                                                    else Color(0xFFE65100),
                                         )
                                         SignUrgencyBadge(stage.startDate, iconSize = 13)
+                                    }
+                                    if (stage.conventionCancelUrl.isNotEmpty()) {
+                                        Icon(
+                                            Icons.Default.Cancel,
+                                            contentDescription = "Annuler la convention",
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                cancelAlertStage = stage
+                                            },
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                    if (stage.inSuiviTable) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Dans le tableau de suivi",
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                onToggleSuivi?.invoke(stage, false)
+                                            },
+                                            tint = Color(0xFF1565C0),
+                                        )
+                                    } else if (onToggleSuivi != null) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Marquer dans le tableau de suivi",
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                onToggleSuivi.invoke(stage, true)
+                                            },
+                                            tint = Color.LightGray,
+                                        )
                                     }
                                 }
                             }

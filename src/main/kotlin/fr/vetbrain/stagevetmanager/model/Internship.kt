@@ -16,6 +16,8 @@ data class Internship(
     val theme: String,
     val conventionPdfUrl: String = "",
     val conventionSignUrl: String = "",
+    val conventionCancelUrl: String = "",
+    val inSuiviTable: Boolean = false,
 ) {
     fun matchesText(query: String): Boolean {
         if (query.isBlank()) return true

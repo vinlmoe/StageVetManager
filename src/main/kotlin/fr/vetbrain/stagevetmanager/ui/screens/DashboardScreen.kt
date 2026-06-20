@@ -193,6 +193,7 @@ fun DashboardScreen(
                         vm.selectInternship(internship)
                         displayMode = DisplayMode.DETAIL
                     },
+                    onToggleSuivi = { internship, checked -> vm.toggleSuivi(internship, checked) },
                 )
                 DisplayMode.DETAIL -> {
                     val internship = selectedInternship
@@ -203,6 +204,7 @@ fun DashboardScreen(
                             isPdfLoading = isPdfLoading,
                             canDownloadPdf = vm.hasSessionCookies,
                             onDownloadPdf = { vm.downloadConventionPdf(internship.conventionPdfUrl) },
+                            onToggleSuivi = { checked -> vm.toggleSuivi(internship, checked) },
                             modifier = Modifier.weight(1f),
                         )
                     }

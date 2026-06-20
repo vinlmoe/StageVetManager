@@ -50,6 +50,10 @@ object DashboardParser {
             ?.attr("href") ?: ""
         val conventionSignUrl = card.selectFirst("a.btn-success[href*='/signature/']")
             ?.attr("href") ?: ""
+        // Bouton d'annulation : généralement btn-danger ou lien contenant "annul"/"supprimer"
+        val conventionCancelUrl = card.selectFirst(
+            "a.btn-danger, a[href*='annul'], a[href*='supprimer']"
+        )?.attr("href") ?: ""
 
         val signingDate = signingDateStr?.let { parseDate(it) }
         val (startDate, endDate) = parseDateRange(rawDateStage)
@@ -68,6 +72,7 @@ object DashboardParser {
             theme = theme,
             conventionPdfUrl = conventionPdfUrl,
             conventionSignUrl = conventionSignUrl,
+            conventionCancelUrl = conventionCancelUrl,
         )
     }
 

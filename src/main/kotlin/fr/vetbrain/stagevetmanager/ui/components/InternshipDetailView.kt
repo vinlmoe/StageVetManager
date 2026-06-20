@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
@@ -36,9 +37,28 @@ fun InternshipDetailView(
     isPdfLoading: Boolean,
     canDownloadPdf: Boolean,
     onDownloadPdf: () -> Unit,
+    onToggleSuivi: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showSignAlert by remember { mutableStateOf(false) }
+    var showSignAlert   by remember { mutableStateOf(false) }
+    var showCancelAlert by remember { mutableStateOf(false) }
+
+    if (showCancelAlert) {
+        AlertDialog(
+            onDismissRequest = { showCancelAlert = false },
+            title = { Text("Annuler la convention ?") },
+            text  = { Text("Cette action annulera la convention sur stagevet.fr. Elle est irréversible depuis l'application.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelAlert = false
+                    openUrl(internship.conventionCancelUrl)
+                }) { Text("Annuler la convention", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelAlert = false }) { Text("Garder") }
+            },
+        )
+    }
     if (showSignAlert && pdfData != null) {
         SignInconsistencyDialog(
             sundayPresence = pdfData.sundayPresence,
@@ -144,6 +164,38 @@ fun InternshipDetailView(
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     Text("Téléchargement…", fontSize = 12.sp, color = Color.Gray)
                 }
+                if (internship.conventionCancelUrl.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = { showCancelAlert = true },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Icon(Icons.Default.Cancel, null, Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(4.dp))
+                        Text("Annuler", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+
+        // ── Suivi administratif ───────────────────────────────────────────
+        DetailCard(title = "Suivi administratif") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Checkbox(
+                    checked = internship.inSuiviTable,
+                    onCheckedChange = onToggleSuivi,
+                )
+                Text(
+                    "Enregistré dans le tableau de suivi",
+                    fontSize = 13.sp,
+                    color = if (internship.inSuiviTable)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        Color.Gray,
+                )
             }
         }
 
