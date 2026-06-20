@@ -57,6 +57,7 @@ fun InternshipTable(
     onSort: (SortColumn) -> Unit,
     modifier: Modifier = Modifier,
     onSelectInternship: ((Internship) -> Unit)? = null,
+    onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
     var cancelInternship by remember { mutableStateOf<Internship?>(null) }
     val cancelInternshipValue = cancelInternship
@@ -188,8 +189,13 @@ fun InternshipTable(
                             if (internship.inSuiviTable) {
                                 Icon(Icons.Default.CheckCircle,
                                     contentDescription = "Dans le tableau de suivi",
-                                    modifier = Modifier.size(14.dp),
+                                    modifier = Modifier.size(14.dp).clickable { onToggleSuivi?.invoke(internship, false) },
                                     tint = Color(0xFF1565C0))
+                            } else if (onToggleSuivi != null) {
+                                Icon(Icons.Default.CheckCircle,
+                                    contentDescription = "Marquer dans le tableau de suivi",
+                                    modifier = Modifier.size(14.dp).clickable { onToggleSuivi.invoke(internship, true) },
+                                    tint = Color.LightGray)
                             }
                         }
                     }

@@ -1,7 +1,7 @@
 package fr.vetbrain.stagevetmanager.model
 
 data class ScrapeFilters(
-    val periode: String = "1",
+    val periode: String = "",
     val anneeEtude: String = "",
     val theme: String = "",
     val status: String = "",
