@@ -95,6 +95,7 @@ fun StudentBilanView(
         SignInconsistencyDialog(
             sundayPresence = pdf?.sundayPresence == true,
             holidayPresence = pdf?.holidayPresence == true,
+            hasWeeklyRestDay = pdf?.hasWeeklyRestDay,
             onConfirm = {
                 openInBrowser(signAlertStageValue.conventionSignUrl)
                 signAlertStage = null
@@ -286,7 +287,7 @@ fun StudentBilanView(
                                         stage.conventionSignUrl.isNotEmpty()
                                     if (schoolNotSigned && preSignaturesDone) {
                                         val hasInconsistency = pdf != null &&
-                                            (pdf.sundayPresence || pdf.holidayPresence)
+                                            (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                                         TipIcon(
                                             tip = if (hasInconsistency)
                                                 "Signer la convention (incohérence détectée)"
@@ -375,12 +376,14 @@ private fun TipIcon(
 internal fun SignInconsistencyDialog(
     sundayPresence: Boolean,
     holidayPresence: Boolean,
+    hasWeeklyRestDay: Boolean? = null,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val warnings = listOfNotNull(
         "présence le dimanche".takeIf { sundayPresence },
         "présence un jour férié".takeIf { holidayPresence },
+        "absence de jour de repos hebdomadaire".takeIf { hasWeeklyRestDay == false },
     )
     AlertDialog(
         onDismissRequest = onDismiss,

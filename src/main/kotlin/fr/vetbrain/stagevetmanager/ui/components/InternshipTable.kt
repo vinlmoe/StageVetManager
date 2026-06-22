@@ -88,6 +88,7 @@ fun InternshipTable(
         SignInconsistencyDialog(
             sundayPresence = pdf?.sundayPresence == true,
             holidayPresence = pdf?.holidayPresence == true,
+            hasWeeklyRestDay = pdf?.hasWeeklyRestDay,
             onConfirm = {
                 openInBrowser(signValue.conventionSignUrl)
                 signAlertInternship = null
@@ -203,7 +204,7 @@ fun InternshipTable(
                                 internship.conventionSignUrl.isNotEmpty()
                             if (schoolNotSigned && preSignaturesDone) {
                                 val hasInconsistency = pdf != null &&
-                                    (pdf.sundayPresence || pdf.holidayPresence)
+                                    (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                                 TipIcon(
                                     tip = if (hasInconsistency)
                                         "Signer la convention (incohérence détectée)"

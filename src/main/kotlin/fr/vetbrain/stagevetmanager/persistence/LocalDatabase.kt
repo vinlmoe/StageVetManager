@@ -103,6 +103,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE pdf_data ADD COLUMN signing_date_school TEXT"
                 )
             }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data ADD COLUMN has_weekly_rest_day INTEGER"
+                )
+            }
 
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS pdf_data (
@@ -141,7 +146,8 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     signing_date_tutor   TEXT,
                     signing_date_student TEXT,
                     signing_date_host    TEXT,
-                    signing_date_school  TEXT
+                    signing_date_school  TEXT,
+                    has_weekly_rest_day  INTEGER
                 )
             """.trimIndent())
         }
@@ -311,8 +317,9 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     academic_year, start_date, end_date, duration_label,
                     night_presence, sunday_presence, holiday_presence, home_presence,
                     theme, gratification,
-                    signing_date_tutor, signing_date_student, signing_date_host, signing_date_school
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    signing_date_tutor, signing_date_student, signing_date_host, signing_date_school,
+                    has_weekly_rest_day
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, data.sourceUrl)
                 stmt.setString(2, now)
@@ -350,6 +357,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                 stmt.setString(34, data.signingDateStudent)
                 stmt.setString(35, data.signingDateHost)
                 stmt.setString(36, data.signingDateSchool)
+                when (data.hasWeeklyRestDay) {
+                    true  -> stmt.setInt(37, 1)
+                    false -> stmt.setInt(37, 0)
+                    null  -> stmt.setNull(37, java.sql.Types.INTEGER)
+                }
                 stmt.executeUpdate()
             }
         }
@@ -398,6 +410,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         signingDateStudent = rs.getString("signing_date_student") ?: "",
                         signingDateHost    = rs.getString("signing_date_host") ?: "",
                         signingDateSchool  = rs.getString("signing_date_school") ?: "",
+                        hasWeeklyRestDay   = rs.getString("has_weekly_rest_day")?.let { it != "0" },
                     ))
                 }
             }
