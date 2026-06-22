@@ -17,10 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import fr.vetbrain.stagevetmanager.model.FilterOption
 import fr.vetbrain.stagevetmanager.model.LocalFilters
 import fr.vetbrain.stagevetmanager.model.ScrapeFilterOptions
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,11 +44,13 @@ fun FilterBar(
     onExport: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
-    onExportTracking: () -> Unit,
+    trackingTargets: List<TrackingTarget>,
+    onExportTracking: (List<TrackingTarget>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showScrapeDialog    by remember { mutableStateOf(false) }
     var showOneDriveDialog  by remember { mutableStateOf(false) }
+    var showTrackingDialog  by remember { mutableStateOf(false) }
     var dialogFilters       by remember { mutableStateOf(ScrapeFilters()) }
 
     // ── Dialog d'extraction ────────────────────────────────────────────────
@@ -176,6 +180,65 @@ fun FilterBar(
         )
     }
 
+    // ── Dialogue sélection tableaux de suivi ──────────────────────────────
+    if (showTrackingDialog) {
+        var selected by remember(trackingTargets) { mutableStateOf(trackingTargets.map { true }) }
+        AlertDialog(
+            onDismissRequest = { showTrackingDialog = false },
+            title = { Text("Mise à jour tableaux de suivi ER") },
+            text = {
+                if (trackingTargets.isEmpty()) {
+                    Text("Aucun tableau de suivi configuré. Ajoutez-en un dans Paramètres.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        trackingTargets.forEachIndexed { index, target ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = selected.getOrElse(index) { false },
+                                    onCheckedChange = { checked ->
+                                        selected = selected.toMutableList().also { it[index] = checked }
+                                    },
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Column {
+                                    Text(
+                                        target.yearLabel.ifBlank { "Tous les stages" },
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 13.sp,
+                                    )
+                                    Text(
+                                        target.filePath,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val chosen = trackingTargets.filterIndexed { i, _ -> selected.getOrElse(i) { false } }
+                        if (chosen.isNotEmpty()) {
+                            showTrackingDialog = false
+                            onExportTracking(chosen)
+                        }
+                    },
+                    enabled = !isLoading && trackingTargets.isNotEmpty() && selected.any { it },
+                ) {
+                    Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Mettre à jour")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTrackingDialog = false }) { Text("Annuler") }
+            },
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -244,7 +307,7 @@ fun FilterBar(
             }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
-                onClick = onExportTracking,
+                onClick = { showTrackingDialog = true },
                 enabled = !isLoading && count > 0,
             ) {
                 Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(18.dp))

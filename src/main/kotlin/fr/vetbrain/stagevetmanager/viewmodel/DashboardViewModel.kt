@@ -6,6 +6,7 @@ import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.LocalFilters
 import fr.vetbrain.stagevetmanager.model.ScrapeFilterOptions
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
@@ -308,32 +309,43 @@ class DashboardViewModel {
         launchOneDriveExport(clientId, remotePath, complement = true)
     }
 
-    fun exportToOneDriveTracking(clientId: String, trackingPath: String) {
+    fun exportToOneDriveTracking(clientId: String, targets: List<TrackingTarget>) {
         if (clientId.isBlank()) {
             errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
             return
         }
-        if (trackingPath.isBlank()) {
-            errorMessage.value = "Chemin du tableau de suivi non configuré — allez dans Paramètres"
+        if (targets.isEmpty()) {
+            errorMessage.value = "Aucun tableau de suivi configuré — allez dans Paramètres"
             return
         }
         if (isLoading.value) return
         scope.launch {
             isLoading.value = true
             errorMessage.value = null
-            statusMessage.value = "Mise à jour du tableau de suivi ER…"
+            statusMessage.value = "Mise à jour du/des tableau(x) de suivi ER…"
             withContext(Dispatchers.IO) {
                 try {
                     val auth  = OneDriveAuthClient(clientId)
                     val token = auth.acquireToken { code ->
                         scope.launch(Dispatchers.Main) { statusMessage.value = code }
                     }
-                    val result = OneDriveTrackingUpdater(token).update(allInternships.value, trackingPath)
-                    scope.launch(Dispatchers.Main) {
-                        statusMessage.value = "${result.matched} stage(s) mis à jour dans le tableau de suivi"
-                        if (result.warnings.isNotEmpty()) {
-                            trackingWarnings.value = result.warnings
+                    val updater = OneDriveTrackingUpdater(token)
+                    val allWarnings = mutableListOf<String>()
+                    var totalMatched = 0
+                    for (target in targets) {
+                        val filtered = internshipsForYear(target.yearLabel)
+                        val label = target.yearLabel.ifBlank { "tous" }
+                        scope.launch(Dispatchers.Main) {
+                            statusMessage.value = "Mise à jour « $label » (${target.filePath.substringAfterLast('/')})…"
                         }
+                        val result = updater.update(filtered, target.filePath)
+                        totalMatched += result.matched
+                        val prefix = if (target.yearLabel.isBlank()) "" else "[${target.yearLabel}] "
+                        allWarnings.addAll(result.warnings.map { "$prefix$it" })
+                    }
+                    scope.launch(Dispatchers.Main) {
+                        statusMessage.value = "$totalMatched stage(s) mis à jour dans ${targets.size} tableau(x) de suivi"
+                        if (allWarnings.isNotEmpty()) trackingWarnings.value = allWarnings
                     }
                 } catch (e: Exception) {
                     scope.launch(Dispatchers.Main) {
@@ -343,6 +355,14 @@ class DashboardViewModel {
                 }
             }
             isLoading.value = false
+        }
+    }
+
+    private fun internshipsForYear(yearLabel: String): List<Internship> {
+        if (yearLabel.isBlank()) return allInternships.value
+        return allInternships.value.filter { s ->
+            s.studyYear.trimStart().startsWith(yearLabel) ||
+                s.studyYear.contains(yearLabel, ignoreCase = true)
         }
     }
 

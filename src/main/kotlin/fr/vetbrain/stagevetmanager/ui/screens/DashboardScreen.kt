@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
@@ -31,12 +32,13 @@ private enum class DisplayMode { INTERNSHIPS, BILAN, DETAIL }
 fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
+    trackingTargets: List<TrackingTarget>,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
-    onExportTracking: () -> Unit,
+    onExportTracking: (List<TrackingTarget>) -> Unit,
 ) {
     val displayed      by vm.displayed.collectAsState()
     val filterText     by vm.filterText.collectAsState()
@@ -175,6 +177,7 @@ fun DashboardScreen(
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,
                 onExportOneDriveComplement = onExportOneDriveComplement,
+                trackingTargets = trackingTargets,
                 onExportTracking = onExportTracking,
                 onExport = {
                     val filename = vm.suggestedExportFileName()
