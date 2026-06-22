@@ -1,6 +1,9 @@
 package fr.vetbrain.stagevetmanager.ui
 
 import androidx.compose.runtime.*
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
+import fr.vetbrain.stagevetmanager.model.deserializeTrackingTargets
+import fr.vetbrain.stagevetmanager.model.serializeTrackingTargets
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import fr.vetbrain.stagevetmanager.ui.screens.DashboardScreen
 import fr.vetbrain.stagevetmanager.ui.screens.LoginScreen
@@ -31,6 +34,18 @@ fun App() {
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
+    // Migration : ancien paramètre unique → liste de cibles
+    var trackingTargets by remember {
+        val stored = prefs.get("trackingTargets", "")
+        val legacy  = prefs.get("trackingFilePath", "")
+        mutableStateOf(
+            when {
+                stored.isNotBlank() -> deserializeTrackingTargets(stored)
+                legacy.isNotBlank() -> listOf(TrackingTarget("", legacy))
+                else                -> emptyList()
+            }
+        )
+    }
 
     val vm = remember { DashboardViewModel() }
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
@@ -52,6 +67,7 @@ fun App() {
             Screen.DASHBOARD -> DashboardScreen(
                 vm = vm,
                 exportDir = exportDir,
+                trackingTargets = trackingTargets,
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onLogout = {
                     vm.allInternships.value = emptyList()
@@ -62,6 +78,12 @@ fun App() {
                 },
                 onExportOneDrive = {
                     vm.exportToOneDrive(azureClientId, oneDrivePath)
+                },
+                onExportOneDriveComplement = {
+                    vm.exportToOneDriveComplement(azureClientId, oneDrivePath)
+                },
+                onExportTracking = { targets ->
+                    vm.exportToOneDriveTracking(azureClientId, targets)
                 },
             )
 
@@ -90,6 +112,11 @@ fun App() {
                 onOneDrivePathChange = {
                     oneDrivePath = it
                     prefs.put("oneDrivePath", it)
+                },
+                trackingTargets = trackingTargets,
+                onTrackingTargetsChange = { targets ->
+                    trackingTargets = targets
+                    prefs.put("trackingTargets", serializeTrackingTargets(targets))
                 },
                 onSignOutOneDrive = { vm.signOutOneDrive(azureClientId) },
                 onBack = { screen = if (vm.allInternships.value.isEmpty()) Screen.LOGIN else Screen.DASHBOARD },

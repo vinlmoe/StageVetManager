@@ -92,6 +92,22 @@ class DashboardParserTest {
     }
 
     @Test
+    fun `durationLabel is parsed from fourth ul li element`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals("4 semaines", results[0].durationLabel)
+    }
+
+    @Test
+    fun `durationLabel is empty when duration ul is absent`() {
+        val html = fixtureHtml.replace(
+            "<ul><li>Durée : 4 semaines</li></ul>",
+            ""
+        )
+        val results = DashboardParser.parse(html)
+        assertEquals("", results[0].durationLabel)
+    }
+
+    @Test
     fun `conventionPdfUrl is extracted from btn-success link without signature`() {
         val results = DashboardParser.parse(fixtureHtml)
         assertEquals(

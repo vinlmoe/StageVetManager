@@ -46,6 +46,11 @@ object DashboardParser {
             ?.removePrefix(":")
             ?.trim() ?: ""
 
+        val durationLabel = card.select("ul:nth-of-type(4) li").firstOrNull()
+            ?.text()?.trim()
+            ?.takeIf { it.startsWith("Durée") }
+            ?.substringAfter(":")?.trim() ?: ""
+
         val conventionPdfUrl = card.selectFirst("a.btn-success[href*='/convention/pdf/']:not([href*='/signature/'])")
             ?.attr("href") ?: ""
         val conventionSignUrl = card.selectFirst("a.btn-success[href*='/signature/']")
@@ -74,6 +79,7 @@ object DashboardParser {
             conventionPdfUrl = conventionPdfUrl,
             conventionSignUrl = conventionSignUrl,
             conventionCancelUrl = conventionCancelUrl,
+            durationLabel = durationLabel,
         )
     }
 

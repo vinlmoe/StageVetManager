@@ -5,12 +5,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +30,8 @@ fun SettingsScreen(
     oneDrivePath: String,
     onAzureClientIdChange: (String) -> Unit,
     onOneDrivePathChange: (String) -> Unit,
+    trackingTargets: List<TrackingTarget>,
+    onTrackingTargetsChange: (List<TrackingTarget>) -> Unit,
     onSignOutOneDrive: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -117,7 +122,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = oneDrivePath,
                 onValueChange = onOneDrivePathChange,
-                label = { Text("Chemin OneDrive (relatif à la racine)") },
+                label = { Text("Chemin export principal (relatif à la racine OneDrive)") },
                 placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -133,6 +138,70 @@ fun SettingsScreen(
 
             OutlinedButton(onClick = onSignOutOneDrive) {
                 Text("Se déconnecter de Microsoft", fontSize = 13.sp)
+            }
+
+            HorizontalDivider()
+
+            // --- Tableaux de suivi ER ---
+            Text("Tableaux de suivi ER", style = MaterialTheme.typography.titleMedium)
+
+            Text(
+                "Configurez un tableau par année d'étude. L'étiquette filtre les stages correspondants " +
+                    "(ex : « 3 » ou « 3ème » filtre les stages dont l'année commence par cette valeur). " +
+                    "Laissez l'étiquette vide pour inclure tous les stages.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            trackingTargets.forEachIndexed { index, target ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = target.yearLabel,
+                        onValueChange = { newLabel ->
+                            onTrackingTargetsChange(
+                                trackingTargets.toMutableList().also { it[index] = target.copy(yearLabel = newLabel) }
+                            )
+                        },
+                        label = { Text("Année (ex: 3)", fontSize = 11.sp) },
+                        placeholder = { Text("Tous") },
+                        singleLine = true,
+                        modifier = Modifier.width(130.dp),
+                    )
+                    OutlinedTextField(
+                        value = target.filePath,
+                        onValueChange = { newPath ->
+                            onTrackingTargetsChange(
+                                trackingTargets.toMutableList().also { it[index] = target.copy(filePath = newPath) }
+                            )
+                        },
+                        label = { Text("Chemin OneDrive", fontSize = 11.sp) },
+                        placeholder = { Text("Documents/StageVet/suivi_3eme.xlsx") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = {
+                            onTrackingTargetsChange(trackingTargets.filterIndexed { i, _ -> i != index })
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = { onTrackingTargetsChange(trackingTargets + TrackingTarget("", "")) },
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Ajouter un tableau", fontSize = 13.sp)
             }
 
             HorizontalDivider()

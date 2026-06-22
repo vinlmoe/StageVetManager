@@ -1,6 +1,8 @@
 package fr.vetbrain.stagevetmanager.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -12,10 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
-import fr.vetbrain.stagevetmanager.ui.components.ScrapeFiltersPanel
 import fr.vetbrain.stagevetmanager.ui.components.StatusBar
 import fr.vetbrain.stagevetmanager.ui.components.StudentBilanView
 import fr.vetbrain.stagevetmanager.viewmodel.DashboardViewModel
@@ -30,28 +32,56 @@ private enum class DisplayMode { INTERNSHIPS, BILAN, DETAIL }
 fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
+    trackingTargets: List<TrackingTarget>,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
     onExportOneDrive: () -> Unit,
+    onExportOneDriveComplement: () -> Unit,
+    onExportTracking: (List<TrackingTarget>) -> Unit,
 ) {
-    val displayed     by vm.displayed.collectAsState()
-    val filterText    by vm.filterText.collectAsState()
-    val activeFilter  by vm.activeFilter.collectAsState()
-    val isLoading     by vm.isLoading.collectAsState()
-    val status        by vm.statusMessage.collectAsState()
-    val error         by vm.errorMessage.collectAsState()
-    val sortCol       by vm.sortColumn.collectAsState()
-    val sortAsc       by vm.sortAscending.collectAsState()
-    val scrapeFilters by vm.scrapeFilters.collectAsState()
-    val dbCount       by vm.dbCount.collectAsState()
-    val isPdfLoading  by vm.isPdfLoading.collectAsState()
+    val displayed      by vm.displayed.collectAsState()
+    val filterText     by vm.filterText.collectAsState()
+    val activeFilter   by vm.activeFilter.collectAsState()
+    val isLoading      by vm.isLoading.collectAsState()
+    val status         by vm.statusMessage.collectAsState()
+    val error          by vm.errorMessage.collectAsState()
+    val sortCol        by vm.sortColumn.collectAsState()
+    val sortAsc        by vm.sortAscending.collectAsState()
+    val scrapeFilters  by vm.scrapeFilters.collectAsState()
+    val localFilters   by vm.localFilters.collectAsState()
+    val trackingWarnings by vm.trackingWarnings.collectAsState()
+    val dbCount        by vm.dbCount.collectAsState()
+    val isPdfLoading   by vm.isPdfLoading.collectAsState()
     val selectedInternship by vm.selectedInternship.collectAsState()
     val pdfDataCache       by vm.pdfDataCache.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     var showClearDialog by remember { mutableStateOf(false) }
     var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+
+    if (trackingWarnings.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { vm.clearTrackingWarnings() },
+            title = { Text("Tableau de suivi — avertissements") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "${trackingWarnings.size} entrée(s) n'ont pas pu être mises à jour " +
+                            "(cellules laissées intactes) :",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    trackingWarnings.forEach { warning ->
+                        Text("• $warning", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.clearTrackingWarnings() }) { Text("OK") }
+            },
+        )
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -92,7 +122,6 @@ fun DashboardScreen(
                 },
                 actions = {
                     if (displayMode != DisplayMode.DETAIL) {
-                        // Bascule liste ↔ bilan
                         IconButton(onClick = {
                             displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
                                 DisplayMode.BILAN else DisplayMode.INTERNSHIPS
@@ -132,24 +161,24 @@ fun DashboardScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ScrapeFiltersPanel(
-                filters = scrapeFilters,
-                onFiltersChange = vm::setScrapeFilters,
-            )
-
-            HorizontalDivider()
-
             FilterBar(
                 filterText = filterText,
                 activeFilter = activeFilter,
                 count = displayed.size,
                 dbCount = dbCount,
                 isLoading = isLoading,
+                scrapeFilters = scrapeFilters,
+                localFilters = localFilters,
                 onTextChange = vm::setFilter,
                 onViewChange = vm::setView,
-                onRefresh = onRequestScrape,
+                onScrapeFiltersChange = vm::setScrapeFilters,
+                onLocalFiltersChange = vm::setLocalFilters,
+                onRequestScrape = onRequestScrape,
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,
+                onExportOneDriveComplement = onExportOneDriveComplement,
+                trackingTargets = trackingTargets,
+                onExportTracking = onExportTracking,
                 onExport = {
                     val filename = vm.suggestedExportFileName()
                     val dir = exportDir.ifBlank { System.getProperty("user.home") }
