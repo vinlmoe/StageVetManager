@@ -64,7 +64,7 @@ object ExcelExporter {
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
             "Début stage", "Fin stage", "Dates brutes", "Thème",
-            "URL Convention PDF", "URL Signature"
+            "URL Convention PDF", "URL Signature", "Durée"
         )
 
         val headerRow = sheet.createRow(0)
@@ -90,6 +90,7 @@ object ExcelExporter {
             row.createCell(10).setCellValue(s.theme)
             row.createCell(11).setCellValue(s.conventionPdfUrl)
             row.createCell(12).setCellValue(s.conventionSignUrl)
+            row.createCell(13).setCellValue(s.durationLabel)
         }
 
         headers.indices.forEach { sheet.autoSizeColumn(it) }

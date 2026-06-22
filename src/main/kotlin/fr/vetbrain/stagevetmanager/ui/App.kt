@@ -31,6 +31,7 @@ fun App() {
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
+    var trackingFilePath by remember { mutableStateOf(prefs.get("trackingFilePath", "")) }
 
     val vm = remember { DashboardViewModel() }
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
@@ -66,6 +67,9 @@ fun App() {
                 onExportOneDriveComplement = {
                     vm.exportToOneDriveComplement(azureClientId, oneDrivePath)
                 },
+                onExportTracking = {
+                    vm.exportToOneDriveTracking(azureClientId, trackingFilePath)
+                },
             )
 
             Screen.SETTINGS -> SettingsScreen(
@@ -93,6 +97,11 @@ fun App() {
                 onOneDrivePathChange = {
                     oneDrivePath = it
                     prefs.put("oneDrivePath", it)
+                },
+                trackingFilePath = trackingFilePath,
+                onTrackingFilePathChange = {
+                    trackingFilePath = it
+                    prefs.put("trackingFilePath", it)
                 },
                 onSignOutOneDrive = { vm.signOutOneDrive(azureClientId) },
                 onBack = { screen = if (vm.allInternships.value.isEmpty()) Screen.LOGIN else Screen.DASHBOARD },

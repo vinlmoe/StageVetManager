@@ -49,6 +49,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     convention_pdf_url    TEXT,
                     convention_sign_url  TEXT,
                     convention_cancel_url TEXT,
+                    duration_label       TEXT,
                     in_suivi_table       INTEGER DEFAULT 0,
                     created_at           TEXT NOT NULL,
                     last_seen            TEXT NOT NULL
@@ -72,6 +73,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN in_suivi_table INTEGER DEFAULT 0"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN duration_label TEXT"
                 )
             }
 
@@ -156,8 +162,8 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                          convention_number, convention_gen_date, signing_date,
                          start_date, end_date, raw_date_stage, theme,
                          convention_pdf_url, convention_sign_url, convention_cancel_url,
-                         in_suivi_table, created_at, last_seen)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         duration_label, in_suivi_table, created_at, last_seen)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """.trimIndent())
                 val updateStmt = conn.prepareStatement("""
                     UPDATE internships
@@ -165,7 +171,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         convention_number=?, convention_gen_date=?, signing_date=?,
                         start_date=?, end_date=?, raw_date_stage=?, theme=?,
                         convention_pdf_url=?, convention_sign_url=?, convention_cancel_url=?,
-                        last_seen=?
+                        duration_label=?, last_seen=?
                     WHERE id=?
                 """.trimIndent())
 
@@ -190,10 +196,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(12, s.conventionPdfUrl)
                             setString(13, s.conventionSignUrl)
                             setString(14, s.conventionCancelUrl)
+                            setString(15, s.durationLabel)
                             // in_suivi_table intentionnellement absent : annotation locale,
                             // jamais écrasée par le scraper
-                            setString(15, now)
-                            setString(16, id)
+                            setString(16, now)
+                            setString(17, id)
                             executeUpdate()
                         }
                         updated++
@@ -214,9 +221,10 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                             setString(13, s.conventionPdfUrl)
                             setString(14, s.conventionSignUrl)
                             setString(15, s.conventionCancelUrl)
-                            setInt(16, 0) // in_suivi_table = false pour les nouveaux stages
-                            setString(17, now)
+                            setString(16, s.durationLabel)
+                            setInt(17, 0) // in_suivi_table = false pour les nouveaux stages
                             setString(18, now)
+                            setString(19, now)
                             executeUpdate()
                         }
                         added++
@@ -255,6 +263,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         conventionPdfUrl  = rs.getString("convention_pdf_url") ?: "",
                         conventionSignUrl = rs.getString("convention_sign_url") ?: "",
                         conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
+                        durationLabel    = rs.getString("duration_label") ?: "",
                         inSuiviTable     = rs.getInt("in_suivi_table") == 1,
                     ))
                 }

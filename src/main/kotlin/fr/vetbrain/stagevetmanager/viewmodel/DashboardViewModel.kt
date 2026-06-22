@@ -9,6 +9,7 @@ import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
 import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
+import fr.vetbrain.stagevetmanager.onedrive.OneDriveTrackingUpdater
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.persistence.localId
@@ -44,6 +45,7 @@ class DashboardViewModel {
     val sortColumn      = MutableStateFlow(SortColumn.STUDENT)
     val sortAscending   = MutableStateFlow(true)
     val dbCount         = MutableStateFlow(0)
+    val trackingWarnings = MutableStateFlow<List<String>>(emptyList())
 
     // — PDF extraction ————————————————————————————————————————————————————
     val selectedPdfData = MutableStateFlow<ConventionPdfData?>(null)
@@ -305,6 +307,46 @@ class DashboardViewModel {
     fun exportToOneDriveComplement(clientId: String, remotePath: String) {
         launchOneDriveExport(clientId, remotePath, complement = true)
     }
+
+    fun exportToOneDriveTracking(clientId: String, trackingPath: String) {
+        if (clientId.isBlank()) {
+            errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
+            return
+        }
+        if (trackingPath.isBlank()) {
+            errorMessage.value = "Chemin du tableau de suivi non configuré — allez dans Paramètres"
+            return
+        }
+        if (isLoading.value) return
+        scope.launch {
+            isLoading.value = true
+            errorMessage.value = null
+            statusMessage.value = "Mise à jour du tableau de suivi ER…"
+            withContext(Dispatchers.IO) {
+                try {
+                    val auth  = OneDriveAuthClient(clientId)
+                    val token = auth.acquireToken { code ->
+                        scope.launch(Dispatchers.Main) { statusMessage.value = code }
+                    }
+                    val result = OneDriveTrackingUpdater(token).update(allInternships.value, trackingPath)
+                    scope.launch(Dispatchers.Main) {
+                        statusMessage.value = "${result.matched} stage(s) mis à jour dans le tableau de suivi"
+                        if (result.warnings.isNotEmpty()) {
+                            trackingWarnings.value = result.warnings
+                        }
+                    }
+                } catch (e: Exception) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Mise à jour tableau de suivi échouée : ${e.message}"
+                        statusMessage.value = "Erreur tableau de suivi"
+                    }
+                }
+            }
+            isLoading.value = false
+        }
+    }
+
+    fun clearTrackingWarnings() { trackingWarnings.value = emptyList() }
 
     private fun launchOneDriveExport(clientId: String, remotePath: String, complement: Boolean) {
         if (clientId.isBlank()) {

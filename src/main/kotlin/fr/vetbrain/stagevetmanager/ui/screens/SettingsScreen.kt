@@ -27,6 +27,8 @@ fun SettingsScreen(
     oneDrivePath: String,
     onAzureClientIdChange: (String) -> Unit,
     onOneDrivePathChange: (String) -> Unit,
+    trackingFilePath: String,
+    onTrackingFilePathChange: (String) -> Unit,
     onSignOutOneDrive: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -117,8 +119,17 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = oneDrivePath,
                 onValueChange = onOneDrivePathChange,
-                label = { Text("Chemin OneDrive (relatif à la racine)") },
+                label = { Text("Chemin export principal (relatif à la racine OneDrive)") },
                 placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = trackingFilePath,
+                onValueChange = onTrackingFilePathChange,
+                label = { Text("Chemin tableau de suivi ER (relatif à la racine OneDrive)") },
+                placeholder = { Text("Documents/StageVet/suivi_ER.xlsx") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )

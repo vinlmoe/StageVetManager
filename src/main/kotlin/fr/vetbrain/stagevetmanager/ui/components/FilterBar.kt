@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
@@ -41,6 +42,7 @@ fun FilterBar(
     onExport: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
+    onExportTracking: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showScrapeDialog    by remember { mutableStateOf(false) }
@@ -239,6 +241,15 @@ fun FilterBar(
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("OneDrive", fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onExportTracking,
+                enabled = !isLoading && count > 0,
+            ) {
+                Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Suivi ER", fontSize = 13.sp)
             }
         }
 

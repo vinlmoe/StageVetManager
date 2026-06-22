@@ -50,12 +50,12 @@ class ExcelExporterTest {
     }
 
     @Test
-    fun `header row has 13 columns with correct labels`() {
+    fun `header row has 14 columns with correct labels`() {
         val expectedHeaders = listOf(
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
             "Début stage", "Fin stage", "Dates brutes", "Thème",
-            "URL Convention PDF", "URL Signature"
+            "URL Convention PDF", "URL Signature", "Durée"
         )
         workbook(emptyList()).use { wb ->
             val header = wb.getSheetAt(0).getRow(0)

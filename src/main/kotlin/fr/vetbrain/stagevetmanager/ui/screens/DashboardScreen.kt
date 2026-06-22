@@ -1,6 +1,8 @@
 package fr.vetbrain.stagevetmanager.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -34,6 +36,7 @@ fun DashboardScreen(
     onRequestScrape: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
+    onExportTracking: () -> Unit,
 ) {
     val displayed      by vm.displayed.collectAsState()
     val filterText     by vm.filterText.collectAsState()
@@ -45,6 +48,7 @@ fun DashboardScreen(
     val sortAsc        by vm.sortAscending.collectAsState()
     val scrapeFilters  by vm.scrapeFilters.collectAsState()
     val localFilters   by vm.localFilters.collectAsState()
+    val trackingWarnings by vm.trackingWarnings.collectAsState()
     val dbCount        by vm.dbCount.collectAsState()
     val isPdfLoading   by vm.isPdfLoading.collectAsState()
     val selectedInternship by vm.selectedInternship.collectAsState()
@@ -53,6 +57,29 @@ fun DashboardScreen(
 
     var showClearDialog by remember { mutableStateOf(false) }
     var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+
+    if (trackingWarnings.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { vm.clearTrackingWarnings() },
+            title = { Text("Tableau de suivi — avertissements") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "${trackingWarnings.size} entrée(s) n'ont pas pu être mises à jour " +
+                            "(cellules laissées intactes) :",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    trackingWarnings.forEach { warning ->
+                        Text("• $warning", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.clearTrackingWarnings() }) { Text("OK") }
+            },
+        )
+    }
 
     if (showClearDialog) {
         AlertDialog(
@@ -148,6 +175,7 @@ fun DashboardScreen(
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,
                 onExportOneDriveComplement = onExportOneDriveComplement,
+                onExportTracking = onExportTracking,
                 onExport = {
                     val filename = vm.suggestedExportFileName()
                     val dir = exportDir.ifBlank { System.getProperty("user.home") }
