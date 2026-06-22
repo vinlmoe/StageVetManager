@@ -299,6 +299,14 @@ class DashboardViewModel {
     }
 
     fun exportToOneDrive(clientId: String, remotePath: String) {
+        launchOneDriveExport(clientId, remotePath, complement = false)
+    }
+
+    fun exportToOneDriveComplement(clientId: String, remotePath: String) {
+        launchOneDriveExport(clientId, remotePath, complement = true)
+    }
+
+    private fun launchOneDriveExport(clientId: String, remotePath: String, complement: Boolean) {
         if (clientId.isBlank()) {
             errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
             return
@@ -314,10 +322,15 @@ class DashboardViewModel {
                     val token = auth.acquireToken { code ->
                         scope.launch(Dispatchers.Main) { statusMessage.value = code }
                     }
-                    scope.launch(Dispatchers.Main) { statusMessage.value = "Mise à jour OneDrive en cours…" }
-                    OneDriveExcelUpdater(token).update(allInternships.value, remotePath)
-                    scope.launch(Dispatchers.Main) {
-                        statusMessage.value = "OneDrive mis à jour : $remotePath"
+                    val updater = OneDriveExcelUpdater(token)
+                    if (complement) {
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion OneDrive en cours…" }
+                        updater.complement(allInternships.value, remotePath)
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "OneDrive complété : $remotePath" }
+                    } else {
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Mise à jour OneDrive en cours…" }
+                        updater.update(allInternships.value, remotePath)
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "OneDrive mis à jour : $remotePath" }
                     }
                 } catch (e: Exception) {
                     scope.launch(Dispatchers.Main) {

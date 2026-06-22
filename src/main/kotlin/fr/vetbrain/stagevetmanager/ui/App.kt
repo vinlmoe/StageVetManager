@@ -63,6 +63,9 @@ fun App() {
                 onExportOneDrive = {
                     vm.exportToOneDrive(azureClientId, oneDrivePath)
                 },
+                onExportOneDriveComplement = {
+                    vm.exportToOneDriveComplement(azureClientId, oneDrivePath)
+                },
             )
 
             Screen.SETTINGS -> SettingsScreen(

@@ -40,10 +40,12 @@ fun FilterBar(
     onLoadFromDb: () -> Unit,
     onExport: () -> Unit,
     onExportOneDrive: () -> Unit,
+    onExportOneDriveComplement: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showScrapeDialog by remember { mutableStateOf(false) }
-    var dialogFilters    by remember { mutableStateOf(ScrapeFilters()) }
+    var showScrapeDialog    by remember { mutableStateOf(false) }
+    var showOneDriveDialog  by remember { mutableStateOf(false) }
+    var dialogFilters       by remember { mutableStateOf(ScrapeFilters()) }
 
     // ── Dialog d'extraction ────────────────────────────────────────────────
     if (showScrapeDialog) {
@@ -127,6 +129,51 @@ fun FilterBar(
         )
     }
 
+    // ── Dialog mode OneDrive ───────────────────────────────────────────────
+    if (showOneDriveDialog) {
+        AlertDialog(
+            onDismissRequest = { showOneDriveDialog = false },
+            title = { Text("Mise à jour OneDrive") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Comment voulez-vous mettre à jour le fichier ?", fontSize = 13.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Compléter — ajoute uniquement les stages absents du tableau (les données existantes sont conservées).",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                    Text(
+                        "Remplacer — efface tout le contenu et réécrit depuis la base locale.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showOneDriveDialog = false
+                    onExportOneDriveComplement()
+                }, enabled = !isLoading) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Compléter")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { showOneDriveDialog = false }) { Text("Annuler") }
+                    OutlinedButton(onClick = {
+                        showOneDriveDialog = false
+                        onExportOneDrive()
+                    }, enabled = !isLoading) {
+                        Text("Remplacer", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -185,7 +232,10 @@ fun FilterBar(
                 Text("Excel", fontSize = 13.sp)
             }
             Spacer(Modifier.width(8.dp))
-            OutlinedButton(onClick = onExportOneDrive, enabled = !isLoading && count > 0) {
+            OutlinedButton(
+                onClick = { showOneDriveDialog = true },
+                enabled = !isLoading && count > 0,
+            ) {
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("OneDrive", fontSize = 13.sp)
