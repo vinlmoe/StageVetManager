@@ -14,6 +14,7 @@ class InternshipFilterTest {
         studyYear: String = "3ème année",
         startDate: LocalDate? = null,
         signingDate: LocalDate? = null,
+        conventionSignUrl: String = "",
     ) = Internship(
         studentName = studentName,
         studyYear = studyYear,
@@ -26,6 +27,7 @@ class InternshipFilterTest {
         endDate = null,
         rawDateStage = "",
         theme = theme,
+        conventionSignUrl = conventionSignUrl,
     )
 
     // ── matchesText ───────────────────────────────────────────────────────────
@@ -124,5 +126,31 @@ class InternshipFilterTest {
     @Test
     fun `RECENTLY_SIGNED rejects null signingDate`() {
         assertFalse(ViewFilter.RECENTLY_SIGNED.predicate(internship(signingDate = null)))
+    }
+
+    // ── ViewFilter.PENDING_SCHOOL_SIGNATURE ──────────────────────────────────
+
+    @Test
+    fun `PENDING_SCHOOL_SIGNATURE matches a stage started 30 days ago`() {
+        assertTrue(
+            ViewFilter.PENDING_SCHOOL_SIGNATURE.predicate(
+                internship(
+                    startDate = LocalDate.now().minusDays(30),
+                    conventionSignUrl = "https://stagevet.fr/signature/abc",
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `PENDING_SCHOOL_SIGNATURE rejects a stage started more than 30 days ago`() {
+        assertFalse(
+            ViewFilter.PENDING_SCHOOL_SIGNATURE.predicate(
+                internship(
+                    startDate = LocalDate.now().minusDays(31),
+                    conventionSignUrl = "https://stagevet.fr/signature/abc",
+                )
+            )
+        )
     }
 }

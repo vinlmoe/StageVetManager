@@ -55,7 +55,7 @@ class DashboardViewModel {
                     val pdf = cache[internship.conventionPdfUrl]
                     if (pdf != null) {
                         // Vérifier que les 3 signataires ont signé avant d'autoriser la signature école
-                        pdf.allPreSignaturesDone && internship.signingDate == null
+                        pdf.allPreSignaturesDone && filter.predicate(internship)
                     } else {
                         // Fallback : conventionSignUrl présent = signataires précédents OK
                         filter.predicate(internship)

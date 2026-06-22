@@ -42,6 +42,8 @@ enum class ViewFilter(val label: String, val predicate: (Internship) -> Boolean)
     }),
     PENDING_SCHOOL_SIGNATURE("À signer (école)", {
         // conventionSignUrl présent = stagiaire + maître ont signé, il reste la signature école
-        it.conventionSignUrl.isNotEmpty() && it.signingDate == null
+        it.conventionSignUrl.isNotEmpty() &&
+            it.signingDate == null &&
+            (it.startDate == null || !it.startDate.isBefore(LocalDate.now().minusDays(30)))
     }),
 }
