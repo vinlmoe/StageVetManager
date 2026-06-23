@@ -41,6 +41,7 @@ data class ConventionPdfData(
     val sundayPresence: Boolean = false,
     val holidayPresence: Boolean = false,
     val homePresence: Boolean = false,
+    val hasWeeklyRestDay: Boolean? = null, // null = pas de dates de présence pour vérifier
 
     // — Encadrement / conditions ——————————————————
     val theme: String = "",
