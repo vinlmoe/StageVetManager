@@ -8,9 +8,8 @@ import fr.vetbrain.stagevetmanager.model.ScrapeFilterOptions
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
-import fr.vetbrain.stagevetmanager.onedrive.OneDriveAuthClient
-import fr.vetbrain.stagevetmanager.onedrive.OneDriveExcelUpdater
-import fr.vetbrain.stagevetmanager.onedrive.OneDriveTrackingUpdater
+import fr.vetbrain.stagevetmanager.export.LocalExcelUpdater
+import fr.vetbrain.stagevetmanager.export.LocalTrackingUpdater
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.persistence.localId
@@ -301,19 +300,15 @@ class DashboardViewModel {
         }
     }
 
-    fun exportToOneDrive(clientId: String, remotePath: String) {
-        launchOneDriveExport(clientId, remotePath, complement = false)
+    fun exportToOneDrive(localPath: String) {
+        launchLocalExport(localPath, complement = false)
     }
 
-    fun exportToOneDriveComplement(clientId: String, remotePath: String) {
-        launchOneDriveExport(clientId, remotePath, complement = true)
+    fun exportToOneDriveComplement(localPath: String) {
+        launchLocalExport(localPath, complement = true)
     }
 
-    fun exportToOneDriveTracking(clientId: String, targets: List<TrackingTarget>) {
-        if (clientId.isBlank()) {
-            errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
-            return
-        }
+    fun exportToOneDriveTracking(targets: List<TrackingTarget>) {
         if (targets.isEmpty()) {
             errorMessage.value = "Aucun tableau de suivi configuré — allez dans Paramètres"
             return
@@ -325,11 +320,7 @@ class DashboardViewModel {
             statusMessage.value = "Mise à jour du/des tableau(x) de suivi ER…"
             withContext(Dispatchers.IO) {
                 try {
-                    val auth  = OneDriveAuthClient(clientId)
-                    val token = auth.acquireToken { code ->
-                        scope.launch(Dispatchers.Main) { statusMessage.value = code }
-                    }
-                    val updater = OneDriveTrackingUpdater(token)
+                    val updater = LocalTrackingUpdater()
                     val allWarnings = mutableListOf<String>()
                     var totalMatched = 0
                     for (target in targets) {
@@ -368,47 +359,34 @@ class DashboardViewModel {
 
     fun clearTrackingWarnings() { trackingWarnings.value = emptyList() }
 
-    private fun launchOneDriveExport(clientId: String, remotePath: String, complement: Boolean) {
-        if (clientId.isBlank()) {
-            errorMessage.value = "Client ID Azure non configuré — allez dans Paramètres"
+    private fun launchLocalExport(localPath: String, complement: Boolean) {
+        if (localPath.isBlank()) {
+            errorMessage.value = "Chemin du fichier Excel non configuré — allez dans Paramètres"
             return
         }
         if (isLoading.value) return
         scope.launch {
             isLoading.value = true
             errorMessage.value = null
-            statusMessage.value = "Authentification Microsoft…"
             withContext(Dispatchers.IO) {
                 try {
-                    val auth = OneDriveAuthClient(clientId)
-                    val token = auth.acquireToken { code ->
-                        scope.launch(Dispatchers.Main) { statusMessage.value = code }
-                    }
-                    val updater = OneDriveExcelUpdater(token)
                     if (complement) {
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion OneDrive en cours…" }
-                        updater.complement(allInternships.value, remotePath)
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "OneDrive complété : $remotePath" }
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion du fichier Excel en cours…" }
+                        LocalExcelUpdater.complement(allInternships.value, localPath)
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier complété : ${java.io.File(localPath).name}" }
                     } else {
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Mise à jour OneDrive en cours…" }
-                        updater.update(allInternships.value, remotePath)
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "OneDrive mis à jour : $remotePath" }
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Écriture du fichier Excel en cours…" }
+                        LocalExcelUpdater.update(allInternships.value, localPath)
+                        scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier mis à jour : ${java.io.File(localPath).name}" }
                     }
                 } catch (e: Exception) {
                     scope.launch(Dispatchers.Main) {
-                        errorMessage.value = "Export OneDrive échoué : ${e.message}"
-                        statusMessage.value = "Erreur export OneDrive"
+                        errorMessage.value = "Export fichier échoué : ${e.message}"
+                        statusMessage.value = "Erreur export fichier"
                     }
                 }
             }
             isLoading.value = false
-        }
-    }
-
-    fun signOutOneDrive(clientId: String) {
-        scope.launch(Dispatchers.IO) {
-            runCatching { OneDriveAuthClient(clientId).signOut() }
-            scope.launch(Dispatchers.Main) { statusMessage.value = "Déconnecté de Microsoft" }
         }
     }
 
