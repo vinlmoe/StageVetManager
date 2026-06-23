@@ -17,7 +17,7 @@ class LocalTrackingUpdater {
         val file = File(localPath)
         if (!file.exists()) throw FileNotFoundException("Fichier introuvable : $localPath")
 
-        val workbook = WorkbookFactory.create(file)
+        val workbook = file.inputStream().use { WorkbookFactory.create(it) }
         try {
             val sheet = (0 until workbook.numberOfSheets)
                 .map { workbook.getSheetAt(it) }
