@@ -35,7 +35,7 @@ object LocalExcelUpdater {
             return
         }
 
-        val workbook = WorkbookFactory.create(file)
+        val workbook = file.inputStream().use { WorkbookFactory.create(it) }
         try {
             complementMainSheet(workbook.getSheet("Tous les stages") ?: run {
                 val s = workbook.createSheet("Tous les stages")
