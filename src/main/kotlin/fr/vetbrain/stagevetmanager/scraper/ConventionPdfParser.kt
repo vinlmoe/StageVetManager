@@ -81,6 +81,9 @@ object ConventionPdfParser {
                 }.getOrNull() }
                 .toList()
 
+            // — Jour de repos hebdomadaire —
+            val hasWeeklyRestDay = computeHasWeeklyRestDay(workingDates)
+
             // — Modalités particulières (art. 3.2) —
             // Priority 1 (most reliable): validate against the explicit working-date list
             // Priority 2: AcroForm checkbox fields (read while doc is still open)
@@ -151,6 +154,7 @@ object ConventionPdfParser {
                 sundayPresence     = sundayPresence,
                 holidayPresence    = holidayPresence,
                 homePresence       = homePresence,
+                hasWeeklyRestDay   = hasWeeklyRestDay,
                 theme              = theme,
                 gratification      = gratification,
                 signingDateTutor   = signingDateTutor,
@@ -159,6 +163,22 @@ object ConventionPdfParser {
                 signingDateSchool  = signingDateSchool,
             )
         }
+    }
+
+    /**
+     * Returns true if the sorted list of working dates never contains 7 consecutive calendar days,
+     * false if it does (= violation), null if the list is empty (= unable to determine).
+     */
+    internal fun computeHasWeeklyRestDay(workingDates: List<LocalDate>): Boolean? {
+        if (workingDates.isEmpty()) return null
+        val sorted = workingDates.distinct().sorted()
+        var maxConsec = 1
+        var currConsec = 1
+        for (i in 1 until sorted.size) {
+            currConsec = if (sorted[i] == sorted[i - 1].plusDays(1)) currConsec + 1 else 1
+            if (currConsec > maxConsec) maxConsec = currConsec
+        }
+        return maxConsec < 7
     }
 
     /** Returns substring between [from] (exclusive) and [to] (exclusive, or end if [to] is empty). */

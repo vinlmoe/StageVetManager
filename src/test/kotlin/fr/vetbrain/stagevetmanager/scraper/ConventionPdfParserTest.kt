@@ -81,4 +81,43 @@ class ConventionPdfParserTest {
         )
         assertTrue(dates.any { isFrenchPublicHoliday(it) })
     }
+
+    // ── computeHasWeeklyRestDay ──────────────────────────────────────────────
+
+    @Test fun `empty date list returns null`() {
+        assertNull(ConventionPdfParser.computeHasWeeklyRestDay(emptyList()))
+    }
+
+    @Test fun `single date returns true (has rest day)`() {
+        assertTrue(ConventionPdfParser.computeHasWeeklyRestDay(listOf(LocalDate.of(2026, 6, 1)))!!)
+    }
+
+    @Test fun `six consecutive days returns true (ok)`() {
+        val dates = (0L..5L).map { LocalDate.of(2026, 6, 1).plusDays(it) }
+        assertTrue(ConventionPdfParser.computeHasWeeklyRestDay(dates)!!)
+    }
+
+    @Test fun `exactly seven consecutive days returns false (violation)`() {
+        val dates = (0L..6L).map { LocalDate.of(2026, 6, 1).plusDays(it) }
+        assertFalse(ConventionPdfParser.computeHasWeeklyRestDay(dates)!!)
+    }
+
+    @Test fun `eight consecutive days returns false (violation)`() {
+        val dates = (0L..7L).map { LocalDate.of(2026, 6, 1).plusDays(it) }
+        assertFalse(ConventionPdfParser.computeHasWeeklyRestDay(dates)!!)
+    }
+
+    @Test fun `non-consecutive dates with gap return true`() {
+        // 6 consecutive, then a gap, then 6 more — no 7-day streak
+        val block1 = (0L..5L).map { LocalDate.of(2026, 6, 1).plusDays(it) }
+        val block2 = (0L..5L).map { LocalDate.of(2026, 6, 10).plusDays(it) }
+        assertTrue(ConventionPdfParser.computeHasWeeklyRestDay(block1 + block2)!!)
+    }
+
+    @Test fun `duplicates are ignored in consecutive count`() {
+        // 6 unique consecutive days with one duplicate — still only 6 in a row
+        val dates = (0L..5L).map { LocalDate.of(2026, 6, 1).plusDays(it) } +
+            listOf(LocalDate.of(2026, 6, 3))
+        assertTrue(ConventionPdfParser.computeHasWeeklyRestDay(dates)!!)
+    }
 }

@@ -63,6 +63,7 @@ fun InternshipDetailView(
         SignInconsistencyDialog(
             sundayPresence = pdfData.sundayPresence,
             holidayPresence = pdfData.holidayPresence,
+            hasWeeklyRestDay = pdfData.hasWeeklyRestDay,
             onConfirm = {
                 showSignAlert = false
                 openUrl(internship.conventionSignUrl)
@@ -128,7 +129,7 @@ fun InternshipDetailView(
                     internship.conventionSignUrl.isNotEmpty()
                 if (schoolNotSigned && preSignaturesDone) {
                     val hasInconsistency = pdfData != null &&
-                        (pdfData.sundayPresence || pdfData.holidayPresence)
+                        (pdfData.sundayPresence || pdfData.holidayPresence || pdfData.hasWeeklyRestDay == false)
                     val signColor = if (hasInconsistency) Color(0xFFB71C1C) else Color(0xFFE65100)
                     OutlinedButton(
                         onClick = {
@@ -275,6 +276,22 @@ fun InternshipDetailView(
                             "domicile".takeIf { pdfData.homePresence },
                         )
                         if (modalites.isNotEmpty()) PdfField("Modalités", modalites.joinToString(", "))
+                        if (pdfData.hasWeeklyRestDay == false) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Absence de jour de repos hebdomadaire",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
                         if (pdfData.signingDateTutor.isNotBlank() ||
                             pdfData.signingDateStudent.isNotBlank() ||
                             pdfData.signingDateHost.isNotBlank() ||

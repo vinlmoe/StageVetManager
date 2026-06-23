@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
+import java.io.File
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,14 +92,22 @@ fun SettingsScreen(
             // --- Export local ---
             Text("Dossier d'export Excel local", style = MaterialTheme.typography.titleMedium)
 
-            OutlinedTextField(
-                value = exportDir,
-                onValueChange = onExportDirChange,
-                label = { Text("Chemin du dossier") },
-                placeholder = { Text("Ex : /home/user/Documents") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = exportDir,
+                    onValueChange = onExportDirChange,
+                    label = { Text("Chemin du dossier") },
+                    placeholder = { Text("Ex : /home/user/Documents") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseDirectory(exportDir)?.let(onExportDirChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
+            }
 
             HorizontalDivider()
 
@@ -119,14 +131,22 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
-                value = oneDrivePath,
-                onValueChange = onOneDrivePathChange,
-                label = { Text("Chemin export principal (relatif à la racine OneDrive)") },
-                placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = oneDrivePath,
+                    onValueChange = onOneDrivePathChange,
+                    label = { Text("Chemin export principal (relatif à la racine OneDrive)") },
+                    placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseExcelFile(oneDrivePath)?.let(onOneDrivePathChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
+            }
 
             Text(
                 "Au premier clic sur « OneDrive », votre navigateur s'ouvrira pour la " +
@@ -182,6 +202,15 @@ fun SettingsScreen(
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = {
+                        browseExcelFile(target.filePath)?.let { path ->
+                            onTrackingTargetsChange(
+                                trackingTargets.toMutableList().also { it[index] = target.copy(filePath = path) }
+                            )
+                        }
+                    }) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                    }
                     IconButton(
                         onClick = {
                             onTrackingTargetsChange(trackingTargets.filterIndexed { i, _ -> i != index })
@@ -217,4 +246,29 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+private fun browseDirectory(current: String): String? {
+    val chooser = JFileChooser().apply {
+        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+        dialogTitle = "Choisir un dossier"
+        if (current.isNotBlank()) currentDirectory = File(current).let { if (it.isDirectory) it else it.parentFile ?: it }
+    }
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+        chooser.selectedFile.absolutePath else null
+}
+
+private fun browseExcelFile(current: String): String? {
+    val chooser = JFileChooser().apply {
+        fileSelectionMode = JFileChooser.FILES_ONLY
+        dialogTitle = "Choisir un fichier Excel"
+        fileFilter = FileNameExtensionFilter("Fichiers Excel (*.xlsx)", "xlsx")
+        if (current.isNotBlank()) {
+            val f = File(current)
+            currentDirectory = if (f.isDirectory) f else f.parentFile ?: File(System.getProperty("user.home"))
+            if (f.isFile) selectedFile = f
+        }
+    }
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+        chooser.selectedFile.absolutePath else null
 }
