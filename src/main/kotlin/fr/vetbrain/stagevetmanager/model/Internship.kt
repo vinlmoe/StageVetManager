@@ -37,6 +37,13 @@ enum class ViewFilter(val label: String, val predicate: (Internship) -> Boolean)
         val now = LocalDate.now()
         it.startDate != null && !it.startDate.isBefore(now) && !it.startDate.isAfter(now.plusDays(15))
     }),
+    UNSIGNED_STARTING_SOON("Non signées — début dans 15 j", {
+        val now = LocalDate.now()
+        it.signingDate == null &&
+            it.startDate != null &&
+            !it.startDate.isBefore(now) &&
+            !it.startDate.isAfter(now.plusDays(15))
+    }),
     RECENTLY_SIGNED("Signés 15 derniers j", {
         val now = LocalDate.now()
         it.signingDate != null && !it.signingDate.isBefore(now.minusDays(15)) && !it.signingDate.isAfter(now)
@@ -46,5 +53,8 @@ enum class ViewFilter(val label: String, val predicate: (Internship) -> Boolean)
         it.conventionSignUrl.isNotEmpty() &&
             it.signingDate == null &&
             (it.startDate == null || !it.startDate.isBefore(LocalDate.now().minusDays(30)))
+    }),
+    COMPLETED_NOT_IN_TRACKING("Terminés non sélectionnés", {
+        it.endDate != null && it.endDate.isBefore(LocalDate.now()) && !it.inSuiviTable
     }),
 }

@@ -68,7 +68,7 @@ class DashboardViewModel {
                 val passesView = when (fs.viewFilter) {
                     ViewFilter.PENDING_SCHOOL_SIGNATURE -> {
                         val pdf = cache[internship.conventionPdfUrl]
-                        if (pdf != null) pdf.allPreSignaturesDone && internship.signingDate == null
+                        if (pdf != null) pdf.allPreSignaturesDone && fs.viewFilter.predicate(internship)
                         else fs.viewFilter.predicate(internship)
                     }
                     else -> fs.viewFilter.predicate(internship)
