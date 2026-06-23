@@ -30,13 +30,10 @@ fun SettingsScreen(
     onHeadlessChange: (Boolean) -> Unit,
     onExportDirChange: (String) -> Unit,
     // OneDrive
-    azureClientId: String,
     oneDrivePath: String,
-    onAzureClientIdChange: (String) -> Unit,
     onOneDrivePathChange: (String) -> Unit,
     trackingTargets: List<TrackingTarget>,
     onTrackingTargetsChange: (List<TrackingTarget>) -> Unit,
-    onSignOutOneDrive: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -112,31 +109,14 @@ fun SettingsScreen(
             HorizontalDivider()
 
             // --- Export OneDrive ---
-            Text("Export OneDrive (Microsoft Graph)", style = MaterialTheme.typography.titleMedium)
-
-            Text(
-                "Prérequis : créer une App Registration dans le portail Azure (Entra ID) " +
-                    "de type « Mobile and desktop application », redirect URI = http://localhost, " +
-                    "permissions : Files.ReadWrite + offline_access (déléguées).",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            )
-
-            OutlinedTextField(
-                value = azureClientId,
-                onValueChange = onAzureClientIdChange,
-                label = { Text("Client ID Azure (GUID)") },
-                placeholder = { Text("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Text("Fichier Excel synchronisé (OneDrive)", style = MaterialTheme.typography.titleMedium)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = oneDrivePath,
                     onValueChange = onOneDrivePathChange,
-                    label = { Text("Chemin export principal (relatif à la racine OneDrive)") },
-                    placeholder = { Text("Documents/StageVet/export_stagevet.xlsx") },
+                    label = { Text("Chemin local du fichier Excel principal") },
+                    placeholder = { Text("Ex : /home/user/OneDrive/Documents/StageVet/export_stagevet.xlsx") },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -149,16 +129,12 @@ fun SettingsScreen(
             }
 
             Text(
-                "Au premier clic sur « OneDrive », votre navigateur s'ouvrira pour la " +
-                    "connexion Microsoft. Le token est ensuite mis en cache (~/.stagevetmanager/msal_cache.json) " +
-                    "pour les sessions suivantes.",
+                "Indiquez le chemin complet vers le fichier dans votre dossier OneDrive synchronisé " +
+                    "(ex : /home/user/OneDrive/Documents/StageVet/export_stagevet.xlsx). " +
+                    "OneDrive se chargera de synchroniser le fichier en ligne.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
-
-            OutlinedButton(onClick = onSignOutOneDrive) {
-                Text("Se déconnecter de Microsoft", fontSize = 13.sp)
-            }
 
             HorizontalDivider()
 
@@ -197,8 +173,8 @@ fun SettingsScreen(
                                 trackingTargets.toMutableList().also { it[index] = target.copy(filePath = newPath) }
                             )
                         },
-                        label = { Text("Chemin OneDrive", fontSize = 11.sp) },
-                        placeholder = { Text("Documents/StageVet/suivi_3eme.xlsx") },
+                        label = { Text("Chemin local OneDrive", fontSize = 11.sp) },
+                        placeholder = { Text("/home/user/OneDrive/Documents/StageVet/suivi_3eme.xlsx") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

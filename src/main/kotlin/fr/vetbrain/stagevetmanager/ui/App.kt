@@ -30,7 +30,6 @@ fun App() {
     }
     var headless      by remember { mutableStateOf(prefs.getBoolean("headless", false)) }
     var exportDir     by remember { mutableStateOf(prefs.get("exportDir", "")) }
-    var azureClientId by remember { mutableStateOf(prefs.get("azureClientId", "")) }
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
@@ -77,13 +76,13 @@ fun App() {
                     vm.scrape(savedUsername, savedPassword, browserType, headless)
                 },
                 onExportOneDrive = {
-                    vm.exportToOneDrive(azureClientId, oneDrivePath)
+                    vm.exportToOneDrive(oneDrivePath)
                 },
                 onExportOneDriveComplement = {
-                    vm.exportToOneDriveComplement(azureClientId, oneDrivePath)
+                    vm.exportToOneDriveComplement(oneDrivePath)
                 },
                 onExportTracking = { targets ->
-                    vm.exportToOneDriveTracking(azureClientId, targets)
+                    vm.exportToOneDriveTracking(targets)
                 },
             )
 
@@ -103,12 +102,7 @@ fun App() {
                     exportDir = it
                     prefs.put("exportDir", it)
                 },
-                azureClientId = azureClientId,
                 oneDrivePath = oneDrivePath,
-                onAzureClientIdChange = {
-                    azureClientId = it
-                    prefs.put("azureClientId", it)
-                },
                 onOneDrivePathChange = {
                     oneDrivePath = it
                     prefs.put("oneDrivePath", it)
@@ -118,7 +112,6 @@ fun App() {
                     trackingTargets = targets
                     prefs.put("trackingTargets", serializeTrackingTargets(targets))
                 },
-                onSignOutOneDrive = { vm.signOutOneDrive(azureClientId) },
                 onBack = { screen = if (vm.allInternships.value.isEmpty()) Screen.LOGIN else Screen.DASHBOARD },
             )
         }
