@@ -158,6 +158,32 @@ class SeleniumScraper(
     companion object {
         private const val GECKO_VERSION = "0.35.0"
 
+        /**
+         * Retourne le ChromeDriver le plus récent dans le cache de Selenium Manager
+         * (~/.cache/selenium/chromedriver/{platform}/{version}/chromedriver).
+         * Permet d'ignorer un chromedriver obsolète installé dans le PATH (ex. via Homebrew).
+         */
+        fun findBestCachedChromeDriver(): File? {
+            val os   = System.getProperty("os.name").lowercase()
+            val arch = System.getProperty("os.arch").lowercase()
+            val arm  = arch.contains("aarch64") || arch.contains("arm")
+            val platform = when {
+                os.contains("win")        -> "win32"
+                os.contains("mac") && arm -> "mac-arm64"
+                os.contains("mac")        -> "mac-x64"
+                arm                       -> "linux-arm64"
+                else                      -> "linux64"
+            }
+            val cacheDir = File(System.getProperty("user.home"), ".cache/selenium/chromedriver/$platform")
+            if (!cacheDir.exists()) return null
+            val binary = if (os.contains("win")) "chromedriver.exe" else "chromedriver"
+            return cacheDir.listFiles()
+                ?.filter { it.isDirectory }
+                ?.maxByOrNull { it.name }   // tri lexicographique fiable sur "149.0.x" vs "132.0.x"
+                ?.let { File(it, binary) }
+                ?.takeIf { it.exists() && it.canExecute() }
+        }
+
         fun resolveGeckoDriver(): File? {
             val os   = System.getProperty("os.name").lowercase()
             val arch = System.getProperty("os.arch").lowercase()
@@ -208,6 +234,17 @@ class SeleniumScraper(
                     }
                 } else {
                     log("[DEBUG] Cache absent → Selenium Manager va télécharger ChromeDriver (connexion internet requise)")
+                }
+
+                // Évite d'utiliser un chromedriver obsolète installé dans le PATH (ex. Homebrew).
+                // Selenium Manager cache la bonne version dans ~/.cache/selenium/ — on l'utilise en priorité.
+                val cachedDriver = findBestCachedChromeDriver()
+                if (cachedDriver != null) {
+                    log("[DEBUG] ChromeDriver depuis cache Selenium : ${cachedDriver.absolutePath}")
+                    System.setProperty("webdriver.chrome.driver", cachedDriver.absolutePath)
+                } else {
+                    System.clearProperty("webdriver.chrome.driver")
+                    log("[DEBUG] Aucun ChromeDriver en cache → Selenium Manager va le télécharger")
                 }
 
                 log("[DEBUG] Création ChromeOptions…")
