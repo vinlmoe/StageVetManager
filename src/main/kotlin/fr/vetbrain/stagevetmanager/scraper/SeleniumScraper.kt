@@ -170,7 +170,7 @@ class SeleniumScraper(
 
             val ext  = if (os.contains("win")) ".exe" else ""
             val dest = File(System.getProperty("java.io.tmpdir"), "geckodriver-svm-v${GECKO_VERSION}$ext")
-            if (dest.exists()) return dest
+            if (dest.exists() && dest.canExecute()) return dest
 
             val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource)
                 ?: return null  // dev mode sans binaires embarqués → Selenium Manager prend le relais

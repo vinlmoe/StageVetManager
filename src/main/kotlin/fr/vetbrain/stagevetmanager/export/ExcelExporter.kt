@@ -12,6 +12,12 @@ import java.time.format.DateTimeFormatter
 object ExcelExporter {
 
     private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val HEADERS = listOf(
+        "Étudiant", "Année", "Organisme", "Adresse",
+        "Convention n°", "Conv. générée le", "Date signature",
+        "Début stage", "Fin stage", "Dates brutes", "Thème",
+        "URL Convention PDF", "URL Signature", "Durée"
+    )
 
     fun export(internships: List<Internship>, path: Path) {
         val wb = buildWorkbook(internships)
@@ -60,12 +66,7 @@ object ExcelExporter {
             dataFormat = wb.createDataFormat().getFormat("dd/mm/yyyy")
         }
 
-        val headers = listOf(
-            "Étudiant", "Année", "Organisme", "Adresse",
-            "Convention n°", "Conv. générée le", "Date signature",
-            "Début stage", "Fin stage", "Dates brutes", "Thème",
-            "URL Convention PDF", "URL Signature", "Durée"
-        )
+        val headers = HEADERS
 
         val headerRow = sheet.createRow(0)
         headers.forEachIndexed { i, h ->

@@ -12,12 +12,6 @@ import java.time.format.DateTimeFormatter
 object LocalExcelUpdater {
 
     private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-    private val HEADERS = listOf(
-        "Étudiant", "Année", "Organisme", "Adresse",
-        "Convention n°", "Conv. générée le", "Date signature",
-        "Début stage", "Fin stage", "Dates brutes", "Thème",
-        "URL Convention PDF", "URL Signature", "Durée"
-    )
 
     fun update(internships: List<Internship>, localPath: String) {
         val path = Paths.get(localPath)
@@ -81,7 +75,7 @@ object LocalExcelUpdater {
 
     private fun writeHeaderRow(sheet: Sheet) {
         val row = sheet.createRow(0)
-        HEADERS.forEachIndexed { i, h -> row.createCell(i).setCellValue(h) }
+        ExcelExporter.HEADERS.forEachIndexed { i, h -> row.createCell(i).setCellValue(h) }
     }
 
     private fun appendRow(sheet: Sheet, rowIdx: Int, s: Internship) {

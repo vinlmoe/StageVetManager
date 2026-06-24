@@ -42,7 +42,7 @@ fun DashboardScreen(
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
     onExportTracking: (List<TrackingTarget>) -> Unit,
-    onScrapeFiltersChange: (fr.vetbrain.stagevetmanager.model.ScrapeFilters) -> Unit = {},
+    onScrapeFiltersChange: (fr.vetbrain.stagevetmanager.model.ScrapeFilters) -> Unit,
 ) {
     val displayed      by vm.displayed.collectAsState()
     val filterText     by vm.filterText.collectAsState()

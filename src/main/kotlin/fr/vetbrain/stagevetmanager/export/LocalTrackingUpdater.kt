@@ -1,7 +1,7 @@
 package fr.vetbrain.stagevetmanager.export
 
 import fr.vetbrain.stagevetmanager.model.Internship
-import fr.vetbrain.stagevetmanager.onedrive.TrackingUpdateResult
+import fr.vetbrain.stagevetmanager.model.TrackingUpdateResult
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.File
