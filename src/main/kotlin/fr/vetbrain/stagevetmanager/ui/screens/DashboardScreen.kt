@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
+import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
@@ -33,6 +34,8 @@ fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
     trackingTargets: List<TrackingTarget>,
+    browserType: SeleniumScraper.BrowserType,
+    onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
@@ -173,6 +176,8 @@ fun DashboardScreen(
                 onViewChange = vm::setView,
                 onScrapeFiltersChange = vm::setScrapeFilters,
                 onLocalFiltersChange = vm::setLocalFilters,
+                browserType = browserType,
+                onBrowserChange = onBrowserChange,
                 onRequestScrape = onRequestScrape,
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,

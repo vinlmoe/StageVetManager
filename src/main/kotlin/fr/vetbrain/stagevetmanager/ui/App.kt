@@ -67,6 +67,11 @@ fun App() {
                 vm = vm,
                 exportDir = exportDir,
                 trackingTargets = trackingTargets,
+                browserType = browserType,
+                onBrowserChange = {
+                    browserType = it
+                    prefs.put("browser", it.name)
+                },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onLogout = {
                     vm.allInternships.value = emptyList()

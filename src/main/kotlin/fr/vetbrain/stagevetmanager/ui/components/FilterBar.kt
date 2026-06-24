@@ -24,6 +24,7 @@ import fr.vetbrain.stagevetmanager.model.ScrapeFilterOptions
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
+import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +40,8 @@ fun FilterBar(
     onViewChange: (ViewFilter) -> Unit,
     onScrapeFiltersChange: (ScrapeFilters) -> Unit,
     onLocalFiltersChange: (LocalFilters) -> Unit,
+    browserType: SeleniumScraper.BrowserType,
+    onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onRequestScrape: () -> Unit,
     onLoadFromDb: () -> Unit,
     onExport: () -> Unit,
@@ -63,6 +66,23 @@ fun FilterBar(
                     modifier = Modifier.widthIn(min = 520.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    Text("Navigateur", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SeleniumScraper.BrowserType.entries.forEachIndexed { index, type ->
+                            SegmentedButton(
+                                selected = browserType == type,
+                                onClick = { onBrowserChange(type) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = SeleniumScraper.BrowserType.entries.size,
+                                ),
+                                label = {
+                                    Text(type.name.lowercase().replaceFirstChar { it.uppercase() })
+                                },
+                            )
+                        }
+                    }
+                    HorizontalDivider()
                     Text(
                         "Filtres appliqués sur stagevet.fr avant de récupérer les stages.",
                         fontSize = 12.sp,
