@@ -140,6 +140,7 @@ class DashboardViewModel {
 
             var totalAdded = 0
             var totalUpdated = 0
+            var logPath = ""
 
             val result = withContext(Dispatchers.IO) {
                 val scraper = SeleniumScraper(
@@ -151,6 +152,7 @@ class DashboardViewModel {
                     }
                 )
                 try {
+                    logPath = scraper.logFilePath
                     val loggedIn = scraper.login(username, password)
                     if (!loggedIn) {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
@@ -182,6 +184,7 @@ class DashboardViewModel {
                         append("${result.totalCount} stage(s) extraits — ")
                         append("$totalAdded nouveau(x), $totalUpdated mis à jour")
                         append(" — base : $count au total")
+                        if (logPath.isNotBlank()) append(" | log : $logPath")
                     }
                     val urlsToAutoParse = fromDb
                         .mapNotNull { it.conventionPdfUrl.takeIf { u -> u.isNotEmpty() && u !in _pdfDataCache.value } }
@@ -192,7 +195,10 @@ class DashboardViewModel {
                 }
                 is ScraperResult.Failure -> {
                     loadFromDatabase()
-                    errorMessage.value = result.message
+                    errorMessage.value = buildString {
+                        append(result.message)
+                        if (logPath.isNotBlank()) append("\n\nLog complet : $logPath")
+                    }
                     statusMessage.value = "Erreur lors de l'extraction"
                 }
             }
