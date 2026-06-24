@@ -112,17 +112,22 @@ object ConventionPdfParser {
                 if (useAcroForm) checkedFields.any { f -> acroKeywords.any { k -> k in f } }
                 else isItemChecked(modaliteSection, textKeyword)
 
-            val nightPresence = modalite(listOf("nuit", "night"), "nuit")
-            val homePresence  = modalite(listOf("domicile", "home"), "domicile")
+            // Si "aucune modalité particulière" est cochée, toutes les autres sont fausses.
+            val aucuneModalite = if (useAcroForm)
+                checkedFields.any { "aucun" in it || "none" in it || "no_special" in it }
+            else isItemChecked(modaliteSection, "aucune modalité")
+
+            val nightPresence = !aucuneModalite && modalite(listOf("nuit", "night"), "nuit")
+            val homePresence  = !aucuneModalite && modalite(listOf("domicile", "home"), "domicile")
 
             // Sunday / holiday: use actual dates when available, otherwise checkbox fallback
             val sundayPresence = if (workingDates.isNotEmpty())
                 workingDates.any { it.dayOfWeek == DayOfWeek.SUNDAY }
-            else modalite(listOf("dimanche", "dim", "sunday"), "dimanche")
+            else !aucuneModalite && modalite(listOf("dimanche", "dim", "sunday"), "dimanche")
 
             val holidayPresence = if (workingDates.isNotEmpty())
                 workingDates.any { isFrenchPublicHoliday(it) }
-            else modalite(listOf("feri", "holiday", "fér"), "jours f")
+            else !aucuneModalite && modalite(listOf("feri", "holiday", "fér"), "jours f")
 
             // — Signatures (col. gauche = tuteur, milieu = stagiaire, droite = maître) —
             // sortByPosition extrait le texte gauche→droite dans la même bande horizontale,
@@ -229,16 +234,30 @@ object ConventionPdfParser {
         Regex("""$labelRegex\s*:\s*(.+)""").find(text)?.groupValues?.get(1)?.trim() ?: ""
 
     /**
-     * Returns true if the line containing [keyword] starts with a non-whitespace,
-     * non-empty-box character (heuristic for checked PDF checkboxes in text extraction).
+     * Retourne true si la ligne contenant [keyword] est précédée d'un symbole coché.
+     *
+     * Logique :
+     *  1. Si un symbole "cochée" explicite est trouvé avant le mot-clé → true
+     *  2. Si un symbole "non-cochée" explicite (case vide, croix ✗) → false
+     *  3. Sinon tout caractère non-blanc → true (heuristique de repli)
+     *
+     * Ce format correspond aux conventions StageVet qui utilisent ✓ (cochée) et ✗ (non-cochée).
      */
     private fun isItemChecked(section: String, keyword: String): Boolean {
         val idx = section.indexOf(keyword)
         if (idx < 0) return false
         val lineStart = section.lastIndexOf('\n', idx).let { if (it < 0) 0 else it + 1 }
         val prefix = section.substring(lineStart, idx)
-        val emptyBoxChars = setOf('□', '☐', '◻', '❑')
-        return prefix.any { !it.isWhitespace() && it !in emptyBoxChars }
+        val checkedChars    = setOf('✓', '✔', '☑', '●', '◉')
+        val notCheckedChars = setOf(
+            '□', '☐', '◻', '❑',          // cases vides
+            '✗', '✘', '✕', '✖', '×', '☓', // croix / X (non-coché dans le format StageVet)
+        )
+        return when {
+            prefix.any { it in checkedChars }    -> true
+            prefix.any { it in notCheckedChars } -> false
+            else -> prefix.any { !it.isWhitespace() }
+        }
     }
 
     /** Returns true if [date] is a French public holiday (métropole). */
