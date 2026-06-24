@@ -11,7 +11,10 @@ object ConventionPdfParser {
 
     fun parse(pdfBytes: ByteArray, sourceUrl: String = ""): ConventionPdfData {
         return Loader.loadPDF(pdfBytes).use { doc ->
-            val text = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+            val rawText = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+            // Normalise les apostrophes typographiques (U+2019, U+02BC…) en apostrophe ASCII
+            // afin que indexOf("L'ORGANISME") fonctionne quel que soit le générateur PDF.
+            val text = normalizeQuotes(rawText)
 
             val ecoleSection     = section(text, "1 - L'ÉTABLISSEMENT D'ENSEIGNEMENT", "2 - L'ORGANISME D'ACCUEIL")
             val orgSection       = section(text, "2 - L'ORGANISME D'ACCUEIL", "3 - LE STAGIAIRE")
@@ -41,11 +44,13 @@ object ConventionPdfParser {
             // si absent de la section 2, on le cherche dans la sous-section maître de stage.
             val hostPhone = lbl(orgSection, """T[eé]l(?:[eé]phone)?""")
                 .ifBlank { lbl(supervisorSub, """T[eé]l(?:[eé]phone)?""") }
-            val hostEmail = lbl(orgSection, "Courriel|E-?mail")
-                .ifBlank { lbl(supervisorSub, "Courriel|E-?mail") }
+            // findEmail() essaie d'abord le label "Courriel / E-mail", puis un scan regex @.
+            // Le dernier recours (scan texte complet) est calculé après tutorEmail.
+            val hostEmailPrelim = findEmail(orgSection).ifBlank { findEmail(supervisorSub) }
 
             // — École —
             val schoolContact = lbl(ecoleSection, "Personne contact")
+            val schoolEmail   = lbl(ecoleSection, "Courriel|E-?mail")
 
             // — Encadrement —
             val theme         = lbl(encadSection, "Thème du stage")
@@ -56,6 +61,12 @@ object ConventionPdfParser {
             val tutorEmail    = lbl(tutorSub, "Courriel|E-?mail")
             val supervisorName     = lbl(encadSection, """Nom et prénom du maître de stage""")
             val supervisorFunction = lbl(supervisorSub, "Fonction")
+
+            // Dernier recours : scan complet — exclut les emails de l'école, du tuteur et de l'étudiant
+            val hostEmail = hostEmailPrelim.ifBlank {
+                val known = setOf(studentEmail, tutorEmail, schoolEmail).filter { '@' in it }.toSet()
+                EMAIL_REGEX.findAll(text).map { it.value }.firstOrNull { it !in known } ?: ""
+            }
 
             // — Période —
             val academicYear = lbl(recapSection, "Année universitaire").trimEnd()
@@ -124,7 +135,7 @@ object ConventionPdfParser {
             val signingDateSchool  = sigDates.getOrNull(3)?.groupValues?.get(1) ?: ""
 
             ConventionPdfData(
-                rawText            = text,
+                rawText            = rawText,
                 sourceUrl          = sourceUrl,
                 schoolContact      = schoolContact,
                 tutorName          = tutorName,
@@ -179,6 +190,29 @@ object ConventionPdfParser {
             if (currConsec > maxConsec) maxConsec = currConsec
         }
         return maxConsec < 7
+    }
+
+    /** Normalise les variantes d'apostrophes/guillemets pour que indexOf() fonctionne. */
+    private fun normalizeQuotes(text: String) = text
+        .replace('’', '\'')  // RIGHT SINGLE QUOTATION MARK  (apostrophe typographique)
+        .replace('‘', '\'')  // LEFT SINGLE QUOTATION MARK
+        .replace('ʼ', '\'')  // MODIFIER LETTER APOSTROPHE
+        .replace('′', '\'')  // PRIME
+        .replace('`', '\'')  // GRAVE ACCENT
+        .replace('“', '"')   // LEFT DOUBLE QUOTATION MARK
+        .replace('”', '"')   // RIGHT DOUBLE QUOTATION MARK
+
+    private val EMAIL_REGEX = Regex("""[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}""")
+
+    /**
+     * Cherche un email dans [text] :
+     * 1) via le label "Courriel / E-mail" → valide si contient '@'
+     * 2) via regex directe sur '@' (cas où le label est absent ou mal formaté)
+     */
+    private fun findEmail(text: String): String {
+        val byLabel = lbl(text, "Courriel|E-?mail")
+        if (byLabel.contains('@')) return byLabel
+        return EMAIL_REGEX.find(text)?.value ?: ""
     }
 
     /** Returns substring between [from] (exclusive) and [to] (exclusive, or end if [to] is empty). */
