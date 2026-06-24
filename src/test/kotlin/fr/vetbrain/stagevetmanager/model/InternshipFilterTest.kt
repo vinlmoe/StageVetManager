@@ -13,8 +13,10 @@ class InternshipFilterTest {
         address: String = "Lyon",
         studyYear: String = "3ème année",
         startDate: LocalDate? = null,
+        endDate: LocalDate? = null,
         signingDate: LocalDate? = null,
         conventionSignUrl: String = "",
+        inSuiviTable: Boolean = false,
     ) = Internship(
         studentName = studentName,
         studyYear = studyYear,
@@ -24,10 +26,11 @@ class InternshipFilterTest {
         conventionGenDate = "",
         signingDate = signingDate,
         startDate = startDate,
-        endDate = null,
+        endDate = endDate,
         rawDateStage = "",
         theme = theme,
         conventionSignUrl = conventionSignUrl,
+        inSuiviTable = inSuiviTable,
     )
 
     // ── matchesText ───────────────────────────────────────────────────────────
@@ -106,6 +109,24 @@ class InternshipFilterTest {
         assertFalse(ViewFilter.STARTING_SOON.predicate(internship(startDate = null)))
     }
 
+    @Test
+    fun `UNSIGNED_STARTING_SOON matches an unsigned stage starting in 15 days`() {
+        assertTrue(
+            ViewFilter.UNSIGNED_STARTING_SOON.predicate(
+                internship(startDate = LocalDate.now().plusDays(15))
+            )
+        )
+    }
+
+    @Test
+    fun `UNSIGNED_STARTING_SOON rejects a signed stage`() {
+        assertFalse(
+            ViewFilter.UNSIGNED_STARTING_SOON.predicate(
+                internship(startDate = LocalDate.now().plusDays(5), signingDate = LocalDate.now())
+            )
+        )
+    }
+
     // ── ViewFilter.RECENTLY_SIGNED ────────────────────────────────────────────
 
     @Test
@@ -150,6 +171,24 @@ class InternshipFilterTest {
                     startDate = LocalDate.now().minusDays(31),
                     conventionSignUrl = "https://stagevet.fr/signature/abc",
                 )
+            )
+        )
+    }
+
+    @Test
+    fun `COMPLETED_NOT_IN_TRACKING matches an ended stage not selected for tracking`() {
+        assertTrue(
+            ViewFilter.COMPLETED_NOT_IN_TRACKING.predicate(
+                internship(endDate = LocalDate.now().minusDays(1))
+            )
+        )
+    }
+
+    @Test
+    fun `COMPLETED_NOT_IN_TRACKING rejects a stage already selected for tracking`() {
+        assertFalse(
+            ViewFilter.COMPLETED_NOT_IN_TRACKING.predicate(
+                internship(endDate = LocalDate.now().minusDays(1), inSuiviTable = true)
             )
         )
     }

@@ -1,6 +1,7 @@
 package fr.vetbrain.stagevetmanager.ui
 
 import androidx.compose.runtime.*
+import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.deserializeTrackingTargets
 import fr.vetbrain.stagevetmanager.model.serializeTrackingTargets
@@ -30,7 +31,6 @@ fun App() {
     }
     var headless      by remember { mutableStateOf(prefs.getBoolean("headless", false)) }
     var exportDir     by remember { mutableStateOf(prefs.get("exportDir", "")) }
-    var azureClientId by remember { mutableStateOf(prefs.get("azureClientId", "")) }
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
@@ -50,6 +50,17 @@ fun App() {
     val vm = remember { DashboardViewModel() }
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
 
+    // Restore persisted scrape filters
+    remember {
+        vm.setScrapeFilters(ScrapeFilters(
+            periode    = prefs.get("scrapeFilter.periode", ""),
+            anneeEtude = prefs.get("scrapeFilter.anneeEtude", ""),
+            theme      = prefs.get("scrapeFilter.theme", ""),
+            status     = prefs.get("scrapeFilter.status", ""),
+            order      = prefs.get("scrapeFilter.order", "1"),
+        ))
+    }
+
     AppTheme {
         when (screen) {
             Screen.LOGIN -> LoginScreen(
@@ -68,6 +79,11 @@ fun App() {
                 vm = vm,
                 exportDir = exportDir,
                 trackingTargets = trackingTargets,
+                browserType = browserType,
+                onBrowserChange = {
+                    browserType = it
+                    prefs.put("browser", it.name)
+                },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onLogout = {
                     vm.allInternships.value = emptyList()
@@ -77,13 +93,20 @@ fun App() {
                     vm.scrape(savedUsername, savedPassword, browserType, headless)
                 },
                 onExportOneDrive = {
-                    vm.exportToOneDrive(azureClientId, oneDrivePath)
+                    vm.exportToOneDrive(oneDrivePath)
                 },
                 onExportOneDriveComplement = {
-                    vm.exportToOneDriveComplement(azureClientId, oneDrivePath)
+                    vm.exportToOneDriveComplement(oneDrivePath)
                 },
                 onExportTracking = { targets ->
-                    vm.exportToOneDriveTracking(azureClientId, targets)
+                    vm.exportToOneDriveTracking(targets)
+                },
+                onScrapeFiltersChange = { f ->
+                    prefs.put("scrapeFilter.periode",    f.periode)
+                    prefs.put("scrapeFilter.anneeEtude", f.anneeEtude)
+                    prefs.put("scrapeFilter.theme",      f.theme)
+                    prefs.put("scrapeFilter.status",     f.status)
+                    prefs.put("scrapeFilter.order",      f.order)
                 },
             )
 
@@ -103,12 +126,7 @@ fun App() {
                     exportDir = it
                     prefs.put("exportDir", it)
                 },
-                azureClientId = azureClientId,
                 oneDrivePath = oneDrivePath,
-                onAzureClientIdChange = {
-                    azureClientId = it
-                    prefs.put("azureClientId", it)
-                },
                 onOneDrivePathChange = {
                     oneDrivePath = it
                     prefs.put("oneDrivePath", it)
@@ -118,7 +136,6 @@ fun App() {
                     trackingTargets = targets
                     prefs.put("trackingTargets", serializeTrackingTargets(targets))
                 },
-                onSignOutOneDrive = { vm.signOutOneDrive(azureClientId) },
                 onBack = { screen = if (vm.allInternships.value.isEmpty()) Screen.LOGIN else Screen.DASHBOARD },
             )
         }
