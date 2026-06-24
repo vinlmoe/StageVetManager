@@ -11,6 +11,7 @@ import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
+import java.io.File
 import java.time.Duration
 
 class SeleniumScraper(
@@ -143,6 +144,35 @@ class SeleniumScraper(
         } catch (_: Exception) { null }
     }
 
+    companion object {
+        private const val GECKO_VERSION = "0.35.0"
+
+        fun resolveGeckoDriver(): File? {
+            val os   = System.getProperty("os.name").lowercase()
+            val arch = System.getProperty("os.arch").lowercase()
+            val arm  = arch.contains("aarch64") || arch.contains("arm")
+
+            val resource = when {
+                os.contains("win")          -> "drivers/geckodriver-win-x64.exe"
+                os.contains("mac") && arm   -> "drivers/geckodriver-macos-arm64"
+                os.contains("mac")          -> "drivers/geckodriver-macos-x64"
+                arm                         -> "drivers/geckodriver-linux-arm64"
+                else                        -> "drivers/geckodriver-linux-x64"
+            }
+
+            val ext  = if (os.contains("win")) ".exe" else ""
+            val dest = File(System.getProperty("java.io.tmpdir"), "geckodriver-svm-v${GECKO_VERSION}$ext")
+            if (dest.exists()) return dest
+
+            val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource)
+                ?: return null  // dev mode sans binaires embarqués → Selenium Manager prend le relais
+
+            stream.use { input -> dest.outputStream().use { input.copyTo(it) } }
+            dest.setExecutable(true)
+            return dest
+        }
+    }
+
     private fun createDriver(): WebDriver {
         val driver = when (browserType) {
             BrowserType.CHROME -> {
@@ -152,6 +182,10 @@ class SeleniumScraper(
                 ChromeDriver(opts)
             }
             BrowserType.FIREFOX -> {
+                val geckoDriver = resolveGeckoDriver()
+                if (geckoDriver != null) {
+                    System.setProperty("webdriver.gecko.driver", geckoDriver.absolutePath)
+                }
                 val opts = FirefoxOptions()
                 if (headless) opts.addArguments("-headless")
                 FirefoxDriver(opts)

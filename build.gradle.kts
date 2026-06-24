@@ -8,11 +8,91 @@ plugins {
 
 group = "fr.vetbrain"
 version = "1.0.0"
+val geckoDriverVersion = "0.35.0"
 
 repositories {
     mavenCentral()
     google()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+}
+
+// GeckoDriver binaries are downloaded into build/ and included as resources
+sourceSets {
+    main {
+        resources {
+            srcDir(layout.buildDirectory.dir("geckodriver-resources"))
+        }
+    }
+}
+
+data class GeckoDriverPlatform(val key: String, val archive: String, val binary: String, val output: String)
+
+val geckoPlatforms = listOf(
+    GeckoDriverPlatform("linux-x64",   "geckodriver-v${geckoDriverVersion}-linux64.tar.gz",       "geckodriver",     "geckodriver-linux-x64"),
+    GeckoDriverPlatform("linux-arm64", "geckodriver-v${geckoDriverVersion}-linux-aarch64.tar.gz", "geckodriver",     "geckodriver-linux-arm64"),
+    GeckoDriverPlatform("macos-x64",   "geckodriver-v${geckoDriverVersion}-macos.tar.gz",         "geckodriver",     "geckodriver-macos-x64"),
+    GeckoDriverPlatform("macos-arm64", "geckodriver-v${geckoDriverVersion}-macos-aarch64.tar.gz", "geckodriver",     "geckodriver-macos-arm64"),
+    GeckoDriverPlatform("win-x64",     "geckodriver-v${geckoDriverVersion}-win64.zip",            "geckodriver.exe", "geckodriver-win-x64.exe"),
+)
+
+tasks.register("downloadGeckoDrivers") {
+    description = "Télécharge les binaires GeckoDriver pour toutes les plateformes cibles"
+    group = "distribution"
+
+    val downloadDir = layout.buildDirectory.dir("geckodriver-downloads")
+    val outputDir   = layout.buildDirectory.dir("geckodriver-resources/drivers")
+
+    outputs.dir(outputDir)
+    inputs.property("geckoDriverVersion", geckoDriverVersion)
+
+    doLast {
+        val dlDir  = downloadDir.get().asFile.also { it.mkdirs() }
+        val outDir = outputDir.get().asFile.also { it.mkdirs() }
+
+        for (p in geckoPlatforms) {
+            val dest = File(outDir, p.output)
+            if (dest.exists()) { logger.lifecycle("  ✓ GeckoDriver ${p.key} déjà présent"); continue }
+
+            val archiveFile = File(dlDir, p.archive)
+            val url = "https://github.com/mozilla/geckodriver/releases/download/v${geckoDriverVersion}/${p.archive}"
+            logger.lifecycle("  ↓ Téléchargement GeckoDriver ${p.key}…")
+
+            // Follow HTTP redirects (GitHub releases use CDN redirects)
+            var connection = uri(url).toURL().openConnection() as java.net.HttpURLConnection
+            connection.instanceFollowRedirects = true
+            var redirects = 0
+            while (connection.responseCode in 301..308 && redirects < 5) {
+                val location = connection.getHeaderField("Location")
+                connection.disconnect()
+                connection = java.net.URL(location).openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                redirects++
+            }
+            connection.inputStream.use { input -> archiveFile.outputStream().use { input.copyTo(it) } }
+            connection.disconnect()
+
+            if (p.archive.endsWith(".zip")) {
+                project.copy {
+                    from(project.zipTree(archiveFile)) { include(p.binary) }
+                    into(outDir)
+                    rename(p.binary, p.output)
+                }
+            } else {
+                project.copy {
+                    from(project.tarTree(project.resources.gzip(archiveFile))) { include(p.binary) }
+                    into(outDir)
+                    rename(p.binary, p.output)
+                }
+            }
+            dest.setExecutable(true)
+            archiveFile.delete()
+            logger.lifecycle("  ✓ GeckoDriver ${p.key} prêt")
+        }
+    }
+}
+
+tasks.named("processResources") {
+    dependsOn("downloadGeckoDrivers")
 }
 
 dependencies {
