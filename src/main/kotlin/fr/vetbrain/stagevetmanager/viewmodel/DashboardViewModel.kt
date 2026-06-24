@@ -318,34 +318,37 @@ class DashboardViewModel {
             isLoading.value = true
             errorMessage.value = null
             statusMessage.value = "Mise à jour du/des tableau(x) de suivi ER…"
-            withContext(Dispatchers.IO) {
-                try {
-                    val updater = LocalTrackingUpdater()
-                    val allWarnings = mutableListOf<String>()
-                    var totalMatched = 0
-                    for (target in targets) {
-                        val filtered = internshipsForYear(target.yearLabel)
-                        val label = target.yearLabel.ifBlank { "tous" }
-                        scope.launch(Dispatchers.Main) {
-                            statusMessage.value = "Mise à jour « $label » (${target.filePath.substringAfterLast('/')})…"
+            try {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val updater = LocalTrackingUpdater()
+                        val allWarnings = mutableListOf<String>()
+                        var totalMatched = 0
+                        for (target in targets) {
+                            val filtered = internshipsForYear(target.yearLabel)
+                            val label = target.yearLabel.ifBlank { "tous" }
+                            scope.launch(Dispatchers.Main) {
+                                statusMessage.value = "Mise à jour « $label » (${target.filePath.substringAfterLast('/')})…"
+                            }
+                            val result = updater.update(filtered, target.filePath)
+                            totalMatched += result.matched
+                            val prefix = if (target.yearLabel.isBlank()) "" else "[${target.yearLabel}] "
+                            allWarnings.addAll(result.warnings.map { "$prefix$it" })
                         }
-                        val result = updater.update(filtered, target.filePath)
-                        totalMatched += result.matched
-                        val prefix = if (target.yearLabel.isBlank()) "" else "[${target.yearLabel}] "
-                        allWarnings.addAll(result.warnings.map { "$prefix$it" })
-                    }
-                    scope.launch(Dispatchers.Main) {
-                        statusMessage.value = "$totalMatched stage(s) mis à jour dans ${targets.size} tableau(x) de suivi"
-                        if (allWarnings.isNotEmpty()) trackingWarnings.value = allWarnings
-                    }
-                } catch (e: Exception) {
-                    scope.launch(Dispatchers.Main) {
-                        errorMessage.value = "Mise à jour tableau de suivi échouée : ${e.message}"
-                        statusMessage.value = "Erreur tableau de suivi"
+                        scope.launch(Dispatchers.Main) {
+                            statusMessage.value = "$totalMatched stage(s) mis à jour dans ${targets.size} tableau(x) de suivi"
+                            if (allWarnings.isNotEmpty()) trackingWarnings.value = allWarnings
+                        }
+                    } catch (e: Exception) {
+                        scope.launch(Dispatchers.Main) {
+                            errorMessage.value = "Mise à jour tableau de suivi échouée : ${e.message}"
+                            statusMessage.value = "Erreur tableau de suivi"
+                        }
                     }
                 }
+            } finally {
+                isLoading.value = false
             }
-            isLoading.value = false
         }
     }
 
@@ -368,25 +371,28 @@ class DashboardViewModel {
         scope.launch {
             isLoading.value = true
             errorMessage.value = null
-            withContext(Dispatchers.IO) {
-                try {
-                    if (complement) {
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion du fichier Excel en cours…" }
-                        LocalExcelUpdater.complement(allInternships.value, localPath)
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier complété : ${java.io.File(localPath).name}" }
-                    } else {
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Écriture du fichier Excel en cours…" }
-                        LocalExcelUpdater.update(allInternships.value, localPath)
-                        scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier mis à jour : ${java.io.File(localPath).name}" }
-                    }
-                } catch (e: Exception) {
-                    scope.launch(Dispatchers.Main) {
-                        errorMessage.value = "Export fichier échoué : ${e.message}"
-                        statusMessage.value = "Erreur export fichier"
+            try {
+                withContext(Dispatchers.IO) {
+                    try {
+                        if (complement) {
+                            scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion du fichier Excel en cours…" }
+                            LocalExcelUpdater.complement(allInternships.value, localPath)
+                            scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier complété : ${java.io.File(localPath).name}" }
+                        } else {
+                            scope.launch(Dispatchers.Main) { statusMessage.value = "Écriture du fichier Excel en cours…" }
+                            LocalExcelUpdater.update(allInternships.value, localPath)
+                            scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier mis à jour : ${java.io.File(localPath).name}" }
+                        }
+                    } catch (e: Exception) {
+                        scope.launch(Dispatchers.Main) {
+                            errorMessage.value = "Export fichier échoué : ${e.message}"
+                            statusMessage.value = "Erreur export fichier"
+                        }
                     }
                 }
+            } finally {
+                isLoading.value = false
             }
-            isLoading.value = false
         }
     }
 

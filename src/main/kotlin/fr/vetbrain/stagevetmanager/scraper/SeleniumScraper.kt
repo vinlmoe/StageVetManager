@@ -27,21 +27,29 @@ class SeleniumScraper(
         return try {
             driver = createDriver()
             val d = driver!!
+
+            onProgress("[DEBUG] Navigation vers https://www.stagevet.fr/login …")
             d.get("https://www.stagevet.fr/login")
+            onProgress("[DEBUG] URL courante : ${d.currentUrl}")
 
             val wait = WebDriverWait(d, Duration.ofSeconds(20))
+            onProgress("[DEBUG] Attente du champ #email…")
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#email")))
+            onProgress("[DEBUG] Champ #email visible — saisie des identifiants…")
 
             d.findElement(By.cssSelector("#email")).sendKeys(username)
             d.findElement(By.cssSelector("#password")).sendKeys(password)
             d.findElement(By.cssSelector("button[type='submit']")).click()
+            onProgress("[DEBUG] Formulaire soumis — URL courante : ${d.currentUrl}")
 
-            // Wait for redirect to dashboard
+            onProgress("[DEBUG] Attente de la redirection vers /dashboard…")
             wait.until(ExpectedConditions.urlContains("dashboard"))
-            onProgress("Connexion réussie")
+            onProgress("Connexion réussie (URL: ${d.currentUrl})")
             true
         } catch (e: Exception) {
-            onProgress("Erreur de connexion : ${e.message}")
+            val cause = generateSequence<Throwable>(e) { it.cause }.map { it.javaClass.simpleName + ": " + it.message }.joinToString(" ← ")
+            onProgress("Erreur de connexion : $cause")
+            runCatching { onProgress("[DEBUG] URL au moment de l'erreur : ${driver?.currentUrl ?: "driver non initialisé"}") }
             false
         }
     }
@@ -162,7 +170,7 @@ class SeleniumScraper(
 
             val ext  = if (os.contains("win")) ".exe" else ""
             val dest = File(System.getProperty("java.io.tmpdir"), "geckodriver-svm-v${GECKO_VERSION}$ext")
-            if (dest.exists()) return dest
+            if (dest.exists() && dest.canExecute()) return dest
 
             val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource)
                 ?: return null  // dev mode sans binaires embarqués → Selenium Manager prend le relais
@@ -174,21 +182,28 @@ class SeleniumScraper(
     }
 
     private fun createDriver(): WebDriver {
+        onProgress("[DEBUG] OS: ${System.getProperty("os.name")} | arch: ${System.getProperty("os.arch")}")
+        onProgress("[DEBUG] Navigateur sélectionné : $browserType | headless: $headless")
         val driver = when (browserType) {
             BrowserType.CHROME -> {
+                onProgress("[DEBUG] Initialisation ChromeDriver…")
                 val opts = ChromeOptions()
                 if (headless) opts.addArguments("--headless=new", "--no-sandbox", "--disable-dev-shm-usage")
                 opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
-                ChromeDriver(opts)
+                ChromeDriver(opts).also { onProgress("[DEBUG] ChromeDriver démarré") }
             }
             BrowserType.FIREFOX -> {
                 val geckoDriver = resolveGeckoDriver()
                 if (geckoDriver != null) {
+                    onProgress("[DEBUG] GeckoDriver embarqué : ${geckoDriver.absolutePath} (existe: ${geckoDriver.exists()}, exécutable: ${geckoDriver.canExecute()})")
                     System.setProperty("webdriver.gecko.driver", geckoDriver.absolutePath)
+                } else {
+                    onProgress("[DEBUG] GeckoDriver embarqué non trouvé → Selenium Manager")
                 }
                 val opts = FirefoxOptions()
                 if (headless) opts.addArguments("-headless")
-                FirefoxDriver(opts)
+                onProgress("[DEBUG] Démarrage FirefoxDriver…")
+                FirefoxDriver(opts).also { onProgress("[DEBUG] FirefoxDriver démarré") }
             }
         }
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))

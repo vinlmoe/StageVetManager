@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
+import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
@@ -33,12 +34,15 @@ fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
     trackingTargets: List<TrackingTarget>,
+    browserType: SeleniumScraper.BrowserType,
+    onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
     onRequestScrape: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
     onExportTracking: (List<TrackingTarget>) -> Unit,
+    onScrapeFiltersChange: (fr.vetbrain.stagevetmanager.model.ScrapeFilters) -> Unit,
 ) {
     val displayed      by vm.displayed.collectAsState()
     val filterText     by vm.filterText.collectAsState()
@@ -171,8 +175,10 @@ fun DashboardScreen(
                 localFilters = localFilters,
                 onTextChange = vm::setFilter,
                 onViewChange = vm::setView,
-                onScrapeFiltersChange = vm::setScrapeFilters,
+                onScrapeFiltersChange = { f -> vm.setScrapeFilters(f); onScrapeFiltersChange(f) },
                 onLocalFiltersChange = vm::setLocalFilters,
+                browserType = browserType,
+                onBrowserChange = onBrowserChange,
                 onRequestScrape = onRequestScrape,
                 onLoadFromDb = vm::loadFromDatabase,
                 onExportOneDrive = onExportOneDrive,
