@@ -37,7 +37,7 @@ class SeleniumScraper(
     private val timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 
     private val logFile: File by lazy {
-        val dir = File(System.getProperty("user.home"), ".stagevetmanager/logs")
+        val dir = File(System.getProperty("user.home"), "stagevetmanager/logs")
         dir.mkdirs()
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
         File(dir, "scraper_$stamp.log")
