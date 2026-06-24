@@ -64,7 +64,7 @@ tasks.register("downloadGeckoDrivers") {
             while (connection.responseCode in 301..308 && redirects < 5) {
                 val location = connection.getHeaderField("Location")
                 connection.disconnect()
-                connection = java.net.URL(location).openConnection() as java.net.HttpURLConnection
+                connection = uri(location).toURL().openConnection() as java.net.HttpURLConnection
                 connection.instanceFollowRedirects = true
                 redirects++
             }
