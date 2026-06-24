@@ -14,7 +14,11 @@ import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.io.File
+import java.io.PrintWriter
 import java.time.Duration
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 
@@ -28,43 +32,112 @@ class SeleniumScraper(
 
     private var driver: WebDriver? = null
 
+    // ── Logging vers fichier ─────────────────────────────────────────────────────
+    private val sessionStart = System.currentTimeMillis()
+    private val timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+
+    private val logFile: File by lazy {
+        val dir = File(System.getProperty("user.home"), ".stagevetmanager/logs")
+        dir.mkdirs()
+        val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+        File(dir, "scraper_$stamp.log")
+    }
+
+    // autoFlush=true : chaque ligne est écrite immédiatement même si le process hang
+    private val logWriter: PrintWriter by lazy {
+        PrintWriter(logFile.bufferedWriter(), true)
+    }
+
+    val logFilePath: String get() = logFile.absolutePath
+
+    private fun ts() = LocalTime.now().format(timeFmt)
+    private fun elapsed() = "+${System.currentTimeMillis() - sessionStart}ms"
+
     private fun log(msg: String) {
-        System.err.println("[SVM] $msg")
+        val line = "${ts()} [${elapsed()}] $msg"
+        System.err.println("[SVM] $line")
+        runCatching { logWriter.println(line) }
         onProgress(msg)
     }
 
+    private fun logSection(title: String) {
+        val bar = "─".repeat(60)
+        runCatching {
+            logWriter.println("${ts()} [${elapsed()}] $bar")
+            logWriter.println("${ts()} [${elapsed()}]  $title")
+            logWriter.println("${ts()} [${elapsed()}] $bar")
+        }
+        System.err.println("[SVM] ── $title ──")
+    }
+
+    private fun logThrowable(msg: String, t: Throwable) {
+        log("ERREUR $msg : ${t.javaClass.name}: ${t.message}")
+        runCatching {
+            t.printStackTrace(logWriter)
+            var cause = t.cause
+            var depth = 0
+            while (cause != null && depth < 5) {
+                logWriter.println("  Caused by: ${cause.javaClass.name}: ${cause.message}")
+                cause.printStackTrace(logWriter)
+                cause = cause.cause
+                depth++
+            }
+            logWriter.flush()
+        }
+    }
+
+    private fun writeLogHeader() {
+        runCatching {
+            val eq = "═".repeat(60)
+            logWriter.println(eq)
+            logWriter.println("  StageVetManager — Session de scraping")
+            logWriter.println("  Date/heure  : ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))}")
+            logWriter.println("  OS          : ${System.getProperty("os.name")} ${System.getProperty("os.version")} ${System.getProperty("os.arch")}")
+            logWriter.println("  Java        : ${System.getProperty("java.version")} (${System.getProperty("java.vendor")})")
+            logWriter.println("  java.io.tmp : ${System.getProperty("java.io.tmpdir")}")
+            logWriter.println("  user.home   : ${System.getProperty("user.home")}")
+            logWriter.println("  jpackage    : ${System.getProperty("jpackage.app-path") ?: "non (dev mode)"}")
+            logWriter.println("  Navigateur  : $browserType | headless: $headless")
+            logWriter.println("  ChromeDrv   : ${chromeDriverPath.ifBlank { "(auto)" }}")
+            logWriter.println(eq)
+            logWriter.flush()
+        }
+    }
+
+    // ── API publique ─────────────────────────────────────────────────────────────
+
     fun login(username: String, password: String): Boolean {
+        writeLogHeader()
+        logSection("createDriver()")
         return try {
             driver = createDriver()
             val d = driver!!
             val t0 = System.currentTimeMillis()
-            fun elapsed() = "${System.currentTimeMillis() - t0}ms"
+            fun lap() = "${System.currentTimeMillis() - t0}ms"
 
-            log("[DEBUG] Navigation vers https://www.stagevet.fr/login …")
+            logSection("login() — navigation")
+            log("Navigation vers https://www.stagevet.fr/login …")
             d.get("https://www.stagevet.fr/login")
-            log("[DEBUG] Page chargée (${elapsed()}) — URL : ${d.currentUrl}")
+            log("Page chargée (${lap()}) — URL : ${d.currentUrl}")
 
             val wait = WebDriverWait(d, Duration.ofSeconds(20))
-            log("[DEBUG] Attente du champ #email (timeout 20s)…")
+            log("Attente #email visible (timeout 20s)…")
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#email")))
-            log("[DEBUG] Champ #email visible (${elapsed()}) — saisie des identifiants…")
+            log("Champ #email visible (${lap()}) — saisie des identifiants…")
 
             d.findElement(By.cssSelector("#email")).sendKeys(username)
             d.findElement(By.cssSelector("#password")).sendKeys(password)
-            log("[DEBUG] Clic sur le bouton submit…")
+            log("Clic sur button[type=submit]…")
             d.findElement(By.cssSelector("button[type='submit']")).click()
-            log("[DEBUG] Formulaire soumis (${elapsed()}) — URL : ${d.currentUrl}")
+            log("Formulaire soumis (${lap()}) — URL : ${d.currentUrl}")
 
-            log("[DEBUG] Attente de la redirection vers /dashboard (timeout 20s)…")
+            log("Attente redirection /dashboard (timeout 20s)…")
             wait.until(ExpectedConditions.urlContains("dashboard"))
-            log("Connexion réussie — URL : ${d.currentUrl} — durée totale : ${elapsed()}")
+            log("Connexion réussie — URL : ${d.currentUrl} — durée totale : ${lap()}")
             true
         } catch (e: Exception) {
-            val cause = generateSequence<Throwable>(e) { it.cause }
-                .map { it.javaClass.simpleName + ": " + it.message }
-                .joinToString(" ← ")
-            log("Erreur de connexion : $cause")
-            runCatching { log("[DEBUG] URL au moment de l'erreur : ${driver?.currentUrl ?: "driver non initialisé"}") }
+            logThrowable("login()", e)
+            runCatching { log("URL au moment de l'erreur : ${driver?.currentUrl ?: "driver non initialisé"}") }
             false
         }
     }
@@ -75,17 +148,19 @@ class SeleniumScraper(
     ): ScraperResult {
         val d = driver ?: return ScraperResult.Failure("Navigateur non initialisé")
         return try {
+            logSection("scrapeAllPages()")
             val url = buildFilteredUrl(filters)
-            log("[DEBUG] Chargement dashboard : $url")
+            log("Chargement dashboard : $url")
             val t0 = System.currentTimeMillis()
             d.get(url)
-            log("[DEBUG] Dashboard chargé (${System.currentTimeMillis() - t0}ms) — URL : ${d.currentUrl}")
+            log("Dashboard chargé (${System.currentTimeMillis() - t0}ms) — URL : ${d.currentUrl}")
 
             val wait = WebDriverWait(d, Duration.ofSeconds(20))
+            log("sleep(1500) — attente rendu initial…")
             Thread.sleep(1500)
             try {
                 wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.card")))
-                log("[DEBUG] Cartes de stages détectées.")
+                log("Cartes de stages détectées.")
             } catch (_: Exception) {
                 log("Aucun stage trouvé avec ces filtres.")
                 return ScraperResult.Success(0, 0)
@@ -95,6 +170,7 @@ class SeleniumScraper(
             var pageCount = 0
 
             while (true) {
+                log("sleep(1500) — stabilisation page ${ pageCount + 1}…")
                 Thread.sleep(1500)
                 val html = d.pageSource
                 val pageInternships = DashboardParser.parse(html)
@@ -102,22 +178,22 @@ class SeleniumScraper(
                 totalCount += pageInternships.size
 
                 onPageScraped(pageInternships)
-                log("Page $pageCount : ${pageInternships.size} stage(s) extraits (total : $totalCount)")
+                log("Page $pageCount : ${pageInternships.size} stage(s) (total : $totalCount)")
 
                 val nextBtn = findNextButton(d)
-                if (nextBtn == null) break
+                if (nextBtn == null) { log("Bouton Suivant absent — fin de pagination."); break }
 
-                val firstCard = try {
-                    d.findElement(By.cssSelector("div.card"))
-                } catch (_: Exception) { null }
-
+                val firstCard = try { d.findElement(By.cssSelector("div.card")) } catch (_: Exception) { null }
+                log("Clic Suivant → page ${pageCount + 1}…")
                 nextBtn.click()
 
                 if (firstCard != null) {
                     try {
                         WebDriverWait(d, Duration.ofSeconds(10))
                             .until(ExpectedConditions.stalenessOf(firstCard))
+                        log("Page suivante chargée (staleness OK)")
                     } catch (_: Exception) {
+                        log("stalenessOf timeout — sleep(2000) de secours…")
                         Thread.sleep(2000)
                     }
                 }
@@ -126,19 +202,279 @@ class SeleniumScraper(
             log("Extraction terminée : $totalCount stage(s) sur $pageCount page(s)")
             ScraperResult.Success(totalCount, pageCount)
         } catch (e: Exception) {
+            logThrowable("scrapeAllPages()", e)
             ScraperResult.Failure("Erreur lors du scraping : ${e.message}", e)
         }
     }
 
     fun getSessionCookies(): Map<String, String> =
-        driver?.manage()?.cookies
-            ?.associate { it.name to it.value }
-            ?: emptyMap()
+        driver?.manage()?.cookies?.associate { it.name to it.value } ?: emptyMap()
 
     fun close() {
         try { driver?.quit() } catch (_: Exception) {}
         driver = null
+        runCatching { logWriter.println("${ts()} [${elapsed()}] ── Session terminée ──"); logWriter.close() }
     }
+
+    // ── Création du driver ───────────────────────────────────────────────────────
+
+    private fun createDriver(): WebDriver {
+        val os = System.getProperty("os.name").lowercase()
+        val isWindows = os.contains("win")
+
+        log("OS : ${System.getProperty("os.name")} | arch : ${System.getProperty("os.arch")}")
+        log("Java : ${System.getProperty("java.version")} | tmp : ${System.getProperty("java.io.tmpdir")}")
+        log("Navigateur : $browserType | headless : $headless | isWindows : $isWindows")
+
+        val driver = when (browserType) {
+            BrowserType.CHROME -> createChromeDriver(isWindows)
+            BrowserType.FIREFOX -> createFirefoxDriver(isWindows)
+        }
+
+        log("pageLoadTimeout → 30s")
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))
+        log("Driver prêt.")
+        return driver
+    }
+
+    private fun createChromeDriver(isWindows: Boolean): WebDriver {
+        logSection("ChromeDriver — résolution du binaire")
+        val driverBinary = if (isWindows) "chromedriver.exe" else "chromedriver"
+
+        // Priorité : paramètre > cache SM > dossier app > PATH > auto-download (Windows) > SM (autres OS)
+        val resolved: File? = when {
+            chromeDriverPath.isNotBlank() -> {
+                val f = File(chromeDriverPath)
+                log("Chemin paramètre : ${f.absolutePath} | existe=${f.exists()} canExec=${f.canExecute()}")
+                f.takeIf { it.exists() && it.canExecute() }
+                    ?: throw RuntimeException("ChromeDriver introuvable au chemin configuré : $chromeDriverPath")
+            }
+            else -> {
+                log("Vérification cache Selenium Manager (~/.cache/selenium/chromedriver/)…")
+                findBestCachedChromeDriver()?.also { log("Cache SM : ${it.absolutePath}") }
+                    ?: run {
+                        log("Cache SM vide.")
+                        log("Vérification dossier application (jpackage.app-path)…")
+                        findDriverNextToApp(driverBinary)?.also { log("Dossier app : ${it.absolutePath}") }
+                    }
+                    ?: run {
+                        log("Non trouvé dans le dossier app.")
+                        log("Vérification PATH système…")
+                        findExecutableInPath(driverBinary)?.also { log("PATH : ${it.absolutePath}") }
+                    }
+            }
+        }
+
+        if (resolved != null) {
+            log("webdriver.chrome.driver → ${resolved.absolutePath}")
+            System.setProperty("webdriver.chrome.driver", resolved.absolutePath)
+        } else if (isWindows) {
+            logSection("ChromeDriver — auto-download OkHttp (Windows)")
+            val downloaded = downloadChromeDriverForWindows()
+            if (downloaded != null) {
+                log("webdriver.chrome.driver → ${downloaded.absolutePath}")
+                System.setProperty("webdriver.chrome.driver", downloaded.absolutePath)
+            } else {
+                throw RuntimeException(
+                    "ChromeDriver introuvable et téléchargement automatique échoué.\n\n" +
+                    "Vérifiez :\n" +
+                    "• Chrome est installé sur ce Windows\n" +
+                    "• La connexion internet est disponible\n\n" +
+                    "Sinon, placez chromedriver.exe dans le dossier de StageVetManager.exe\n" +
+                    "ou configurez son chemin dans Paramètres.\n\n" +
+                    "Log complet : $logFilePath"
+                )
+            }
+        } else {
+            System.clearProperty("webdriver.chrome.driver")
+            log("Aucun ChromeDriver local → Selenium Manager va le télécharger")
+        }
+
+        logSection("ChromeDriver — lancement du processus")
+        val opts = ChromeOptions()
+        if (headless) {
+            opts.addArguments("--headless=new")
+            if (System.getProperty("os.name").lowercase().contains("linux")) {
+                opts.addArguments("--no-sandbox", "--disable-dev-shm-usage")
+            }
+        }
+        opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
+        log("ChromeOptions : ${opts.asMap()}")
+        log("Appel ChromeDriver(opts)… (si ça bloque ici : AV bloque le processus chromedriver.exe)")
+
+        val t = System.currentTimeMillis()
+        return ChromeDriver(opts).also { d ->
+            log("ChromeDriver démarré en ${System.currentTimeMillis() - t}ms")
+            runCatching {
+                val caps = d.capabilities
+                log("Chrome version    : ${caps.getBrowserVersion()}")
+                @Suppress("UNCHECKED_CAST")
+                val info = caps.getCapability("chrome") as? Map<*, *>
+                if (info != null) {
+                    log("ChromeDriver ver  : ${(info["chromedriverVersion"] as? String)?.substringBefore(" ") ?: "?"}")
+                    log("userDataDir       : ${info["userDataDir"]}")
+                }
+            }
+        }
+    }
+
+    private fun createFirefoxDriver(isWindows: Boolean): WebDriver {
+        logSection("FirefoxDriver — résolution GeckoDriver")
+        val geckoDriver = resolveGeckoDriver()
+        if (geckoDriver != null) {
+            log("GeckoDriver résolu : ${geckoDriver.absolutePath}")
+            log("  existe=${geckoDriver.exists()} | canExec=${geckoDriver.canExecute()} | taille=${geckoDriver.length()}B")
+            System.setProperty("webdriver.gecko.driver", geckoDriver.absolutePath)
+        } else {
+            log("GeckoDriver embarqué introuvable dans les ressources → Selenium Manager")
+        }
+
+        val opts = FirefoxOptions()
+        if (isWindows) {
+            logSection("FirefoxDriver — localisation Firefox (Windows)")
+            val firefoxBinary = findFirefoxOnWindows()
+            if (firefoxBinary != null) {
+                log("Firefox trouvé : ${firefoxBinary.absolutePath}")
+                opts.setBinary(firefoxBinary.absolutePath ?: firefoxBinary.path)
+            } else {
+                throw RuntimeException(
+                    "Firefox n'est pas installé sur ce système Windows.\n\n" +
+                    "Téléchargez Firefox depuis https://www.mozilla.org/fr/firefox/\n" +
+                    "ou utilisez Chrome à la place.\n\n" +
+                    "Log complet : $logFilePath"
+                )
+            }
+        }
+        if (headless) opts.addArguments("-headless")
+
+        logSection("FirefoxDriver — lancement du processus")
+        log("Appel FirefoxDriver(opts)… (si ça bloque ici : geckodriver.exe ou firefox.exe bloqué par AV)")
+        val t = System.currentTimeMillis()
+        return FirefoxDriver(opts).also { log("FirefoxDriver démarré en ${System.currentTimeMillis() - t}ms") }
+    }
+
+    // ── Auto-download ChromeDriver via OkHttp (Windows) ─────────────────────────
+    // Utilise OkHttp : download JVM → pas de sous-process extrait → pas de SmartScreen.
+
+    private fun downloadChromeDriverForWindows(): File? {
+        log("Détection version Chrome depuis le registre Windows…")
+        val chromeVersion = detectChromeVersionOnWindows()
+        if (chromeVersion == null) {
+            log("Chrome non détecté — vérifiez l'installation de Chrome")
+            return null
+        }
+        log("Chrome version : $chromeVersion")
+        val major = chromeVersion.split(".").firstOrNull() ?: return null
+
+        log("Requête LATEST_RELEASE_$major sur googlechromelabs.github.io…")
+        val driverVersion = fetchChromeDriverVersion(major)
+        if (driverVersion == null) {
+            log("Réponse vide ou erreur réseau pour LATEST_RELEASE_$major")
+            return null
+        }
+        log("ChromeDriver cible : $driverVersion")
+
+        val cacheDir = File(System.getProperty("user.home"), ".cache/selenium/chromedriver/win32/$driverVersion")
+        val destFile = File(cacheDir, "chromedriver.exe")
+        if (destFile.exists() && destFile.canExecute()) {
+            log("Déjà en cache : ${destFile.absolutePath}")
+            return destFile
+        }
+
+        log("Téléchargement ChromeDriver $driverVersion (première utilisation)…")
+        onProgress("Téléchargement ChromeDriver $driverVersion…")
+        return if (downloadAndExtractChromeDriver(driverVersion, destFile)) {
+            log("ChromeDriver prêt : ${destFile.absolutePath} (${destFile.length()} B)")
+            destFile
+        } else {
+            log("Échec du téléchargement ChromeDriver")
+            null
+        }
+    }
+
+    private fun detectChromeVersionOnWindows(): String? {
+        val rx = Regex("""(\d+\.\d+\.\d+\.\d+)""")
+        val regQueries = listOf(
+            arrayOf("reg", "query", "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
+            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
+            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Google\\Chrome\\BLBeacon", "/v", "version"),
+        )
+        for (cmd in regQueries) {
+            val keyPath = cmd[2]
+            log("  reg query $keyPath…")
+            runCatching {
+                val proc = Runtime.getRuntime().exec(cmd)
+                val out = proc.inputStream.bufferedReader().readText()
+                val err = proc.errorStream.bufferedReader().readText()
+                log("    stdout: ${out.trim().take(120)}")
+                if (err.isNotBlank()) log("    stderr: ${err.trim().take(80)}")
+                rx.find(out)?.groupValues?.get(1)?.let { v -> log("    → version : $v"); return v }
+            }.onFailure { log("    exception : ${it.javaClass.simpleName}: ${it.message}") }
+        }
+        // Repli : chrome.exe --version
+        val chromePaths = listOfNotNull(
+            System.getenv("ProgramFiles")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+            System.getenv("ProgramFiles(x86)")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+            System.getenv("LOCALAPPDATA")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+        )
+        for (path in chromePaths) {
+            log("  Tentative chrome.exe --version : $path")
+            if (!File(path).exists()) { log("    absent"); continue }
+            runCatching {
+                val proc = Runtime.getRuntime().exec(arrayOf(path, "--version"))
+                val out = proc.inputStream.bufferedReader().readText()
+                log("    stdout: ${out.trim().take(120)}")
+                rx.find(out)?.groupValues?.get(1)?.let { v -> log("    → version : $v"); return v }
+            }.onFailure { log("    exception : ${it.javaClass.simpleName}: ${it.message}") }
+        }
+        log("  Aucune version Chrome détectée.")
+        return null
+    }
+
+    private fun fetchChromeDriverVersion(majorVersion: String): String? = runCatching {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+        val url = "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$majorVersion"
+        log("  GET $url")
+        client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            log("  HTTP ${resp.code}")
+            if (resp.isSuccessful) resp.body?.string()?.trim().also { log("  body: $it") } else null
+        }
+    }.onFailure { log("  fetchChromeDriverVersion exception: ${it.javaClass.simpleName}: ${it.message}") }.getOrNull()
+
+    private fun downloadAndExtractChromeDriver(version: String, destFile: File): Boolean = runCatching {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .build()
+        val url = "https://storage.googleapis.com/chrome-for-testing-public/$version/win32/chromedriver-win32.zip"
+        log("  GET $url")
+        val zipBytes = client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            log("  HTTP ${resp.code} — Content-Length: ${resp.header("Content-Length") ?: "?"}")
+            if (!resp.isSuccessful) return@runCatching false
+            resp.body?.bytes() ?: return@runCatching false
+        }
+        log("  ZIP reçu : ${zipBytes.size} B")
+        destFile.parentFile?.mkdirs()
+        ZipInputStream(zipBytes.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                log("  ZIP entry: ${entry.name}")
+                if (entry.name.endsWith("chromedriver.exe")) {
+                    destFile.outputStream().use { out -> zis.copyTo(out) }
+                    log("  Extrait → ${destFile.absolutePath} (${destFile.length()} B)")
+                    return@runCatching true
+                }
+                entry = zis.nextEntry
+            }
+        }
+        log("  chromedriver.exe introuvable dans le ZIP")
+        false
+    }.onFailure { logThrowable("downloadAndExtractChromeDriver", it) }.getOrElse { false }
+
+    // ── Helpers navigation ───────────────────────────────────────────────────────
 
     private fun buildFilteredUrl(filters: ScrapeFilters): String {
         val params = mutableListOf<String>()
@@ -151,23 +487,43 @@ class SeleniumScraper(
         return "https://www.stagevet.fr/dashboard$qs"
     }
 
-    private fun findNextButton(d: WebDriver): WebElement? {
-        return try {
-            val elements = d.findElements(
-                By.xpath("//a[@class='page-link' and @rel='next' and contains(@aria-label,'Suivant')]")
-            )
-            elements.firstOrNull()?.takeIf { it.isEnabled && it.isDisplayed }
-        } catch (_: Exception) { null }
+    private fun findNextButton(d: WebDriver): WebElement? = runCatching {
+        d.findElements(
+            By.xpath("//a[@class='page-link' and @rel='next' and contains(@aria-label,'Suivant')]")
+        ).firstOrNull()?.takeIf { it.isEnabled && it.isDisplayed }
+    }.getOrNull()
+
+    // ── Helpers de détection ─────────────────────────────────────────────────────
+
+    private fun findExecutableInPath(name: String): File? =
+        System.getenv("PATH")
+            ?.split(File.pathSeparator)
+            ?.map { File(it, name) }
+            ?.firstOrNull { it.exists() && it.canExecute() }
+
+    private fun findDriverNextToApp(name: String): File? {
+        val appPath = System.getProperty("jpackage.app-path") ?: return null
+        return File(appPath).parentFile?.let { File(it, name) }?.takeIf { it.exists() && it.canExecute() }
     }
+
+    private fun findFirefoxOnWindows(): File? {
+        val candidates = listOfNotNull(
+            System.getenv("ProgramFiles"),
+            System.getenv("ProgramFiles(x86)"),
+            System.getenv("LOCALAPPDATA"),
+        ).map { "$it\\Mozilla Firefox\\firefox.exe" } + listOf(
+            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+        )
+        return candidates.also { list -> list.forEach { log("  Firefox candidat : $it | existe=${File(it).exists()}") } }
+            .map(::File).firstOrNull { it.exists() }
+    }
+
+    // ── Companion (méthodes statiques réutilisables) ─────────────────────────────
 
     companion object {
         private const val GECKO_VERSION = "0.35.0"
 
-        /**
-         * Retourne le ChromeDriver le plus récent dans le cache de Selenium Manager
-         * (~/.cache/selenium/chromedriver/{platform}/{version}/chromedriver).
-         * Permet d'ignorer un chromedriver obsolète installé dans le PATH (ex. via Homebrew).
-         */
         fun findBestCachedChromeDriver(): File? {
             val os   = System.getProperty("os.name").lowercase()
             val arch = System.getProperty("os.arch").lowercase()
@@ -184,7 +540,7 @@ class SeleniumScraper(
             val binary = if (os.contains("win")) "chromedriver.exe" else "chromedriver"
             return cacheDir.listFiles()
                 ?.filter { it.isDirectory }
-                ?.maxByOrNull { it.name }   // tri lexicographique fiable sur "149.0.x" vs "132.0.x"
+                ?.maxByOrNull { it.name }
                 ?.let { File(it, binary) }
                 ?.takeIf { it.exists() && it.canExecute() }
         }
@@ -193,7 +549,6 @@ class SeleniumScraper(
             val os   = System.getProperty("os.name").lowercase()
             val arch = System.getProperty("os.arch").lowercase()
             val arm  = arch.contains("aarch64") || arch.contains("arm")
-
             val resource = when {
                 os.contains("win")          -> "drivers/geckodriver-win-x64.exe"
                 os.contains("mac") && arm   -> "drivers/geckodriver-macos-arm64"
@@ -201,283 +556,13 @@ class SeleniumScraper(
                 arm                         -> "drivers/geckodriver-linux-arm64"
                 else                        -> "drivers/geckodriver-linux-x64"
             }
-
             val ext  = if (os.contains("win")) ".exe" else ""
             val dest = File(System.getProperty("java.io.tmpdir"), "geckodriver-svm-v${GECKO_VERSION}$ext")
             if (dest.exists() && dest.canExecute()) return dest
-
-            val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource)
-                ?: return null
-
+            val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource) ?: return null
             stream.use { input -> dest.outputStream().use { input.copyTo(it) } }
             dest.setExecutable(true)
             return dest
         }
-    }
-
-    private fun createDriver(): WebDriver {
-        val os = System.getProperty("os.name").lowercase()
-        val isWindows = os.contains("win")
-        log("[DEBUG] OS : ${System.getProperty("os.name")} | arch : ${System.getProperty("os.arch")}")
-        log("[DEBUG] Java : ${System.getProperty("java.version")} | tmp : ${System.getProperty("java.io.tmpdir")}")
-        log("[DEBUG] Navigateur : $browserType | headless : $headless | isWindows : $isWindows")
-
-        val driver = when (browserType) {
-            BrowserType.CHROME -> {
-                log("[DEBUG] Recherche de ChromeDriver…")
-                val driverBinary = if (isWindows) "chromedriver.exe" else "chromedriver"
-
-                // Résolution par priorité décroissante :
-                // 1. Chemin explicite dans les paramètres
-                // 2. Cache Selenium Manager (~/.cache/selenium/chromedriver/…)
-                // 3. Dossier de l'application (distributable : à côté du .exe)
-                // 4. PATH système
-                // 5. Selenium Manager auto-download (Linux/macOS uniquement — sur Windows
-                //    l'extraction+signature bloque Windows Defender → hang)
-                val resolvedDriver: File? = when {
-                    chromeDriverPath.isNotBlank() -> {
-                        File(chromeDriverPath).also {
-                            log("[DEBUG] ChromeDriver depuis paramètres : ${it.absolutePath} (existe : ${it.exists()})")
-                        }.takeIf { it.exists() && it.canExecute() }
-                            ?: throw RuntimeException(
-                                "ChromeDriver introuvable au chemin configuré : $chromeDriverPath\n" +
-                                "Vérifiez le chemin dans Paramètres."
-                            )
-                    }
-                    else -> {
-                        findBestCachedChromeDriver()?.also {
-                            log("[DEBUG] ChromeDriver depuis cache Selenium : ${it.absolutePath}")
-                        } ?: findDriverNextToApp(driverBinary)?.also {
-                            log("[DEBUG] ChromeDriver dans le dossier de l'application : ${it.absolutePath}")
-                        } ?: findExecutableInPath(driverBinary)?.also {
-                            log("[DEBUG] ChromeDriver dans le PATH : ${it.absolutePath}")
-                        }
-                    }
-                }
-
-                if (resolvedDriver != null) {
-                    System.setProperty("webdriver.chrome.driver", resolvedDriver.absolutePath)
-                } else if (isWindows) {
-                    // Sur Windows, Selenium Manager extrait et exécute un binaire depuis le JAR ;
-                    // Windows Defender/SmartScreen peut le bloquer → hang infini.
-                    // Contournement : auto-download via OkHttp (download JVM = pas de MotW,
-                    // pas de SmartScreen) puis cache dans ~/.cache/selenium/chromedriver/.
-                    val downloaded = downloadChromeDriverForWindows()
-                    if (downloaded != null) {
-                        System.setProperty("webdriver.chrome.driver", downloaded.absolutePath)
-                    } else {
-                        throw RuntimeException(
-                            "ChromeDriver introuvable et téléchargement automatique échoué.\n\n" +
-                            "Vérifiez :\n" +
-                            "• Chrome est installé sur ce Windows\n" +
-                            "• La connexion internet est disponible\n\n" +
-                            "Sinon, téléchargez chromedriver.exe depuis\n" +
-                            "https://chromedriver.chromium.org/downloads\n" +
-                            "et placez-le dans le dossier de StageVetManager.exe,\n" +
-                            "ou configurez son chemin dans Paramètres.\n\n" +
-                            "Alternative : utilisez Firefox (geckodriver déjà inclus)."
-                        )
-                    }
-                } else {
-                    System.clearProperty("webdriver.chrome.driver")
-                    log("[DEBUG] Aucun ChromeDriver trouvé → Selenium Manager va le télécharger")
-                }
-
-                log("[DEBUG] Création ChromeOptions…")
-                val opts = ChromeOptions()
-                if (headless) {
-                    opts.addArguments("--headless=new")
-                    if (System.getProperty("os.name").lowercase().contains("linux")) {
-                        opts.addArguments("--no-sandbox", "--disable-dev-shm-usage")
-                    }
-                }
-                opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
-                log("[DEBUG] Lancement de ChromeDriver…")
-                val t = System.currentTimeMillis()
-                ChromeDriver(opts).also { d ->
-                    log("[DEBUG] ChromeDriver démarré en ${System.currentTimeMillis() - t}ms")
-                    runCatching {
-                        val caps = d.capabilities
-                        log("[DEBUG] Chrome version   : ${caps.getBrowserVersion()}")
-                        @Suppress("UNCHECKED_CAST")
-                        val info = caps.getCapability("chrome") as? Map<*, *>
-                        if (info != null) {
-                            log("[DEBUG] ChromeDriver ver : ${(info["chromedriverVersion"] as? String)?.substringBefore(" ") ?: "?"}")
-                            log("[DEBUG] userDataDir      : ${info["userDataDir"]}")
-                        }
-                    }
-                }
-            }
-            BrowserType.FIREFOX -> {
-                val geckoDriver = resolveGeckoDriver()
-                if (geckoDriver != null) {
-                    log("[DEBUG] GeckoDriver : ${geckoDriver.absolutePath} (existe : ${geckoDriver.exists()}, exécutable : ${geckoDriver.canExecute()})")
-                    System.setProperty("webdriver.gecko.driver", geckoDriver.absolutePath)
-                } else {
-                    log("[DEBUG] GeckoDriver embarqué introuvable → Selenium Manager")
-                }
-                val opts = FirefoxOptions()
-                if (isWindows) {
-                    // Sur Windows, localiser Firefox explicitement pour éviter que Selenium Manager
-                    // tente de le chercher/télécharger → hang potentiel.
-                    val firefoxBinary = findFirefoxOnWindows()
-                    if (firefoxBinary != null) {
-                        log("[DEBUG] Firefox trouvé : ${firefoxBinary.absolutePath}")
-                        opts.setBinary(firefoxBinary.absolutePath ?: firefoxBinary.path)
-                    } else {
-                        throw RuntimeException(
-                            "Firefox n'est pas installé sur ce système Windows.\n\n" +
-                            "Téléchargez Firefox depuis https://www.mozilla.org/fr/firefox/\n" +
-                            "ou utilisez Chrome à la place."
-                        )
-                    }
-                }
-                if (headless) opts.addArguments("-headless")
-                log("[DEBUG] Lancement FirefoxDriver…")
-                FirefoxDriver(opts).also { log("[DEBUG] FirefoxDriver démarré") }
-            }
-        }
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))
-        log("[DEBUG] pageLoadTimeout fixé à 30s")
-        return driver
-    }
-
-    // ── Auto-download ChromeDriver (Windows uniquement) ──────────────────────────
-    // Utilise OkHttp (déjà en dépendance) : téléchargement JVM → pas de sous-process
-    // → pas d'extraction en %TEMP% → pas de blocage SmartScreen/Defender.
-
-    private fun downloadChromeDriverForWindows(): File? {
-        log("[DEBUG] Auto-download ChromeDriver via OkHttp…")
-        val chromeVersion = detectChromeVersionOnWindows()
-        if (chromeVersion == null) {
-            log("[DEBUG] Chrome non détecté (version introuvable dans le registre)")
-            return null
-        }
-        log("[DEBUG] Chrome détecté : $chromeVersion")
-        val major = chromeVersion.split(".").firstOrNull() ?: return null
-
-        log("[DEBUG] Interrogation de l'API Chrome for Testing pour major=$major…")
-        val driverVersion = fetchChromeDriverVersion(major)
-        if (driverVersion == null) {
-            log("[DEBUG] Version ChromeDriver introuvable (réseau indisponible ?)")
-            return null
-        }
-        log("[DEBUG] ChromeDriver cible : $driverVersion")
-
-        val cacheDir = File(System.getProperty("user.home"), ".cache/selenium/chromedriver/win32/$driverVersion")
-        val destFile = File(cacheDir, "chromedriver.exe")
-        if (destFile.exists() && destFile.canExecute()) {
-            log("[DEBUG] ChromeDriver déjà en cache : ${destFile.absolutePath}")
-            return destFile
-        }
-
-        log("Téléchargement ChromeDriver $driverVersion (première utilisation)…")
-        return if (downloadAndExtractChromeDriver(driverVersion, destFile)) {
-            log("[DEBUG] ChromeDriver prêt : ${destFile.absolutePath}")
-            destFile
-        } else {
-            log("[DEBUG] Échec du téléchargement ChromeDriver")
-            null
-        }
-    }
-
-    private fun detectChromeVersionOnWindows(): String? {
-        val versionRegex = Regex("""(\d+\.\d+\.\d+\.\d+)""")
-        // Lecture dans le registre (la voie la plus fiable, sans lancer chrome.exe)
-        val regQueries = listOf(
-            arrayOf("reg", "query", "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
-            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
-            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Google\\Chrome\\BLBeacon", "/v", "version"),
-        )
-        for (cmd in regQueries) {
-            runCatching {
-                val proc = Runtime.getRuntime().exec(cmd)
-                val output = proc.inputStream.bufferedReader().readText()
-                versionRegex.find(output)?.groupValues?.get(1)?.let { return it }
-            }
-        }
-        // Repli : lancer chrome.exe --version
-        val chromePaths = listOfNotNull(
-            System.getenv("ProgramFiles")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
-            System.getenv("ProgramFiles(x86)")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
-            System.getenv("LOCALAPPDATA")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
-        )
-        for (path in chromePaths) {
-            runCatching {
-                val proc = Runtime.getRuntime().exec(arrayOf(path, "--version"))
-                val output = proc.inputStream.bufferedReader().readText()
-                versionRegex.find(output)?.groupValues?.get(1)?.let { return it }
-            }
-        }
-        return null
-    }
-
-    private fun fetchChromeDriverVersion(majorVersion: String): String? = runCatching {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .build()
-        val url = "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$majorVersion"
-        client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-            if (resp.isSuccessful) resp.body?.string()?.trim() else null
-        }
-    }.getOrNull()
-
-    private fun downloadAndExtractChromeDriver(version: String, destFile: File): Boolean = runCatching {
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .build()
-        val url = "https://storage.googleapis.com/chrome-for-testing-public/$version/win32/chromedriver-win32.zip"
-        log("[DEBUG] Téléchargement : $url")
-        val zipBytes = client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                log("[DEBUG] HTTP ${resp.code} pour $url")
-                return@runCatching false
-            }
-            resp.body?.bytes() ?: return@runCatching false
-        }
-        destFile.parentFile?.mkdirs()
-        ZipInputStream(zipBytes.inputStream()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                if (entry.name.endsWith("chromedriver.exe")) {
-                    destFile.outputStream().use { out -> zis.copyTo(out) }
-                    log("[DEBUG] Extrait : ${entry.name} → ${destFile.absolutePath}")
-                    return@runCatching true
-                }
-                entry = zis.nextEntry
-            }
-        }
-        log("[DEBUG] chromedriver.exe absent du ZIP")
-        false
-    }.getOrElse { e ->
-        log("[DEBUG] Erreur downloadAndExtractChromeDriver : ${e.javaClass.simpleName}: ${e.message}")
-        false
-    }
-
-    private fun findExecutableInPath(name: String): File? =
-        System.getenv("PATH")
-            ?.split(File.pathSeparator)
-            ?.map { File(it, name) }
-            ?.firstOrNull { it.exists() && it.canExecute() }
-
-    // Dans un distributable natif, jpackage.app-path pointe vers le launcher (.exe).
-    // L'utilisateur peut déposer chromedriver.exe à côté de StageVetManager.exe.
-    private fun findDriverNextToApp(name: String): File? {
-        val appPath = System.getProperty("jpackage.app-path") ?: return null
-        return File(appPath).parentFile?.let { File(it, name) }?.takeIf { it.exists() && it.canExecute() }
-    }
-
-    private fun findFirefoxOnWindows(): File? {
-        val candidates = listOfNotNull(
-            System.getenv("ProgramFiles"),
-            System.getenv("ProgramFiles(x86)"),
-            System.getenv("LOCALAPPDATA"),
-        ).map { "$it\\Mozilla Firefox\\firefox.exe" } + listOf(
-            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
-        )
-        return candidates.map(::File).firstOrNull { it.exists() }
     }
 }
