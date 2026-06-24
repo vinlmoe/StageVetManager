@@ -2,6 +2,8 @@ package fr.vetbrain.stagevetmanager.scraper
 
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.openqa.selenium.By
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
@@ -13,6 +15,8 @@ import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.io.File
 import java.time.Duration
+import java.util.concurrent.TimeUnit
+import java.util.zip.ZipInputStream
 
 class SeleniumScraper(
     private val browserType: BrowserType = BrowserType.CHROME,
@@ -254,19 +258,26 @@ class SeleniumScraper(
                 if (resolvedDriver != null) {
                     System.setProperty("webdriver.chrome.driver", resolvedDriver.absolutePath)
                 } else if (isWindows) {
-                    // Sur Windows en distributable, Selenium Manager extrait un .exe en %TEMP% ;
+                    // Sur Windows, Selenium Manager extrait et exécute un binaire depuis le JAR ;
                     // Windows Defender/SmartScreen peut le bloquer → hang infini.
-                    // On échoue immédiatement avec des instructions claires.
-                    throw RuntimeException(
-                        "ChromeDriver introuvable sur ce système Windows.\n\n" +
-                        "Procédure :\n" +
-                        "1. Téléchargez ChromeDriver (version = votre Chrome) depuis\n" +
-                        "   https://chromedriver.chromium.org/downloads\n" +
-                        "2. Placez chromedriver.exe dans le dossier d'installation\n" +
-                        "   de StageVetManager (à côté de StageVetManager.exe)\n" +
-                        "   — OU — configurez le chemin dans Paramètres.\n\n" +
-                        "Alternative : utilisez Firefox (geckodriver déjà inclus)."
-                    )
+                    // Contournement : auto-download via OkHttp (download JVM = pas de MotW,
+                    // pas de SmartScreen) puis cache dans ~/.cache/selenium/chromedriver/.
+                    val downloaded = downloadChromeDriverForWindows()
+                    if (downloaded != null) {
+                        System.setProperty("webdriver.chrome.driver", downloaded.absolutePath)
+                    } else {
+                        throw RuntimeException(
+                            "ChromeDriver introuvable et téléchargement automatique échoué.\n\n" +
+                            "Vérifiez :\n" +
+                            "• Chrome est installé sur ce Windows\n" +
+                            "• La connexion internet est disponible\n\n" +
+                            "Sinon, téléchargez chromedriver.exe depuis\n" +
+                            "https://chromedriver.chromium.org/downloads\n" +
+                            "et placez-le dans le dossier de StageVetManager.exe,\n" +
+                            "ou configurez son chemin dans Paramètres.\n\n" +
+                            "Alternative : utilisez Firefox (geckodriver déjà inclus)."
+                        )
+                    }
                 } else {
                     System.clearProperty("webdriver.chrome.driver")
                     log("[DEBUG] Aucun ChromeDriver trouvé → Selenium Manager va le télécharger")
@@ -329,6 +340,120 @@ class SeleniumScraper(
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))
         log("[DEBUG] pageLoadTimeout fixé à 30s")
         return driver
+    }
+
+    // ── Auto-download ChromeDriver (Windows uniquement) ──────────────────────────
+    // Utilise OkHttp (déjà en dépendance) : téléchargement JVM → pas de sous-process
+    // → pas d'extraction en %TEMP% → pas de blocage SmartScreen/Defender.
+
+    private fun downloadChromeDriverForWindows(): File? {
+        log("[DEBUG] Auto-download ChromeDriver via OkHttp…")
+        val chromeVersion = detectChromeVersionOnWindows()
+        if (chromeVersion == null) {
+            log("[DEBUG] Chrome non détecté (version introuvable dans le registre)")
+            return null
+        }
+        log("[DEBUG] Chrome détecté : $chromeVersion")
+        val major = chromeVersion.split(".").firstOrNull() ?: return null
+
+        log("[DEBUG] Interrogation de l'API Chrome for Testing pour major=$major…")
+        val driverVersion = fetchChromeDriverVersion(major)
+        if (driverVersion == null) {
+            log("[DEBUG] Version ChromeDriver introuvable (réseau indisponible ?)")
+            return null
+        }
+        log("[DEBUG] ChromeDriver cible : $driverVersion")
+
+        val cacheDir = File(System.getProperty("user.home"), ".cache/selenium/chromedriver/win32/$driverVersion")
+        val destFile = File(cacheDir, "chromedriver.exe")
+        if (destFile.exists() && destFile.canExecute()) {
+            log("[DEBUG] ChromeDriver déjà en cache : ${destFile.absolutePath}")
+            return destFile
+        }
+
+        log("Téléchargement ChromeDriver $driverVersion (première utilisation)…")
+        return if (downloadAndExtractChromeDriver(driverVersion, destFile)) {
+            log("[DEBUG] ChromeDriver prêt : ${destFile.absolutePath}")
+            destFile
+        } else {
+            log("[DEBUG] Échec du téléchargement ChromeDriver")
+            null
+        }
+    }
+
+    private fun detectChromeVersionOnWindows(): String? {
+        val versionRegex = Regex("""(\d+\.\d+\.\d+\.\d+)""")
+        // Lecture dans le registre (la voie la plus fiable, sans lancer chrome.exe)
+        val regQueries = listOf(
+            arrayOf("reg", "query", "HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
+            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Google\\Chrome\\BLBeacon", "/v", "version"),
+            arrayOf("reg", "query", "HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Google\\Chrome\\BLBeacon", "/v", "version"),
+        )
+        for (cmd in regQueries) {
+            runCatching {
+                val proc = Runtime.getRuntime().exec(cmd)
+                val output = proc.inputStream.bufferedReader().readText()
+                versionRegex.find(output)?.groupValues?.get(1)?.let { return it }
+            }
+        }
+        // Repli : lancer chrome.exe --version
+        val chromePaths = listOfNotNull(
+            System.getenv("ProgramFiles")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+            System.getenv("ProgramFiles(x86)")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+            System.getenv("LOCALAPPDATA")?.let { "$it\\Google\\Chrome\\Application\\chrome.exe" },
+        )
+        for (path in chromePaths) {
+            runCatching {
+                val proc = Runtime.getRuntime().exec(arrayOf(path, "--version"))
+                val output = proc.inputStream.bufferedReader().readText()
+                versionRegex.find(output)?.groupValues?.get(1)?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun fetchChromeDriverVersion(majorVersion: String): String? = runCatching {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+        val url = "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$majorVersion"
+        client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            if (resp.isSuccessful) resp.body?.string()?.trim() else null
+        }
+    }.getOrNull()
+
+    private fun downloadAndExtractChromeDriver(version: String, destFile: File): Boolean = runCatching {
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .build()
+        val url = "https://storage.googleapis.com/chrome-for-testing-public/$version/win32/chromedriver-win32.zip"
+        log("[DEBUG] Téléchargement : $url")
+        val zipBytes = client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                log("[DEBUG] HTTP ${resp.code} pour $url")
+                return@runCatching false
+            }
+            resp.body?.bytes() ?: return@runCatching false
+        }
+        destFile.parentFile?.mkdirs()
+        ZipInputStream(zipBytes.inputStream()).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                if (entry.name.endsWith("chromedriver.exe")) {
+                    destFile.outputStream().use { out -> zis.copyTo(out) }
+                    log("[DEBUG] Extrait : ${entry.name} → ${destFile.absolutePath}")
+                    return@runCatching true
+                }
+                entry = zis.nextEntry
+            }
+        }
+        log("[DEBUG] chromedriver.exe absent du ZIP")
+        false
+    }.getOrElse { e ->
+        log("[DEBUG] Erreur downloadAndExtractChromeDriver : ${e.javaClass.simpleName}: ${e.message}")
+        false
     }
 
     private fun findExecutableInPath(name: String): File? =
