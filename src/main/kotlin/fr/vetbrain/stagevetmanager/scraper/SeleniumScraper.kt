@@ -37,7 +37,7 @@ class SeleniumScraper(
     private val timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
 
     private val logFile: File by lazy {
-        val dir = File(System.getProperty("user.home"), ".stagevetmanager/logs")
+        val dir = File(System.getProperty("user.home"), "stagevetmanager/logs")
         dir.mkdirs()
         val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
         File(dir, "scraper_$stamp.log")
@@ -82,8 +82,10 @@ class SeleniumScraper(
                 cause = cause.cause
                 depth++
             }
-            logWriter.flush()
         }
+        // Flush explicite : autoFlush=true ne garantit pas le flush du BufferedWriter sous-jacent
+        // avant que close() ne soit appelé depuis le finally du ViewModel.
+        runCatching { logWriter.flush() }
     }
 
     private fun writeLogHeader() {
@@ -300,19 +302,24 @@ class SeleniumScraper(
         }
         opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
         log("ChromeOptions : ${opts.asMap()}")
-        log("Appel ChromeDriver(opts)… (si ça bloque ici : AV bloque le processus chromedriver.exe)")
+
+        // Pré-chauffe : laisse l'AV scanner chromedriver.exe avant que Selenium ne le lance
+        val cdriverPath = System.getProperty("webdriver.chrome.driver")
+        if (cdriverPath != null) preWarmExecutable(File(cdriverPath))
 
         val t = System.currentTimeMillis()
-        return ChromeDriver(opts).also { d ->
-            log("ChromeDriver démarré en ${System.currentTimeMillis() - t}ms")
-            runCatching {
-                val caps = d.capabilities
-                log("Chrome version    : ${caps.getBrowserVersion()}")
-                @Suppress("UNCHECKED_CAST")
-                val info = caps.getCapability("chrome") as? Map<*, *>
-                if (info != null) {
-                    log("ChromeDriver ver  : ${(info["chromedriverVersion"] as? String)?.substringBefore(" ") ?: "?"}")
-                    log("userDataDir       : ${info["userDataDir"]}")
+        return launchDriverWithTimeout("ChromeDriver") {
+            ChromeDriver(opts).also { d ->
+                log("ChromeDriver démarré en ${System.currentTimeMillis() - t}ms")
+                runCatching {
+                    val caps = d.capabilities
+                    log("Chrome version    : ${caps.getBrowserVersion()}")
+                    @Suppress("UNCHECKED_CAST")
+                    val info = caps.getCapability("chrome") as? Map<*, *>
+                    if (info != null) {
+                        log("ChromeDriver ver  : ${(info["chromedriverVersion"] as? String)?.substringBefore(" ") ?: "?"}")
+                        log("userDataDir       : ${info["userDataDir"]}")
+                    }
                 }
             }
         }
@@ -347,10 +354,14 @@ class SeleniumScraper(
         }
         if (headless) opts.addArguments("-headless")
 
+        // Pré-chauffe : laisse l'AV scanner geckodriver.exe avant que Selenium ne le lance
+        if (geckoDriver != null) preWarmExecutable(geckoDriver)
+
         logSection("FirefoxDriver — lancement du processus")
-        log("Appel FirefoxDriver(opts)… (si ça bloque ici : geckodriver.exe ou firefox.exe bloqué par AV)")
         val t = System.currentTimeMillis()
-        return FirefoxDriver(opts).also { log("FirefoxDriver démarré en ${System.currentTimeMillis() - t}ms") }
+        return launchDriverWithTimeout("FirefoxDriver") {
+            FirefoxDriver(opts).also { log("FirefoxDriver démarré en ${System.currentTimeMillis() - t}ms") }
+        }
     }
 
     // ── Auto-download ChromeDriver via OkHttp (Windows) ─────────────────────────
@@ -474,6 +485,76 @@ class SeleniumScraper(
         false
     }.onFailure { logThrowable("downloadAndExtractChromeDriver", it) }.getOrElse { false }
 
+    // ── Timeout + pré-chauffe AV ─────────────────────────────────────────────────
+
+    /**
+     * Lance [block] dans un thread dédié avec un timeout de [timeoutSec] secondes.
+     * Si le thread n'a pas répondu à temps (AV/SmartScreen bloque l'exécutable),
+     * on logue un message explicite et on lève une RuntimeException.
+     * Le thread orphelin continue en arrière-plan mais ne bloque plus l'UI.
+     */
+    private fun <T : WebDriver> launchDriverWithTimeout(
+        driverName: String,
+        timeoutSec: Long = 90,
+        block: () -> T,
+    ): T {
+        log("Lancement de $driverName dans un thread dédié (timeout ${timeoutSec}s)…")
+        var result: T? = null
+        var thrown: Throwable? = null
+        val thread = Thread({
+            try { result = block() } catch (e: Throwable) { thrown = e }
+        }, "driver-launch-$driverName").apply { isDaemon = true; start() }
+
+        thread.join(timeoutSec * 1000L)
+
+        return when {
+            result != null -> result!!.also { log("$driverName démarré avec succès.") }
+            thrown != null -> { logThrowable("$driverName()", thrown!!); throw thrown!! }
+            else -> {
+                // Thread toujours vivant → timeout
+                log("TIMEOUT ${timeoutSec}s — $driverName n'a pas répondu.")
+                log("Cause probable : antivirus (Windows Defender) bloque l'exécution de l'exécutable.")
+                log("Solution : exclure de l'antivirus :")
+                log("  • ${System.getProperty("user.home")}\\stagevetmanager\\")
+                log("  • ${System.getProperty("user.home")}\\.cache\\selenium\\")
+                throw RuntimeException(
+                    "Timeout ${timeoutSec}s — $driverName n'a pas démarré.\n\n" +
+                    "Cause probable : votre antivirus bloque l'exécution du driver.\n\n" +
+                    "Solution : ajoutez ces dossiers aux exclusions de votre antivirus :\n" +
+                    "  • ${System.getProperty("user.home")}\\stagevetmanager\\\n" +
+                    "  • ${System.getProperty("user.home")}\\.cache\\selenium\\\n\n" +
+                    "Log complet : $logFilePath"
+                )
+            }
+        }
+    }
+
+    /**
+     * Exécute l'exécutable avec --version avant que Selenium ne le lance.
+     * Cela laisse à l'AV Windows le temps de le scanner et de l'autoriser,
+     * évitant ainsi le blocage lors du vrai lancement par Selenium.
+     */
+    private fun preWarmExecutable(file: File) {
+        log("Pré-chauffe AV : exécution de ${file.name} --version (10s max)…")
+        val t = System.currentTimeMillis()
+        try {
+            val proc = ProcessBuilder(file.absolutePath, "--version")
+                .redirectErrorStream(true)
+                .start()
+            val completed = proc.waitFor(10, TimeUnit.SECONDS)
+            val output = proc.inputStream.bufferedReader().readText().trim()
+            if (completed) {
+                log("  --version OK (${System.currentTimeMillis() - t}ms) : ${output.take(100)}")
+            } else {
+                proc.destroyForcibly()
+                log("  --version TIMEOUT 10s — AV bloque probablement l'exécutable (${System.currentTimeMillis() - t}ms)")
+                log("  → le lancement Selenium risque aussi d'être bloqué")
+            }
+        } catch (e: Exception) {
+            log("  --version exception (${System.currentTimeMillis() - t}ms) : ${e.javaClass.simpleName}: ${e.message}")
+        }
+    }
+
     // ── Helpers navigation ───────────────────────────────────────────────────────
 
     private fun buildFilteredUrl(filters: ScrapeFilters): String {
@@ -557,7 +638,10 @@ class SeleniumScraper(
                 else                        -> "drivers/geckodriver-linux-x64"
             }
             val ext  = if (os.contains("win")) ".exe" else ""
-            val dest = File(System.getProperty("java.io.tmpdir"), "geckodriver-svm-v${GECKO_VERSION}$ext")
+            // ~/stagevetmanager/ est moins surveillé par l'AV que %TEMP%,
+            // et persiste entre les sessions (évite de ré-extraire à chaque lancement).
+            val appDir = File(System.getProperty("user.home"), "stagevetmanager").also { it.mkdirs() }
+            val dest = File(appDir, "geckodriver-v${GECKO_VERSION}$ext")
             if (dest.exists() && dest.canExecute()) return dest
             val stream = SeleniumScraper::class.java.classLoader.getResourceAsStream(resource) ?: return null
             stream.use { input -> dest.outputStream().use { input.copyTo(it) } }
