@@ -9,6 +9,11 @@ plugins {
 group = "fr.vetbrain"
 version = "1.0.0"
 
+kotlin {
+    jvmToolchain(21)
+}
+
+
 repositories {
     mavenCentral()
     google()
@@ -67,7 +72,7 @@ compose.desktop {
     application {
         mainClass = "fr.vetbrain.stagevetmanager.MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "StageVetManager"
             packageVersion = "1.0.0"
             description = "Gestion des stages vétérinaires - VetAgro Sup"
