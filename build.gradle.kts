@@ -155,6 +155,9 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "Gestion des stages vétérinaires - VetAgro Sup"
             vendor = "VetBrain"
+            // Selenium 4.x et OkHttp utilisent java.net.http (HttpClient + WebSocket)
+            // via réflexion → jlink ne le détecte pas automatiquement → NoClassDefFoundError
+            modules("java.net.http", "jdk.crypto.ec", "jdk.crypto.cryptoki", "java.sql")
         }
     }
 }
