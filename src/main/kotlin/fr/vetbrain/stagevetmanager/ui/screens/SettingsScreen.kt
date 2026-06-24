@@ -25,9 +25,11 @@ import javax.swing.filechooser.FileNameExtensionFilter
 fun SettingsScreen(
     browserType: SeleniumScraper.BrowserType,
     headless: Boolean,
+    chromeDriverPath: String,
     exportDir: String,
     onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onHeadlessChange: (Boolean) -> Unit,
+    onChromeDriverPathChange: (String) -> Unit,
     onExportDirChange: (String) -> Unit,
     // OneDrive
     oneDrivePath: String,
@@ -81,6 +83,33 @@ fun SettingsScreen(
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
+                }
+            }
+
+            // Chemin ChromeDriver (Windows uniquement en pratique)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Chemin ChromeDriver (Windows)", fontSize = 14.sp)
+                Text(
+                    "Laissez vide pour la détection automatique. Sur Windows, placez chromedriver.exe " +
+                    "à côté de StageVetManager.exe ou indiquez son chemin ici.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = chromeDriverPath,
+                        onValueChange = onChromeDriverPathChange,
+                        label = { Text("Chemin vers chromedriver.exe") },
+                        placeholder = { Text("Ex : C:\\Outils\\chromedriver.exe") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = {
+                        browseChromeDriver(chromeDriverPath)?.let(onChromeDriverPathChange)
+                    }) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                    }
                 }
             }
 
@@ -214,14 +243,30 @@ fun SettingsScreen(
             // --- Info ---
             Text("Info", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Le pilote WebDriver (ChromeDriver ou GeckoDriver) est téléchargé automatiquement " +
-                    "au premier lancement via WebDriverManager. Une connexion internet est requise " +
-                    "lors de la première utilisation.",
+                "GeckoDriver (Firefox) est intégré à l'application — Firefox doit être installé.\n" +
+                    "ChromeDriver (Chrome) : sur Linux/macOS il est téléchargé automatiquement au premier lancement. " +
+                    "Sur Windows, placez chromedriver.exe à côté de StageVetManager.exe " +
+                    "ou indiquez son chemin ci-dessus pour éviter tout blocage par l'antivirus.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             )
         }
     }
+}
+
+private fun browseChromeDriver(current: String): String? {
+    val chooser = JFileChooser().apply {
+        fileSelectionMode = JFileChooser.FILES_ONLY
+        dialogTitle = "Choisir chromedriver"
+        fileFilter = FileNameExtensionFilter("Exécutable ChromeDriver", "exe", "")
+        if (current.isNotBlank()) {
+            val f = File(current)
+            currentDirectory = if (f.isDirectory) f else f.parentFile ?: File(System.getProperty("user.home"))
+            if (f.isFile) selectedFile = f
+        }
+    }
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
+        chooser.selectedFile.absolutePath else null
 }
 
 private fun browseDirectory(current: String): String? {
