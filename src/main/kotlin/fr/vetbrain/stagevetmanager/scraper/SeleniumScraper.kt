@@ -17,6 +17,7 @@ import java.time.Duration
 class SeleniumScraper(
     private val browserType: BrowserType = BrowserType.CHROME,
     private val headless: Boolean = false,
+    private val chromeDriverPath: String = "",
     private val onProgress: (String) -> Unit = {},
 ) {
     enum class BrowserType { CHROME, FIREFOX }
@@ -211,54 +212,76 @@ class SeleniumScraper(
     }
 
     private fun createDriver(): WebDriver {
+        val os = System.getProperty("os.name").lowercase()
+        val isWindows = os.contains("win")
         log("[DEBUG] OS : ${System.getProperty("os.name")} | arch : ${System.getProperty("os.arch")}")
         log("[DEBUG] Java : ${System.getProperty("java.version")} | tmp : ${System.getProperty("java.io.tmpdir")}")
-        log("[DEBUG] Navigateur : $browserType | headless : $headless")
+        log("[DEBUG] Navigateur : $browserType | headless : $headless | isWindows : $isWindows")
 
         val driver = when (browserType) {
             BrowserType.CHROME -> {
-                log("[DEBUG] Recherche de Chrome sur le système…")
-                // Selenium Manager (intégré dans selenium-java 4.x) détecte Chrome
-                // et télécharge le ChromeDriver compatible si nécessaire (~/.cache/selenium/).
-                // Ce téléchargement peut prendre 10-30s au premier lancement.
-                val seleniumCache = File(System.getProperty("user.home"), ".cache/selenium")
-                log("[DEBUG] Cache Selenium Manager : ${seleniumCache.absolutePath} (existe : ${seleniumCache.exists()})")
-                if (seleniumCache.exists()) {
-                    val drivers = seleniumCache.walkTopDown()
-                        .filter { it.name.startsWith("chromedriver") && it.canExecute() }
-                        .toList()
-                    if (drivers.isNotEmpty()) {
-                        log("[DEBUG] ChromeDriver(s) en cache : ${drivers.joinToString { it.relativeTo(seleniumCache).path }}")
-                    } else {
-                        log("[DEBUG] Aucun ChromeDriver en cache → Selenium Manager va le télécharger")
+                log("[DEBUG] Recherche de ChromeDriver…")
+                val driverBinary = if (isWindows) "chromedriver.exe" else "chromedriver"
+
+                // Résolution par priorité décroissante :
+                // 1. Chemin explicite dans les paramètres
+                // 2. Cache Selenium Manager (~/.cache/selenium/chromedriver/…)
+                // 3. Dossier de l'application (distributable : à côté du .exe)
+                // 4. PATH système
+                // 5. Selenium Manager auto-download (Linux/macOS uniquement — sur Windows
+                //    l'extraction+signature bloque Windows Defender → hang)
+                val resolvedDriver: File? = when {
+                    chromeDriverPath.isNotBlank() -> {
+                        File(chromeDriverPath).also {
+                            log("[DEBUG] ChromeDriver depuis paramètres : ${it.absolutePath} (existe : ${it.exists()})")
+                        }.takeIf { it.exists() && it.canExecute() }
+                            ?: throw RuntimeException(
+                                "ChromeDriver introuvable au chemin configuré : $chromeDriverPath\n" +
+                                "Vérifiez le chemin dans Paramètres."
+                            )
                     }
-                } else {
-                    log("[DEBUG] Cache absent → Selenium Manager va télécharger ChromeDriver (connexion internet requise)")
+                    else -> {
+                        findBestCachedChromeDriver()?.also {
+                            log("[DEBUG] ChromeDriver depuis cache Selenium : ${it.absolutePath}")
+                        } ?: findDriverNextToApp(driverBinary)?.also {
+                            log("[DEBUG] ChromeDriver dans le dossier de l'application : ${it.absolutePath}")
+                        } ?: findExecutableInPath(driverBinary)?.also {
+                            log("[DEBUG] ChromeDriver dans le PATH : ${it.absolutePath}")
+                        }
+                    }
                 }
 
-                // Évite d'utiliser un chromedriver obsolète installé dans le PATH (ex. Homebrew).
-                // Selenium Manager cache la bonne version dans ~/.cache/selenium/ — on l'utilise en priorité.
-                val cachedDriver = findBestCachedChromeDriver()
-                if (cachedDriver != null) {
-                    log("[DEBUG] ChromeDriver depuis cache Selenium : ${cachedDriver.absolutePath}")
-                    System.setProperty("webdriver.chrome.driver", cachedDriver.absolutePath)
+                if (resolvedDriver != null) {
+                    System.setProperty("webdriver.chrome.driver", resolvedDriver.absolutePath)
+                } else if (isWindows) {
+                    // Sur Windows en distributable, Selenium Manager extrait un .exe en %TEMP% ;
+                    // Windows Defender/SmartScreen peut le bloquer → hang infini.
+                    // On échoue immédiatement avec des instructions claires.
+                    throw RuntimeException(
+                        "ChromeDriver introuvable sur ce système Windows.\n\n" +
+                        "Procédure :\n" +
+                        "1. Téléchargez ChromeDriver (version = votre Chrome) depuis\n" +
+                        "   https://chromedriver.chromium.org/downloads\n" +
+                        "2. Placez chromedriver.exe dans le dossier d'installation\n" +
+                        "   de StageVetManager (à côté de StageVetManager.exe)\n" +
+                        "   — OU — configurez le chemin dans Paramètres.\n\n" +
+                        "Alternative : utilisez Firefox (geckodriver déjà inclus)."
+                    )
                 } else {
                     System.clearProperty("webdriver.chrome.driver")
-                    log("[DEBUG] Aucun ChromeDriver en cache → Selenium Manager va le télécharger")
+                    log("[DEBUG] Aucun ChromeDriver trouvé → Selenium Manager va le télécharger")
                 }
 
                 log("[DEBUG] Création ChromeOptions…")
                 val opts = ChromeOptions()
                 if (headless) {
                     opts.addArguments("--headless=new")
-                    // --no-sandbox / --disable-dev-shm-usage uniquement sur Linux (Docker/CI) ;
-                    // inutile et potentiellement problématique sur Windows et macOS.
                     if (System.getProperty("os.name").lowercase().contains("linux")) {
                         opts.addArguments("--no-sandbox", "--disable-dev-shm-usage")
                     }
                 }
                 opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
-                log("[DEBUG] Lancement de ChromeDriver (peut prendre 10-30s si premier lancement)…")
+                log("[DEBUG] Lancement de ChromeDriver…")
                 val t = System.currentTimeMillis()
                 ChromeDriver(opts).also { d ->
                     log("[DEBUG] ChromeDriver démarré en ${System.currentTimeMillis() - t}ms")
@@ -283,6 +306,21 @@ class SeleniumScraper(
                     log("[DEBUG] GeckoDriver embarqué introuvable → Selenium Manager")
                 }
                 val opts = FirefoxOptions()
+                if (isWindows) {
+                    // Sur Windows, localiser Firefox explicitement pour éviter que Selenium Manager
+                    // tente de le chercher/télécharger → hang potentiel.
+                    val firefoxBinary = findFirefoxOnWindows()
+                    if (firefoxBinary != null) {
+                        log("[DEBUG] Firefox trouvé : ${firefoxBinary.absolutePath}")
+                        opts.setBinary(firefoxBinary.absolutePath ?: firefoxBinary.path)
+                    } else {
+                        throw RuntimeException(
+                            "Firefox n'est pas installé sur ce système Windows.\n\n" +
+                            "Téléchargez Firefox depuis https://www.mozilla.org/fr/firefox/\n" +
+                            "ou utilisez Chrome à la place."
+                        )
+                    }
+                }
                 if (headless) opts.addArguments("-headless")
                 log("[DEBUG] Lancement FirefoxDriver…")
                 FirefoxDriver(opts).also { log("[DEBUG] FirefoxDriver démarré") }
@@ -291,5 +329,30 @@ class SeleniumScraper(
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))
         log("[DEBUG] pageLoadTimeout fixé à 30s")
         return driver
+    }
+
+    private fun findExecutableInPath(name: String): File? =
+        System.getenv("PATH")
+            ?.split(File.pathSeparator)
+            ?.map { File(it, name) }
+            ?.firstOrNull { it.exists() && it.canExecute() }
+
+    // Dans un distributable natif, jpackage.app-path pointe vers le launcher (.exe).
+    // L'utilisateur peut déposer chromedriver.exe à côté de StageVetManager.exe.
+    private fun findDriverNextToApp(name: String): File? {
+        val appPath = System.getProperty("jpackage.app-path") ?: return null
+        return File(appPath).parentFile?.let { File(it, name) }?.takeIf { it.exists() && it.canExecute() }
+    }
+
+    private fun findFirefoxOnWindows(): File? {
+        val candidates = listOfNotNull(
+            System.getenv("ProgramFiles"),
+            System.getenv("ProgramFiles(x86)"),
+            System.getenv("LOCALAPPDATA"),
+        ).map { "$it\\Mozilla Firefox\\firefox.exe" } + listOf(
+            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
+        )
+        return candidates.map(::File).firstOrNull { it.exists() }
     }
 }

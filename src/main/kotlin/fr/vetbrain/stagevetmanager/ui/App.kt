@@ -29,8 +29,9 @@ fun App() {
             )
         )
     }
-    var headless      by remember { mutableStateOf(prefs.getBoolean("headless", true)) }
-    var exportDir     by remember { mutableStateOf(prefs.get("exportDir", "")) }
+    var headless         by remember { mutableStateOf(prefs.getBoolean("headless", true)) }
+    var chromeDriverPath by remember { mutableStateOf(prefs.get("chromeDriverPath", "")) }
+    var exportDir        by remember { mutableStateOf(prefs.get("exportDir", "")) }
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
@@ -90,7 +91,7 @@ fun App() {
                     screen = Screen.LOGIN
                 },
                 onRequestScrape = {
-                    vm.scrape(savedUsername, savedPassword, browserType, headless)
+                    vm.scrape(savedUsername, savedPassword, browserType, headless, chromeDriverPath)
                 },
                 onExportOneDrive = {
                     vm.exportToOneDrive(oneDrivePath)
@@ -113,6 +114,7 @@ fun App() {
             Screen.SETTINGS -> SettingsScreen(
                 browserType = browserType,
                 headless = headless,
+                chromeDriverPath = chromeDriverPath,
                 exportDir = exportDir,
                 onBrowserChange = {
                     browserType = it
@@ -121,6 +123,10 @@ fun App() {
                 onHeadlessChange = {
                     headless = it
                     prefs.putBoolean("headless", it)
+                },
+                onChromeDriverPathChange = {
+                    chromeDriverPath = it
+                    prefs.put("chromeDriverPath", it)
                 },
                 onExportDirChange = {
                     exportDir = it

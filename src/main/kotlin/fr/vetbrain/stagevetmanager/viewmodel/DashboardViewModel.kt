@@ -129,6 +129,7 @@ class DashboardViewModel {
         password: String,
         browserType: SeleniumScraper.BrowserType,
         headless: Boolean,
+        chromeDriverPath: String = "",
     ) {
         if (isLoading.value) return
         scope.launch {
@@ -144,6 +145,7 @@ class DashboardViewModel {
                 val scraper = SeleniumScraper(
                     browserType = browserType,
                     headless = headless,
+                    chromeDriverPath = chromeDriverPath,
                     onProgress = { msg ->
                         scope.launch(Dispatchers.Main) { statusMessage.value = msg }
                     }
