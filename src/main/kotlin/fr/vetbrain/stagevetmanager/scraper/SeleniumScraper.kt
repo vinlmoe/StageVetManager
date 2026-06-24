@@ -2,7 +2,6 @@ package fr.vetbrain.stagevetmanager.scraper
 
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.ScrapeFilters
-import io.github.bonigarcia.wdm.WebDriverManager
 import org.openqa.selenium.By
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
@@ -145,20 +144,20 @@ class SeleniumScraper(
     }
 
     private fun createDriver(): WebDriver {
-        return when (browserType) {
+        val driver = when (browserType) {
             BrowserType.CHROME -> {
-                WebDriverManager.chromedriver().setup()
                 val opts = ChromeOptions()
                 if (headless) opts.addArguments("--headless=new", "--no-sandbox", "--disable-dev-shm-usage")
                 opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
                 ChromeDriver(opts)
             }
             BrowserType.FIREFOX -> {
-                WebDriverManager.firefoxdriver().setup()
                 val opts = FirefoxOptions()
                 if (headless) opts.addArguments("-headless")
                 FirefoxDriver(opts)
             }
         }
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30))
+        return driver
     }
 }

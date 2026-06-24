@@ -24,7 +24,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.9.0")
 
     implementation("org.seleniumhq.selenium:selenium-java:4.27.0")
-    implementation("io.github.bonigarcia:webdrivermanager:5.9.2")
 
     implementation("org.apache.poi:poi:5.3.0")
     implementation("org.apache.poi:poi-ooxml:5.3.0")
