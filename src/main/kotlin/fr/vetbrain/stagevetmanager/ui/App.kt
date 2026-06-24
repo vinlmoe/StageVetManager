@@ -29,7 +29,7 @@ fun App() {
             )
         )
     }
-    var headless      by remember { mutableStateOf(prefs.getBoolean("headless", false)) }
+    var headless      by remember { mutableStateOf(prefs.getBoolean("headless", true)) }
     var exportDir     by remember { mutableStateOf(prefs.get("exportDir", "")) }
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
