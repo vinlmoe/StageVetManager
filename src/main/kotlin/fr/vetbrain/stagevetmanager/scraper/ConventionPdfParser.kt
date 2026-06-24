@@ -234,29 +234,32 @@ object ConventionPdfParser {
         Regex("""$labelRegex\s*:\s*(.+)""").find(text)?.groupValues?.get(1)?.trim() ?: ""
 
     /**
-     * Retourne true si la ligne contenant [keyword] est précédée d'un symbole coché.
+     * Retourne true si la ligne contenant [keyword] commence par un symbole "coché".
      *
-     * Logique :
-     *  1. Si un symbole "cochée" explicite est trouvé avant le mot-clé → true
-     *  2. Si un symbole "non-cochée" explicite (case vide, croix ✗) → false
-     *  3. Sinon tout caractère non-blanc → true (heuristique de repli)
+     * Stratégie : on examine uniquement les premiers caractères de la ligne
+     * (là où se trouverait ✓ ou ✗), PAS tout ce qui précède le mot-clé —
+     * sinon "présence de nuit" donnerait "présence de" comme préfixe de "nuit",
+     * ce qui serait interprété à tort comme un indicateur coché.
      *
-     * Ce format correspond aux conventions StageVet qui utilisent ✓ (cochée) et ✗ (non-cochée).
+     * Quand les cases sont des images vectorielles (aucun caractère ✓/✗ dans le texte),
+     * tous les éléments ont le même préfixe blanc → on retourne false par défaut
+     * (comportement conservateur : pas de faux positifs).
      */
     private fun isItemChecked(section: String, keyword: String): Boolean {
         val idx = section.indexOf(keyword)
         if (idx < 0) return false
         val lineStart = section.lastIndexOf('\n', idx).let { if (it < 0) 0 else it + 1 }
-        val prefix = section.substring(lineStart, idx)
+        // On ne regarde que le début de la ligne (max 5 chars avant le texte du label)
+        val lineHead = section.substring(lineStart, minOf(lineStart + 5, idx, section.length))
         val checkedChars    = setOf('✓', '✔', '☑', '●', '◉')
         val notCheckedChars = setOf(
-            '□', '☐', '◻', '❑',          // cases vides
-            '✗', '✘', '✕', '✖', '×', '☓', // croix / X (non-coché dans le format StageVet)
+            '□', '☐', '◻', '❑',
+            '✗', '✘', '✕', '✖', '×', '☓',
         )
         return when {
-            prefix.any { it in checkedChars }    -> true
-            prefix.any { it in notCheckedChars } -> false
-            else -> prefix.any { !it.isWhitespace() }
+            lineHead.any { it in checkedChars }    -> true
+            lineHead.any { it in notCheckedChars } -> false
+            else -> false  // aucun indicateur trouvé → non-coché par défaut
         }
     }
 

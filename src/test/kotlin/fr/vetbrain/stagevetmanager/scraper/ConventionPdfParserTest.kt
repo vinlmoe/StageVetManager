@@ -1,5 +1,7 @@
 package fr.vetbrain.stagevetmanager.scraper
 
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.text.PDFTextStripper
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.time.DayOfWeek
@@ -80,6 +82,74 @@ class ConventionPdfParserTest {
             LocalDate.of(2027,  1,  2),
         )
         assertTrue(dates.any { isFrenchPublicHoliday(it) })
+    }
+
+    // ── Tarbouriech PDF (fixture réelle) ────────────────────────────────────
+
+    private fun loadFixturePdf(): ByteArray =
+        javaClass.classLoader.getResourceAsStream("fixtures/Tarbouriech12042027.pdf")!!.readBytes()
+
+    /** Affiche la section modalités ET les champs AcroForm — diagnostic des cases à cocher. */
+    @Test fun `debug - modalite section raw text`() {
+        val bytes = loadFixturePdf()
+        Loader.loadPDF(bytes).use { doc ->
+            val rawText = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+            val start = rawText.indexOf("c-")
+            val end   = rawText.indexOf("d-", start)
+            val section = if (start >= 0 && end > start) rawText.substring(start, end) else "(section non trouvée)"
+            println("=== Section modalités (texte brut PDFBox) ===")
+            section.lines().forEach { line ->
+                val codes = line.take(5).map { "U+%04X".format(it.code) }.joinToString(" ")
+                println("[$codes] $line")
+            }
+            println("=== Champs AcroForm ===")
+            val acroForm = doc.documentCatalog.acroForm
+            if (acroForm == null) { println("  (aucun AcroForm dans ce PDF)") }
+            else {
+                println("  Nombre de champs top-level : ${acroForm.fields?.size ?: 0}")
+                fun dumpFields(fields: List<org.apache.pdfbox.pdmodel.interactive.form.PDField>?, indent: String) {
+                    fields?.forEach { f ->
+                        val value = runCatching { f.valueAsString }.getOrElse { "?" }
+                        println("  $indent[${f.javaClass.simpleName}] '${f.fullyQualifiedName}' = '$value'")
+                        if (f is org.apache.pdfbox.pdmodel.interactive.form.PDNonTerminalField)
+                            dumpFields(f.children, "$indent  ")
+                    }
+                }
+                dumpFields(acroForm.fields, "")
+            }
+            println("=== Fin debug ===")
+        }
+        // Test purement diagnostic, aucune assertion.
+    }
+
+    @Test fun `Tarbouriech - aucune modalite particuliere is checked`() {
+        val data = ConventionPdfParser.parse(loadFixturePdf())
+        println("nightPresence   = ${data.nightPresence}")
+        println("sundayPresence  = ${data.sundayPresence}")
+        println("holidayPresence = ${data.holidayPresence}")
+        println("homePresence    = ${data.homePresence}")
+        // La convention a "aucune modalité particulière" cochée → toutes les autres fausses
+        assertFalse(data.nightPresence,   "nightPresence devrait être false")
+        assertFalse(data.homePresence,    "homePresence devrait être false")
+    }
+
+    @Test fun `Tarbouriech - host email extracted`() {
+        val data = ConventionPdfParser.parse(loadFixturePdf())
+        println("hostEmail = '${data.hostEmail}'")
+        assertEquals("cliniqueveterinairedulude@orange.fr", data.hostEmail)
+    }
+
+    @Test fun `Tarbouriech - host phone extracted`() {
+        val data = ConventionPdfParser.parse(loadFixturePdf())
+        println("hostPhone = '${data.hostPhone}'")
+        assertEquals("0243949131", data.hostPhone)
+    }
+
+    @Test fun `Tarbouriech - dates extracted correctly`() {
+        val data = ConventionPdfParser.parse(loadFixturePdf())
+        println("startDate = '${data.startDate}' endDate = '${data.endDate}'")
+        assertEquals("12/04/2027", data.startDate)
+        assertEquals("23/04/2027", data.endDate)
     }
 
     // ── computeHasWeeklyRestDay ──────────────────────────────────────────────
