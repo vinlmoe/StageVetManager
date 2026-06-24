@@ -54,7 +54,9 @@ fun ConventionPdfDialog(
                     FieldSection("Tuteur école") {
                         Field("Nom",              data.tutorName)
                         Field("Fonction",         data.tutorFunction)
-                        Field("Contact",          data.schoolContact)
+                        Field("Tél",              data.tutorPhone)
+                        Field("Email",            data.tutorEmail)
+                        Field("Contact scolarité", data.schoolContact)
                     }
                     FieldSection("Organisme d'accueil") {
                         Field("Raison sociale",   data.hostOrganization)
@@ -62,6 +64,8 @@ fun ConventionPdfDialog(
                         Field("Représentant",     data.hostRepresentative)
                         Field("Maître de stage",  data.supervisorName)
                         Field("Qualité",          data.supervisorQuality)
+                        Field("Tél",              data.hostPhone)
+                        Field("Email",            data.hostEmail)
                     }
                     FieldSection("Période") {
                         Field("Année univ.",      data.academicYear)
