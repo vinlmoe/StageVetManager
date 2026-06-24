@@ -1,6 +1,7 @@
 package fr.vetbrain.stagevetmanager.ui
 
 import androidx.compose.runtime.*
+import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.deserializeTrackingTargets
 import fr.vetbrain.stagevetmanager.model.serializeTrackingTargets
@@ -49,6 +50,17 @@ fun App() {
     val vm = remember { DashboardViewModel() }
     DisposableEffect(Unit) { onDispose { vm.dispose() } }
 
+    // Restore persisted scrape filters
+    remember {
+        vm.setScrapeFilters(ScrapeFilters(
+            periode    = prefs.get("scrapeFilter.periode", ""),
+            anneeEtude = prefs.get("scrapeFilter.anneeEtude", ""),
+            theme      = prefs.get("scrapeFilter.theme", ""),
+            status     = prefs.get("scrapeFilter.status", ""),
+            order      = prefs.get("scrapeFilter.order", "1"),
+        ))
+    }
+
     AppTheme {
         when (screen) {
             Screen.LOGIN -> LoginScreen(
@@ -88,6 +100,13 @@ fun App() {
                 },
                 onExportTracking = { targets ->
                     vm.exportToOneDriveTracking(targets)
+                },
+                onScrapeFiltersChange = { f ->
+                    prefs.put("scrapeFilter.periode",    f.periode)
+                    prefs.put("scrapeFilter.anneeEtude", f.anneeEtude)
+                    prefs.put("scrapeFilter.theme",      f.theme)
+                    prefs.put("scrapeFilter.status",     f.status)
+                    prefs.put("scrapeFilter.order",      f.order)
                 },
             )
 
