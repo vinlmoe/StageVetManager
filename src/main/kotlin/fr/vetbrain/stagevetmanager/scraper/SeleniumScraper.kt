@@ -249,7 +249,14 @@ class SeleniumScraper(
 
                 log("[DEBUG] Création ChromeOptions…")
                 val opts = ChromeOptions()
-                if (headless) opts.addArguments("--headless=new", "--no-sandbox", "--disable-dev-shm-usage")
+                if (headless) {
+                    opts.addArguments("--headless=new")
+                    // --no-sandbox / --disable-dev-shm-usage uniquement sur Linux (Docker/CI) ;
+                    // inutile et potentiellement problématique sur Windows et macOS.
+                    if (System.getProperty("os.name").lowercase().contains("linux")) {
+                        opts.addArguments("--no-sandbox", "--disable-dev-shm-usage")
+                    }
+                }
                 opts.addArguments("--window-size=1920,1080", "--lang=fr-FR")
                 log("[DEBUG] Lancement de ChromeDriver (peut prendre 10-30s si premier lancement)…")
                 val t = System.currentTimeMillis()
