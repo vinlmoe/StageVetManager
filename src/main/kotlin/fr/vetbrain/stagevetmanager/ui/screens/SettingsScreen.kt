@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ fun SettingsScreen(
     // Base de données partagée
     dbDir: String,
     onDbDirChange: (String) -> Unit,
+    onBackupDatabase: (onSuccess: (String) -> Unit, onError: (String) -> Unit) -> Unit,
     // OneDrive
     oneDrivePath: String,
     onOneDrivePathChange: (String) -> Unit,
@@ -53,6 +55,8 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
+        var backupMessage by remember { mutableStateOf<Pair<Boolean, String>?>(null) } // (isError, message)
+
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -166,6 +170,28 @@ fun SettingsScreen(
                 }) {
                     Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
                 }
+            }
+
+            OutlinedButton(onClick = {
+                backupMessage = null
+                onBackupDatabase(
+                    { path -> backupMessage = false to "Sauvegarde créée : $path" },
+                    { err  -> backupMessage = true  to "Erreur : $err" },
+                )
+            }) {
+                Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Sauvegarder la base maintenant", fontSize = 13.sp)
+            }
+
+            val msg = backupMessage
+            if (msg != null) {
+                Text(
+                    msg.second,
+                    fontSize = 12.sp,
+                    color = if (msg.first) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                )
             }
 
             HorizontalDivider()

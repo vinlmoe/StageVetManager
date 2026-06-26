@@ -121,6 +121,14 @@ class DashboardViewModel {
         }
     }
 
+    fun backupDatabase(onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { LocalDatabase.instance.backup() }
+                .onSuccess { path -> scope.launch { onSuccess(path.toString()) } }
+                .onFailure { e -> scope.launch { onError(e.message ?: "Erreur inconnue") } }
+        }
+    }
+
     fun reloadAll() {
         scope.launch {
             loadFromDatabase()

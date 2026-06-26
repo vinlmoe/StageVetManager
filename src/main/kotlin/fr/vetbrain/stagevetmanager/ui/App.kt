@@ -125,6 +125,7 @@ fun App() {
             )
 
             Screen.SETTINGS -> SettingsScreen(
+                onBackupDatabase = { onSuccess, onError -> vm.backupDatabase(onSuccess, onError) },
                 browserType = browserType,
                 headless = headless,
                 chromeDriverPath = chromeDriverPath,

@@ -3,9 +3,11 @@ package fr.vetbrain.stagevetmanager.persistence
 import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
+import java.time.format.DateTimeFormatter
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.LocalDate
@@ -302,6 +304,17 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                 stmt.executeUpdate()
             }
         }
+    }
+
+    fun backup(): Path {
+        val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        val dest = dbPath.resolveSibling("internships_backup_$ts.db")
+        // SQLite WAL checkpoint avant copie pour s'assurer que toutes les données sont dans le fichier principal
+        connect().use { conn ->
+            conn.createStatement().execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        }
+        Files.copy(dbPath, dest)
+        return dest
     }
 
     fun clear() {
