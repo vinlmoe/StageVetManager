@@ -310,7 +310,7 @@ fun InternshipDetailView(
                 }
 
                 // — Texte brut (pliable) ——
-                var showRaw by remember { mutableStateOf(false) }
+                var showRaw by remember { mutableStateOf(true) }
                 HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
                 TextButton(
                     onClick = { showRaw = !showRaw },
