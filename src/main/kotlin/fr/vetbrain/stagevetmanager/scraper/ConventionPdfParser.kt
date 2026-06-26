@@ -136,7 +136,7 @@ object ConventionPdfParser {
                     // Also check widget appearance states (some PDFs use "Yes"/"Off" per widget)
                     runCatching {
                         field.widgets?.forEach { widget ->
-                            val ap = widget.appearanceState
+                            val ap = widget.appearanceState?.name
                             if (ap != null && ap.lowercase() !in setOf("off", "no", "false", "0", "")) {
                                 add(field.fullyQualifiedName.lowercase())
                             }
