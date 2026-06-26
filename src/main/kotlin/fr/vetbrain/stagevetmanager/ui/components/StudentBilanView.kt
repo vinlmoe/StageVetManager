@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.awt.Desktop
@@ -47,6 +48,7 @@ fun StudentBilanView(
     internships: List<Internship>,
     modifier: Modifier = Modifier,
     pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
+    clinicStatuses: Map<String, ClinicStatus> = emptyMap(),
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
@@ -71,6 +73,7 @@ fun StudentBilanView(
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
     var signAlertStage  by remember { mutableStateOf<Internship?>(null) }
     var cancelAlertStage by remember { mutableStateOf<Internship?>(null) }
+    var clinicBlacklistAlertStage by remember { mutableStateOf<Internship?>(null) }
 
     val cancelAlertStageValue = cancelAlertStage
     if (cancelAlertStageValue != null) {
@@ -89,6 +92,33 @@ fun StudentBilanView(
             },
         )
     }
+    val clinicBlacklistAlertStageValue = clinicBlacklistAlertStage
+    if (clinicBlacklistAlertStageValue != null) {
+        AlertDialog(
+            onDismissRequest = { clinicBlacklistAlertStage = null },
+            title = { Text("Clinique — Ne plus envoyer") },
+            text = {
+                Text(
+                    "L'organisme « ${clinicBlacklistAlertStageValue.organization} » est marqué " +
+                        "« Ne plus envoyer ».\n\nVoulez-vous quand même signer cette convention ?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val pdf = pdfDataCache[clinicBlacklistAlertStageValue.conventionPdfUrl]
+                    val hasInconsistency = pdf != null &&
+                        (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    if (hasInconsistency) signAlertStage = clinicBlacklistAlertStageValue
+                    else openInBrowser(clinicBlacklistAlertStageValue.conventionSignUrl)
+                    clinicBlacklistAlertStage = null
+                }) { Text("Signer quand même", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { clinicBlacklistAlertStage = null }) { Text("Annuler") }
+            },
+        )
+    }
+
     val signAlertStageValue = signAlertStage
     if (signAlertStageValue != null) {
         val pdf = pdfDataCache[signAlertStageValue.conventionPdfUrl]
@@ -297,7 +327,9 @@ fun StudentBilanView(
                                             tint = if (hasInconsistency) Color(0xFFB71C1C)
                                                    else Color(0xFFE65100),
                                             modifier = Modifier.size(14.dp).clickable {
-                                                if (hasInconsistency) signAlertStage = stage
+                                                val isBlacklisted = clinicStatuses[stage.organization] == ClinicStatus.BLACKLISTED
+                                                if (isBlacklisted) clinicBlacklistAlertStage = stage
+                                                else if (hasInconsistency) signAlertStage = stage
                                                 else openInBrowser(stage.conventionSignUrl)
                                             },
                                         )

@@ -1,5 +1,6 @@
 package fr.vetbrain.stagevetmanager.persistence
 
+import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.nio.file.Path
@@ -108,6 +109,14 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE pdf_data ADD COLUMN has_weekly_rest_day INTEGER"
                 )
             }
+
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS clinic_statuses (
+                    organization TEXT PRIMARY KEY,
+                    status       TEXT NOT NULL DEFAULT 'OK',
+                    notes        TEXT
+                )
+            """.trimIndent())
 
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS pdf_data (
@@ -362,6 +371,33 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     false -> stmt.setInt(37, 0)
                     null  -> stmt.setNull(37, java.sql.Types.INTEGER)
                 }
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun loadAllClinicStatuses(): Map<String, ClinicStatus> {
+        return connect().use { conn ->
+            val rs = conn.createStatement().executeQuery("SELECT organization, status FROM clinic_statuses")
+            buildMap {
+                while (rs.next()) {
+                    val org = rs.getString("organization") ?: continue
+                    val status = runCatching { ClinicStatus.valueOf(rs.getString("status")) }
+                        .getOrDefault(ClinicStatus.OK)
+                    put(org, status)
+                }
+            }
+        }
+    }
+
+    fun setClinicStatus(organization: String, status: ClinicStatus, notes: String = "") {
+        connect().use { conn ->
+            conn.prepareStatement(
+                "INSERT OR REPLACE INTO clinic_statuses (organization, status, notes) VALUES (?, ?, ?)"
+            ).use { stmt ->
+                stmt.setString(1, organization)
+                stmt.setString(2, status.name)
+                stmt.setString(3, notes)
                 stmt.executeUpdate()
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
+import fr.vetbrain.stagevetmanager.ui.components.ClinicView
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
@@ -26,7 +28,7 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Paths
 
-private enum class DisplayMode { INTERNSHIPS, BILAN, DETAIL }
+private enum class DisplayMode { INTERNSHIPS, BILAN, CLINIC, DETAIL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +61,8 @@ fun DashboardScreen(
     val isPdfLoading   by vm.isPdfLoading.collectAsState()
     val selectedInternship by vm.selectedInternship.collectAsState()
     val pdfDataCache       by vm.pdfDataCache.collectAsState()
+    val clinicStatuses     by vm.clinicStatuses.collectAsState()
+    val allInternships     by vm.allInternships.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     var showClearDialog by remember { mutableStateOf(false) }
@@ -127,13 +131,16 @@ fun DashboardScreen(
                 actions = {
                     if (displayMode != DisplayMode.DETAIL) {
                         IconButton(onClick = {
-                            displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
-                                DisplayMode.BILAN else DisplayMode.INTERNSHIPS
+                            displayMode = when (displayMode) {
+                                DisplayMode.INTERNSHIPS -> DisplayMode.BILAN
+                                DisplayMode.BILAN -> DisplayMode.CLINIC
+                                else -> DisplayMode.INTERNSHIPS
+                            }
                         }) {
-                            if (displayMode == DisplayMode.INTERNSHIPS) {
-                                Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
-                            } else {
-                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
+                            when (displayMode) {
+                                DisplayMode.INTERNSHIPS -> Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
+                                DisplayMode.BILAN -> Icon(Icons.Default.LocalHospital, contentDescription = "Vue cliniques")
+                                else -> Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
                             }
                         }
                         IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
@@ -225,12 +232,19 @@ fun DashboardScreen(
                     internships = displayed,
                     modifier = Modifier.weight(1f),
                     pdfDataCache = pdfDataCache,
+                    clinicStatuses = clinicStatuses,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.BILAN
                         vm.selectInternship(internship)
                         displayMode = DisplayMode.DETAIL
                     },
                     onToggleSuivi = { internship, checked -> vm.toggleSuivi(internship, checked) },
+                )
+                DisplayMode.CLINIC -> ClinicView(
+                    internships = allInternships,
+                    clinicStatuses = clinicStatuses,
+                    onSetClinicStatus = vm::setClinicStatus,
+                    modifier = Modifier.weight(1f),
                 )
                 DisplayMode.DETAIL -> {
                     val internship = selectedInternship

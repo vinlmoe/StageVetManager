@@ -1,6 +1,7 @@
 package fr.vetbrain.stagevetmanager.viewmodel
 
 import fr.vetbrain.stagevetmanager.export.ExcelExporter
+import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.LocalFilters
@@ -47,6 +48,16 @@ class DashboardViewModel {
     val dbCount         = MutableStateFlow(0)
     val trackingWarnings = MutableStateFlow<List<String>>(emptyList())
 
+    // — Statuts cliniques —————————————————————————————————————————————————
+    val clinicStatuses = MutableStateFlow<Map<String, ClinicStatus>>(emptyMap())
+
+    fun setClinicStatus(organization: String, status: ClinicStatus) {
+        scope.launch(Dispatchers.IO) {
+            LocalDatabase.instance.setClinicStatus(organization, status)
+            clinicStatuses.value = LocalDatabase.instance.loadAllClinicStatuses()
+        }
+    }
+
     // — PDF extraction ————————————————————————————————————————————————————
     val selectedPdfData = MutableStateFlow<ConventionPdfData?>(null)
     val isPdfLoading    = MutableStateFlow(false)
@@ -92,6 +103,7 @@ class DashboardViewModel {
             loadFromDatabase()
             val cache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
             _pdfDataCache.value = cache
+            clinicStatuses.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllClinicStatuses() }
         }
     }
 
