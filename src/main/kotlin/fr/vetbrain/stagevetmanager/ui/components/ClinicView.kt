@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,12 +24,6 @@ import java.time.format.DateTimeFormatter
 
 private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
-private val STATUS_COLORS = mapOf(
-    ClinicStatus.OK          to Color(0xFF2E7D32),
-    ClinicStatus.WATCH       to Color(0xFFF57F17),
-    ClinicStatus.BLACKLISTED to Color(0xFFB71C1C),
-)
-
 private data class ClinicSummary(
     val organization: String,
     val address: String,
@@ -43,7 +38,9 @@ fun ClinicView(
     onSetClinicStatus: (String, ClinicStatus) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val clinics = remember(internships, clinicStatuses) {
+    var searchText by remember { mutableStateOf("") }
+
+    val clinics = remember(internships, clinicStatuses, searchText) {
         internships.groupBy { it.organization.trim() }
             .filter { it.key.isNotBlank() }
             .map { (org, list) ->
@@ -54,6 +51,7 @@ fun ClinicView(
                     status = clinicStatuses[org] ?: ClinicStatus.OK,
                 )
             }
+            .filter { it.organization.contains(searchText, ignoreCase = true) || it.address.contains(searchText, ignoreCase = true) }
             .sortedWith(compareBy({ it.status.ordinal }, { it.organization }))
     }
 
@@ -61,7 +59,17 @@ fun ClinicView(
     var statusMenuFor by remember { mutableStateOf<String?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Header
+        // Barre de recherche
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            placeholder = { Text("Rechercher une clinique…", fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+        )
+
+        // En-tête
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -71,19 +79,26 @@ fun ClinicView(
         ) {
             Spacer(Modifier.width(20.dp))
             ClinicHeaderCell("Organisme",  0.30f)
-            ClinicHeaderCell("Adresse",    0.28f)
-            ClinicHeaderCell("Statut",     0.15f)
+            ClinicHeaderCell("Adresse",    0.26f)
+            ClinicHeaderCell("Statut",     0.16f)
             ClinicHeaderCell("Nb stages",  0.10f)
-            ClinicHeaderCell("Étudiants",  0.17f)
+            ClinicHeaderCell("Étudiants",  0.18f)
+        }
+
+        if (clinics.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Aucune clinique à afficher", color = Color.Gray)
+            }
+            return@Column
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             itemsIndexed(clinics, key = { _, c -> c.organization }) { idx, clinic ->
                 val isExpanded = expanded[clinic.organization] == true
-                val rowBg = if (idx % 2 == 0) Color.Transparent
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                val rowBg = if (idx % 2 == 0) Color.White
+                            else Color(0xFFF0F4F8)
 
-                // Summary row
+                // Ligne résumé
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -99,23 +114,30 @@ fun ClinicView(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(
-                        clinic.organization,
+                    // Org : dot + nom
+                    Row(
                         modifier = Modifier.weight(0.30f).padding(end = 4.dp),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ClinicStatusDot(clinic.status)
+                        if (clinic.status != ClinicStatus.OK) Spacer(Modifier.width(5.dp))
+                        Text(
+                            clinic.organization,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Text(
                         clinic.address,
-                        modifier = Modifier.weight(0.28f).padding(end = 4.dp),
+                        modifier = Modifier.weight(0.26f).padding(end = 4.dp),
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    // Status chip
-                    Box(modifier = Modifier.weight(0.15f).padding(end = 4.dp)) {
+                    // Chip statut cliquable
+                    Box(modifier = Modifier.weight(0.16f).padding(end = 4.dp)) {
                         val color = STATUS_COLORS[clinic.status] ?: Color.Gray
                         Surface(
                             shape = MaterialTheme.shapes.small,
@@ -160,7 +182,7 @@ fun ClinicView(
                     val students = clinic.stages.map { it.studentName }.distinct()
                     Text(
                         students.joinToString(", "),
-                        modifier = Modifier.weight(0.17f),
+                        modifier = Modifier.weight(0.18f),
                         fontSize = 10.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -168,7 +190,7 @@ fun ClinicView(
                     )
                 }
 
-                // Expanded detail rows
+                // Lignes de détail
                 if (isExpanded) {
                     clinic.stages.forEach { stage ->
                         Row(
@@ -178,36 +200,11 @@ fun ClinicView(
                                 .padding(start = 32.dp, end = 8.dp, top = 3.dp, bottom = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                stage.studentName,
-                                modifier = Modifier.weight(0.22f).padding(end = 4.dp),
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                stage.studyYear,
-                                modifier = Modifier.weight(0.08f).padding(end = 4.dp),
-                                fontSize = 11.sp,
-                            )
-                            Text(
-                                stage.startDate?.format(DATE_FMT) ?: "",
-                                modifier = Modifier.weight(0.13f).padding(end = 4.dp),
-                                fontSize = 11.sp,
-                            )
-                            Text(
-                                stage.endDate?.format(DATE_FMT) ?: "",
-                                modifier = Modifier.weight(0.13f).padding(end = 4.dp),
-                                fontSize = 11.sp,
-                            )
-                            Text(
-                                stage.theme,
-                                modifier = Modifier.weight(0.27f).padding(end = 4.dp),
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Text(stage.studentName, modifier = Modifier.weight(0.22f).padding(end = 4.dp), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(stage.studyYear,   modifier = Modifier.weight(0.08f).padding(end = 4.dp), fontSize = 11.sp)
+                            Text(stage.startDate?.format(DATE_FMT) ?: "", modifier = Modifier.weight(0.13f).padding(end = 4.dp), fontSize = 11.sp)
+                            Text(stage.endDate?.format(DATE_FMT) ?: "",   modifier = Modifier.weight(0.13f).padding(end = 4.dp), fontSize = 11.sp)
+                            Text(stage.theme, modifier = Modifier.weight(0.27f).padding(end = 4.dp), fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             val signed = stage.signingDate != null
                             Text(
                                 if (signed) "Signé ✓" else "Non signé",
@@ -232,7 +229,7 @@ private fun RowScope.ClinicHeaderCell(label: String, weight: Float) {
         modifier = Modifier.weight(weight).padding(end = 4.dp),
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
-        color = androidx.compose.ui.graphics.Color.White,
+        color = Color.White,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +53,9 @@ fun StudentBilanView(
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
-    val bilans = remember(internships) {
+    var searchText by remember { mutableStateOf("") }
+
+    val bilans = remember(internships, searchText) {
         internships.groupBy { it.studentName.trim() }
             .map { (name, list) ->
                 StudentBilan(
@@ -67,13 +70,19 @@ fun StudentBilanView(
                     lastEnd = list.mapNotNull { it.endDate }.maxOrNull(),
                 )
             }
+            .filter { bilan ->
+                searchText.isBlank() ||
+                    bilan.studentName.contains(searchText, ignoreCase = true) ||
+                    bilan.orgsSummary.contains(searchText, ignoreCase = true)
+            }
             .sortedBy { it.studentName }
     }
 
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
-    var signAlertStage  by remember { mutableStateOf<Internship?>(null) }
-    var cancelAlertStage by remember { mutableStateOf<Internship?>(null) }
+    var signAlertStage            by remember { mutableStateOf<Internship?>(null) }
+    var cancelAlertStage          by remember { mutableStateOf<Internship?>(null) }
     var clinicBlacklistAlertStage by remember { mutableStateOf<Internship?>(null) }
+    var clinicWatchAlertStage     by remember { mutableStateOf<Internship?>(null) }
 
     val cancelAlertStageValue = cancelAlertStage
     if (cancelAlertStageValue != null) {
@@ -97,17 +106,11 @@ fun StudentBilanView(
         AlertDialog(
             onDismissRequest = { clinicBlacklistAlertStage = null },
             title = { Text("Clinique — Ne plus envoyer") },
-            text = {
-                Text(
-                    "L'organisme « ${clinicBlacklistAlertStageValue.organization} » est marqué " +
-                        "« Ne plus envoyer ».\n\nVoulez-vous quand même signer cette convention ?"
-                )
-            },
+            text  = { Text("L'organisme « ${clinicBlacklistAlertStageValue.organization} » est marqué « Ne plus envoyer ».\n\nVoulez-vous quand même signer cette convention ?") },
             confirmButton = {
                 TextButton(onClick = {
                     val pdf = pdfDataCache[clinicBlacklistAlertStageValue.conventionPdfUrl]
-                    val hasInconsistency = pdf != null &&
-                        (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                     if (hasInconsistency) signAlertStage = clinicBlacklistAlertStageValue
                     else openInBrowser(clinicBlacklistAlertStageValue.conventionSignUrl)
                     clinicBlacklistAlertStage = null
@@ -115,6 +118,27 @@ fun StudentBilanView(
             },
             dismissButton = {
                 TextButton(onClick = { clinicBlacklistAlertStage = null }) { Text("Annuler") }
+            },
+        )
+    }
+
+    val clinicWatchAlertStageValue = clinicWatchAlertStage
+    if (clinicWatchAlertStageValue != null) {
+        AlertDialog(
+            onDismissRequest = { clinicWatchAlertStage = null },
+            title = { Text("Clinique — À surveiller") },
+            text  = { Text("L'organisme « ${clinicWatchAlertStageValue.organization} » est marqué « À surveiller ».\n\nVérifiez les conditions de stage avant de signer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val pdf = pdfDataCache[clinicWatchAlertStageValue.conventionPdfUrl]
+                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    if (hasInconsistency) signAlertStage = clinicWatchAlertStageValue
+                    else openInBrowser(clinicWatchAlertStageValue.conventionSignUrl)
+                    clinicWatchAlertStage = null
+                }) { Text("Continuer", color = Color(0xFFF57F17)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { clinicWatchAlertStage = null }) { Text("Annuler") }
             },
         )
     }
@@ -135,6 +159,16 @@ fun StudentBilanView(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        // Barre de recherche
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            placeholder = { Text("Rechercher un étudiant ou un organisme…", fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+        )
+
         // ── En-tête ──────────────────────────────────────────────────────────
         Row(
             modifier = Modifier
@@ -237,6 +271,7 @@ fun StudentBilanView(
                     // Sous-lignes de détail (visibles uniquement si développé)
                     if (isExpanded) {
                         bilan.stages.forEach { stage ->
+                            val stageClinicStatus = clinicStatuses[stage.organization] ?: ClinicStatus.OK
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -244,11 +279,17 @@ fun StudentBilanView(
                                     .padding(start = 36.dp, end = 8.dp, top = 3.dp, bottom = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    stage.organization,
+                                Row(
                                     modifier = Modifier.weight(0.20f).padding(end = 4.dp),
-                                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                )
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ClinicStatusDot(stageClinicStatus)
+                                    if (stageClinicStatus != ClinicStatus.OK) Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        stage.organization,
+                                        fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                                 Text(
                                     when {
                                         stage.startDate != null && stage.endDate != null ->
@@ -319,18 +360,26 @@ fun StudentBilanView(
                                         val hasInconsistency = pdf != null &&
                                             (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                                         TipIcon(
-                                            tip = if (hasInconsistency)
-                                                "Signer la convention (incohérence détectée)"
-                                            else
-                                                "Signer la convention",
+                                            tip = when {
+                                                stageClinicStatus == ClinicStatus.BLACKLISTED -> "Signer (clinique : ne plus envoyer !)"
+                                                stageClinicStatus == ClinicStatus.WATCH       -> "Signer (clinique : à surveiller)"
+                                                hasInconsistency                              -> "Signer la convention (incohérence détectée)"
+                                                else                                          -> "Signer la convention"
+                                            },
                                             imageVector = Icons.Default.Edit,
-                                            tint = if (hasInconsistency) Color(0xFFB71C1C)
-                                                   else Color(0xFFE65100),
+                                            tint = when {
+                                                stageClinicStatus == ClinicStatus.BLACKLISTED -> Color(0xFFB71C1C)
+                                                stageClinicStatus == ClinicStatus.WATCH       -> Color(0xFFF57F17)
+                                                hasInconsistency                              -> Color(0xFFB71C1C)
+                                                else                                          -> Color(0xFFE65100)
+                                            },
                                             modifier = Modifier.size(14.dp).clickable {
-                                                val isBlacklisted = clinicStatuses[stage.organization] == ClinicStatus.BLACKLISTED
-                                                if (isBlacklisted) clinicBlacklistAlertStage = stage
-                                                else if (hasInconsistency) signAlertStage = stage
-                                                else openInBrowser(stage.conventionSignUrl)
+                                                when (stageClinicStatus) {
+                                                    ClinicStatus.BLACKLISTED -> clinicBlacklistAlertStage = stage
+                                                    ClinicStatus.WATCH       -> clinicWatchAlertStage = stage
+                                                    else -> if (hasInconsistency) signAlertStage = stage
+                                                            else openInBrowser(stage.conventionSignUrl)
+                                                }
                                             },
                                         )
                                         SignUrgencyBadge(stage.startDate, iconSize = 13)

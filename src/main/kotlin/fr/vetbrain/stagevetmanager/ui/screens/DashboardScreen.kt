@@ -13,7 +13,12 @@ import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
@@ -29,6 +34,24 @@ import java.awt.Frame
 import java.nio.file.Paths
 
 private enum class DisplayMode { INTERNSHIPS, BILAN, CLINIC, DETAIL }
+
+@Composable
+private fun ViewTab(
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = if (active) Modifier.background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                       else Modifier,
+        ) {
+            Icon(icon, contentDescription = label, tint = Color.White)
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,19 +153,9 @@ fun DashboardScreen(
                 },
                 actions = {
                     if (displayMode != DisplayMode.DETAIL) {
-                        IconButton(onClick = {
-                            displayMode = when (displayMode) {
-                                DisplayMode.INTERNSHIPS -> DisplayMode.BILAN
-                                DisplayMode.BILAN -> DisplayMode.CLINIC
-                                else -> DisplayMode.INTERNSHIPS
-                            }
-                        }) {
-                            when (displayMode) {
-                                DisplayMode.INTERNSHIPS -> Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
-                                DisplayMode.BILAN -> Icon(Icons.Default.LocalHospital, contentDescription = "Vue cliniques")
-                                else -> Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
-                            }
-                        }
+                        ViewTab(Icons.AutoMirrored.Filled.List, "Stages",    displayMode == DisplayMode.INTERNSHIPS) { displayMode = DisplayMode.INTERNSHIPS }
+                        ViewTab(Icons.Default.Group,            "Étudiants", displayMode == DisplayMode.BILAN)       { displayMode = DisplayMode.BILAN }
+                        ViewTab(Icons.Default.LocalHospital,    "Cliniques", displayMode == DisplayMode.CLINIC)      { displayMode = DisplayMode.CLINIC }
                         IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
                             Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
                         }
@@ -221,6 +234,7 @@ fun DashboardScreen(
                     onSort = vm::toggleSort,
                     modifier = Modifier.weight(1f),
                     pdfDataCache = pdfDataCache,
+                    clinicStatuses = clinicStatuses,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.INTERNSHIPS
                         vm.selectInternship(internship)
