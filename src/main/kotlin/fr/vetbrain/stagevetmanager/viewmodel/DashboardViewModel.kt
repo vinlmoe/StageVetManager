@@ -324,7 +324,7 @@ class DashboardViewModel {
             statusMessage.value = "Export Excel en cours…"
             withContext(Dispatchers.IO) {
                 try {
-                    ExcelExporter.export(allInternships.value, path)
+                    ExcelExporter.export(allInternships.value, path, _pdfDataCache.value)
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         errorMessage.value = "Export échoué : ${e.message}"
