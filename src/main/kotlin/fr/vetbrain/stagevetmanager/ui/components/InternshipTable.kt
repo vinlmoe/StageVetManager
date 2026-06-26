@@ -137,6 +137,8 @@ fun InternshipTable(
             sundayPresence = pdf?.sundayPresence == true,
             holidayPresence = pdf?.holidayPresence == true,
             hasWeeklyRestDay = pdf?.hasWeeklyRestDay,
+            sundayDates = pdf?.sundayDates ?: emptyList(),
+            holidayDates = pdf?.holidayDates ?: emptyList(),
             onConfirm = {
                 openInBrowser(signValue.conventionSignUrl)
                 signAlertInternship = null

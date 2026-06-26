@@ -42,6 +42,8 @@ data class ConventionPdfData(
     val holidayPresence: Boolean = false,
     val homePresence: Boolean = false,
     val hasWeeklyRestDay: Boolean? = null, // null = pas de dates de présence pour vérifier
+    val sundayDates: List<java.time.LocalDate> = emptyList(),
+    val holidayDates: List<java.time.LocalDate> = emptyList(),
 
     // — Encadrement / conditions ——————————————————
     val theme: String = "",

@@ -64,6 +64,8 @@ fun InternshipDetailView(
             sundayPresence = pdfData.sundayPresence,
             holidayPresence = pdfData.holidayPresence,
             hasWeeklyRestDay = pdfData.hasWeeklyRestDay,
+            sundayDates = pdfData.sundayDates,
+            holidayDates = pdfData.holidayDates,
             onConfirm = {
                 showSignAlert = false
                 openUrl(internship.conventionSignUrl)

@@ -43,8 +43,6 @@ object ConventionPdfParser {
                     }
                 }
             }
-            val rawText = strippedText + acroFormDebug
-
             // Normalise les apostrophes typographiques (U+2019, U+02BC…) en apostrophe ASCII
             // afin que indexOf("L'ORGANISME") fonctionne quel que soit le générateur PDF.
             val text = normalizeQuotes(strippedText)
@@ -171,12 +169,15 @@ object ConventionPdfParser {
             val homePresence  = !aucuneModalite && modalite(listOf("domicile", "home"), "domicile")
 
             // Sunday / holiday: use actual dates when available, otherwise checkbox fallback
+            val sundayDates   = workingDates.filter { it.dayOfWeek == DayOfWeek.SUNDAY }
+            val holidayDates  = workingDates.filter { isFrenchPublicHoliday(it) }
+
             val sundayPresence = if (workingDates.isNotEmpty())
-                workingDates.any { it.dayOfWeek == DayOfWeek.SUNDAY }
+                sundayDates.isNotEmpty()
             else !aucuneModalite && modalite(listOf("dimanche", "dim", "sunday"), "dimanche")
 
             val holidayPresence = if (workingDates.isNotEmpty())
-                workingDates.any { isFrenchPublicHoliday(it) }
+                holidayDates.isNotEmpty()
             else !aucuneModalite && modalite(listOf("feri", "holiday", "fér"), "jours f")
 
             // — Signatures (col. gauche = tuteur, milieu = stagiaire, droite = maître) —
@@ -188,6 +189,16 @@ object ConventionPdfParser {
             val signingDateStudent = sigDates.getOrNull(1)?.groupValues?.get(1) ?: ""
             val signingDateHost    = sigDates.getOrNull(2)?.groupValues?.get(1) ?: ""
             val signingDateSchool  = sigDates.getOrNull(3)?.groupValues?.get(1) ?: ""
+
+            val sectionDebug = buildString {
+                append("\n\n=== DEBUG SECTIONS ===\n")
+                append("datesPrecisesSection (500 cars) :\n${datesPrecisesSection.take(500)}\n")
+                append("workingDates (${workingDates.size}) : ${workingDates.take(10)}\n")
+                append("modaliteSection :\n${modaliteSection.take(300)}\n")
+                append("useAcroForm=$useAcroForm | checkedFields=$checkedFields\n")
+                append("aucuneModalite=$aucuneModalite | nightPresence=$nightPresence | sundayPresence=$sundayPresence | holidayPresence=$holidayPresence | hasWeeklyRestDay=$hasWeeklyRestDay\n")
+            }
+            val rawText = strippedText + acroFormDebug + sectionDebug
 
             ConventionPdfData(
                 rawText            = rawText,
@@ -221,6 +232,8 @@ object ConventionPdfParser {
                 holidayPresence    = holidayPresence,
                 homePresence       = homePresence,
                 hasWeeklyRestDay   = hasWeeklyRestDay,
+                sundayDates        = sundayDates,
+                holidayDates       = holidayDates,
                 theme              = theme,
                 gratification      = gratification,
                 signingDateTutor   = signingDateTutor,

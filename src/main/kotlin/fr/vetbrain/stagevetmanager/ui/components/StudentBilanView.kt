@@ -142,6 +142,8 @@ fun StudentBilanView(
             sundayPresence = pdf?.sundayPresence == true,
             holidayPresence = pdf?.holidayPresence == true,
             hasWeeklyRestDay = pdf?.hasWeeklyRestDay,
+            sundayDates = pdf?.sundayDates ?: emptyList(),
+            holidayDates = pdf?.holidayDates ?: emptyList(),
             onConfirm = {
                 openInBrowser(signAlertStageValue.conventionSignUrl)
                 signAlertStage = null
@@ -440,12 +442,18 @@ internal fun SignInconsistencyDialog(
     sundayPresence: Boolean,
     holidayPresence: Boolean,
     hasWeeklyRestDay: Boolean? = null,
+    sundayDates: List<java.time.LocalDate> = emptyList(),
+    holidayDates: List<java.time.LocalDate> = emptyList(),
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    fun fmtDates(dates: List<java.time.LocalDate>) =
+        if (dates.isEmpty()) "" else " (${dates.take(5).joinToString(", ") { it.format(dateFmt) }}${if (dates.size > 5) "…" else ""})"
+
     val warnings = listOfNotNull(
-        "présence le dimanche".takeIf { sundayPresence },
-        "présence un jour férié".takeIf { holidayPresence },
+        "présence le dimanche${fmtDates(sundayDates)}".takeIf { sundayPresence },
+        "présence un jour férié${fmtDates(holidayDates)}".takeIf { holidayPresence },
         "absence de jour de repos hebdomadaire".takeIf { hasWeeklyRestDay == false },
     )
     AlertDialog(
