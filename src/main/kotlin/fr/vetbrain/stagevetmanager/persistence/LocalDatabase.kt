@@ -111,6 +111,11 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE pdf_data ADD COLUMN has_weekly_rest_day INTEGER"
                 )
             }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE pdf_data ADD COLUMN pdf_bytes BLOB"
+                )
+            }
 
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS clinic_statuses (
@@ -324,7 +329,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         }
     }
 
-    fun savePdfData(data: ConventionPdfData) {
+    fun savePdfData(data: ConventionPdfData, pdfBytes: ByteArray? = null) {
         if (data.sourceUrl.isBlank()) return
         val now = LocalDateTime.now().toString()
         connect().use { conn ->
@@ -340,8 +345,8 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     night_presence, sunday_presence, holiday_presence, home_presence,
                     theme, gratification,
                     signing_date_tutor, signing_date_student, signing_date_host, signing_date_school,
-                    has_weekly_rest_day
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    has_weekly_rest_day, pdf_bytes
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """.trimIndent()).use { stmt ->
                 stmt.setString(1, data.sourceUrl)
                 stmt.setString(2, now)
@@ -384,8 +389,30 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     false -> stmt.setInt(37, 0)
                     null  -> stmt.setNull(37, java.sql.Types.INTEGER)
                 }
+                if (pdfBytes != null) stmt.setBytes(38, pdfBytes)
+                else stmt.setNull(38, java.sql.Types.BLOB)
                 stmt.executeUpdate()
             }
+        }
+    }
+
+    fun loadPdfBytes(url: String): ByteArray? {
+        return connect().use { conn ->
+            conn.prepareStatement("SELECT pdf_bytes FROM pdf_data WHERE url = ?").use { stmt ->
+                stmt.setString(1, url)
+                stmt.executeQuery().use { rs ->
+                    if (rs.next()) rs.getBytes("pdf_bytes") else null
+                }
+            }
+        }
+    }
+
+    fun loadPdfBytesUrls(): Set<String> {
+        return connect().use { conn ->
+            val rs = conn.createStatement().executeQuery(
+                "SELECT url FROM pdf_data WHERE pdf_bytes IS NOT NULL"
+            )
+            buildSet { while (rs.next()) add(rs.getString("url") ?: continue) }
         }
     }
 

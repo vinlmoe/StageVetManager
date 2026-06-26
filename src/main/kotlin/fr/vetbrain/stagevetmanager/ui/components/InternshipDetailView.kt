@@ -37,7 +37,9 @@ fun InternshipDetailView(
     pdfData: ConventionPdfData?,
     isPdfLoading: Boolean,
     canDownloadPdf: Boolean,
+    hasPdfBytes: Boolean,
     onDownloadPdf: () -> Unit,
+    onReparsePdf: () -> Unit,
     onToggleSuivi: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -206,9 +208,9 @@ fun InternshipDetailView(
             DetailCard(
                 title = "Données extraites de la convention",
                 action = {
-                    if (internship.conventionPdfUrl.isNotEmpty() && canDownloadPdf) {
+                    if (internship.conventionPdfUrl.isNotEmpty() && (hasPdfBytes || canDownloadPdf)) {
                         TextButton(
-                            onClick = onDownloadPdf,
+                            onClick = if (hasPdfBytes) onReparsePdf else onDownloadPdf,
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                         ) {
                             Icon(Icons.Default.Refresh, null, Modifier.size(14.dp),

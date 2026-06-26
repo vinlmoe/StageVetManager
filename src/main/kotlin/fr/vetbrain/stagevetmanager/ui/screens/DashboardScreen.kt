@@ -264,12 +264,15 @@ fun DashboardScreen(
                 DisplayMode.DETAIL -> {
                     val internship = selectedInternship
                     if (internship != null) {
+                        val pdfBytesUrls by vm.pdfBytesUrls.collectAsState()
                         InternshipDetailView(
                             internship = internship,
                             pdfData = pdfDataCache[internship.conventionPdfUrl],
                             isPdfLoading = isPdfLoading,
                             canDownloadPdf = vm.hasSessionCookies,
+                            hasPdfBytes = internship.conventionPdfUrl in pdfBytesUrls,
                             onDownloadPdf = { vm.downloadConventionPdf(internship.conventionPdfUrl) },
+                            onReparsePdf = { vm.reparseStoredPdf(internship.conventionPdfUrl) },
                             onToggleSuivi = { checked -> vm.toggleSuivi(internship, checked) },
                             modifier = Modifier.weight(1f),
                         )

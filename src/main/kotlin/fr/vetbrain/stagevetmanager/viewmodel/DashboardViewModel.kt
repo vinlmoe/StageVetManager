@@ -64,6 +64,8 @@ class DashboardViewModel {
     val selectedInternship = MutableStateFlow<Internship?>(null)
     private val _pdfDataCache = MutableStateFlow<Map<String, ConventionPdfData>>(emptyMap())
     val pdfDataCache: StateFlow<Map<String, ConventionPdfData>> = _pdfDataCache
+    private val _pdfBytesUrls = MutableStateFlow<Set<String>>(emptySet())
+    val pdfBytesUrls: StateFlow<Set<String>> = _pdfBytesUrls
     val hasSessionCookies get() = sessionCookies.isNotEmpty()
     private var sessionCookies: Map<String, String> = emptyMap()
 
@@ -103,6 +105,7 @@ class DashboardViewModel {
             loadFromDatabase()
             val cache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
             _pdfDataCache.value = cache
+            _pdfBytesUrls.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadPdfBytesUrls() }
             clinicStatuses.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllClinicStatuses() }
         }
     }
@@ -134,6 +137,7 @@ class DashboardViewModel {
             loadFromDatabase()
             val cache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
             _pdfDataCache.value = cache
+            _pdfBytesUrls.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadPdfBytesUrls() }
             clinicStatuses.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllClinicStatuses() }
         }
     }
@@ -248,10 +252,11 @@ class DashboardViewModel {
                 try {
                     val bytes = PdfDownloader(sessionCookies).download(url)
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
-                    LocalDatabase.instance.savePdfData(data)
+                    LocalDatabase.instance.savePdfData(data, bytes)
                     scope.launch(Dispatchers.Main) {
                         selectedPdfData.value = data
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                        _pdfBytesUrls.value = _pdfBytesUrls.value + url
                         statusMessage.value = "Convention téléchargée et analysée"
                     }
                 } catch (e: Exception) {
@@ -275,9 +280,10 @@ class DashboardViewModel {
                 runCatching {
                     val bytes = downloader.download(url)
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
-                    LocalDatabase.instance.savePdfData(data)
+                    LocalDatabase.instance.savePdfData(data, bytes)
                     scope.launch(Dispatchers.Main) {
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                        _pdfBytesUrls.value = _pdfBytesUrls.value + url
                     }
                 }
                 done++
@@ -286,6 +292,41 @@ class DashboardViewModel {
             }
             scope.launch(Dispatchers.Main) {
                 statusMessage.value = "$done/$total convention(s) analysée(s) et sauvegardées"
+            }
+        }
+    }
+
+    fun reparseStoredPdf(url: String) {
+        if (isPdfLoading.value) return
+        scope.launch {
+            isPdfLoading.value = true
+            statusMessage.value = "Réévaluation de la convention…"
+            withContext(Dispatchers.IO) {
+                val bytes = LocalDatabase.instance.loadPdfBytes(url)
+                if (bytes == null) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Bytes PDF non disponibles — téléchargez d'abord la convention"
+                        statusMessage.value = "Réévaluation impossible"
+                        isPdfLoading.value = false
+                    }
+                    return@withContext
+                }
+                try {
+                    val data = ConventionPdfParser.parse(bytes, sourceUrl = url)
+                    LocalDatabase.instance.savePdfData(data, bytes)
+                    scope.launch(Dispatchers.Main) {
+                        selectedPdfData.value = data
+                        _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                        statusMessage.value = "Convention réévaluée"
+                        isPdfLoading.value = false
+                    }
+                } catch (e: Exception) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Réévaluation PDF échouée : ${e.message}"
+                        statusMessage.value = "Erreur réévaluation PDF"
+                        isPdfLoading.value = false
+                    }
+                }
             }
         }
     }
