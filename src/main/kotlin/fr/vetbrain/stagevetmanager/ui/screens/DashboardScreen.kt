@@ -258,6 +258,7 @@ fun DashboardScreen(
                     internships = allInternships,
                     clinicStatuses = clinicStatuses,
                     onSetClinicStatus = vm::setClinicStatus,
+                    searchText = filterText,
                     modifier = Modifier.weight(1f),
                 )
                 DisplayMode.DETAIL -> {

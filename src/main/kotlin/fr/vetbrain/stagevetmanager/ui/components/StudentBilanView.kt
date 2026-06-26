@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FindInPage
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,9 +52,7 @@ fun StudentBilanView(
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
-    var searchText by remember { mutableStateOf("") }
-
-    val bilans = remember(internships, searchText) {
+    val bilans = remember(internships) {
         internships.groupBy { it.studentName.trim() }
             .map { (name, list) ->
                 StudentBilan(
@@ -69,11 +66,6 @@ fun StudentBilanView(
                     firstStart = list.mapNotNull { it.startDate }.minOrNull(),
                     lastEnd = list.mapNotNull { it.endDate }.maxOrNull(),
                 )
-            }
-            .filter { bilan ->
-                searchText.isBlank() ||
-                    bilan.studentName.contains(searchText, ignoreCase = true) ||
-                    bilan.orgsSummary.contains(searchText, ignoreCase = true)
             }
             .sortedBy { it.studentName }
     }
@@ -159,16 +151,6 @@ fun StudentBilanView(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Barre de recherche
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            placeholder = { Text("Rechercher un étudiant ou un organisme…", fontSize = 13.sp) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-        )
-
         // ── En-tête ──────────────────────────────────────────────────────────
         Row(
             modifier = Modifier
