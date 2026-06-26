@@ -2,6 +2,7 @@ package fr.vetbrain.stagevetmanager.scraper
 
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.interactive.form.PDCheckBox
 import org.apache.pdfbox.text.PDFTextStripper
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -17,21 +18,25 @@ object ConventionPdfParser {
             val acroFormDebug = buildString {
                 val acroForm = doc.documentCatalog.acroForm
                 if (acroForm == null) {
-                    append("\n\n=== ACROFORM : null (pas de formulaire interactif) ===\n")
+                    append("\n\n=== ACROFORM : null (PDF aplati / pas de formulaire interactif) ===\n")
+                    append("=> Les cases à cocher sont probablement des graphiques non lisibles par PDFBox.\n")
                 } else {
                     val fields = acroForm.fields ?: emptyList()
                     if (fields.isEmpty()) {
-                        append("\n\n=== ACROFORM : 0 champs ===\n")
+                        append("\n\n=== ACROFORM : 0 champs (formulaire vide) ===\n")
                     } else {
                         append("\n\n=== ACROFORM : ${fields.size} champ(s) ===\n")
                         fields.forEach { field ->
+                            val type = field.javaClass.simpleName
                             val value = runCatching { field.valueAsString }.getOrElse { "ERROR" }
-                            append("  '${field.fullyQualifiedName}' = '$value'\n")
-                            // Also list child widgets if any
+                            val checkedInfo = if (field is PDCheckBox)
+                                " | isChecked=${runCatching { field.isChecked }.getOrElse { false }}"
+                            else ""
+                            append("  [$type] '${field.fullyQualifiedName}' = '$value'$checkedInfo\n")
                             runCatching {
                                 field.widgets?.forEach { w ->
-                                    val ap = w.appearanceState
-                                    append("    widget appearance state = '$ap'\n")
+                                    val ap = w.appearanceState?.name ?: "null"
+                                    append("    widget AS='$ap'\n")
                                 }
                             }
                         }
@@ -129,19 +134,25 @@ object ConventionPdfParser {
             // Priority 3: text-based heuristic (non-whitespace prefix before keyword)
             val checkedFields = buildSet<String> {
                 doc.documentCatalog.acroForm?.fields?.forEach { field ->
-                    val value = runCatching { field.valueAsString }.getOrElse { "Off" }
-                    // Checked = anything other than "Off", "", "No", "False", "0"
-                    val isChecked = value.isNotBlank() && value.lowercase() !in setOf("off", "no", "false", "0")
-                    if (isChecked) add(field.fullyQualifiedName.lowercase())
-                    // Also check widget appearance states (some PDFs use "Yes"/"Off" per widget)
-                    runCatching {
-                        field.widgets?.forEach { widget ->
-                            val ap = widget.appearanceState?.name
-                            if (ap != null && ap.lowercase() !in setOf("off", "no", "false", "0", "")) {
-                                add(field.fullyQualifiedName.lowercase())
-                            }
+                    val name = field.fullyQualifiedName.lowercase()
+                    val isChecked = when {
+                        // PDCheckBox has a proper isChecked() method — use it
+                        field is PDCheckBox -> runCatching { field.isChecked }.getOrElse { false }
+                        else -> {
+                            // For other field types, check value string and widget AS entry
+                            val value = runCatching { field.valueAsString }.getOrElse { "Off" }
+                            val byValue = value.isNotBlank() &&
+                                value.lowercase() !in setOf("off", "no", "false", "0")
+                            val byWidget = runCatching {
+                                field.widgets?.any { w ->
+                                    val ap = w.appearanceState?.name ?: "Off"
+                                    ap.lowercase() !in setOf("off", "no", "false", "0", "")
+                                } == true
+                            }.getOrElse { false }
+                            byValue || byWidget
                         }
                     }
+                    if (isChecked) add(name)
                 }
             }
             val acroFormHasFields = doc.documentCatalog.acroForm?.fields?.isNotEmpty() == true
