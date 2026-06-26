@@ -121,6 +121,15 @@ class DashboardViewModel {
         }
     }
 
+    fun reloadAll() {
+        scope.launch {
+            loadFromDatabase()
+            val cache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
+            _pdfDataCache.value = cache
+            clinicStatuses.value = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllClinicStatuses() }
+        }
+    }
+
     fun loadFromDatabase() {
         scope.launch {
             statusMessage.value = "Chargement depuis la base locale…"

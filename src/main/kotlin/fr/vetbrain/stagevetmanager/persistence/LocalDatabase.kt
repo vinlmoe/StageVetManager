@@ -16,13 +16,13 @@ data class UpsertStats(val added: Int, val updated: Int) {
     override fun toString() = "$added nouveau(x), $updated mis à jour"
 }
 
-class LocalDatabase(private val dbPath: Path = defaultDbPath) {
+class LocalDatabase(val dbPath: Path = defaultDbPath) {
 
     companion object {
         val defaultDbPath: Path = Paths.get(
             System.getProperty("user.home"), ".stagevetmanager", "internships.db"
         )
-        val instance = LocalDatabase()
+        var instance = LocalDatabase()
     }
 
     private fun connect(): Connection {

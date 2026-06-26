@@ -31,6 +31,9 @@ fun SettingsScreen(
     onHeadlessChange: (Boolean) -> Unit,
     onChromeDriverPathChange: (String) -> Unit,
     onExportDirChange: (String) -> Unit,
+    // Base de données partagée
+    dbDir: String,
+    onDbDirChange: (String) -> Unit,
     // OneDrive
     oneDrivePath: String,
     onOneDrivePathChange: (String) -> Unit,
@@ -130,6 +133,36 @@ fun SettingsScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = {
                     browseDirectory(exportDir)?.let(onExportDirChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
+            }
+
+            HorizontalDivider()
+
+            // --- Base de données partagée ---
+            Text("Base de données partagée", style = MaterialTheme.typography.titleMedium)
+
+            Text(
+                "Par défaut la base est dans ~/.stagevetmanager/. Indiquez un dossier réseau ou " +
+                    "partagé (ex : /mnt/partage/stagevetmanager) pour que plusieurs postes " +
+                    "utilisent la même base. Laissez vide pour revenir au dossier par défaut.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = dbDir,
+                    onValueChange = onDbDirChange,
+                    label = { Text("Dossier de la base de données") },
+                    placeholder = { Text("Ex : /mnt/partage/stagevetmanager") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseDirectory(dbDir)?.let(onDbDirChange)
                 }) {
                     Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
                 }
