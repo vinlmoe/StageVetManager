@@ -78,9 +78,35 @@ object ConventionPdfParser {
                 .find(recapSection)?.groupValues?.get(1)?.trim() ?: ""
 
             // — Gratification —
-            val gratification = when {
-                recapSection.contains("sans gratification") -> "sans gratification"
-                else -> lbl(recapSection, """La gratification mensuelle s'élève à""")
+            // On isole la sous-section d- pour éviter de lire les libellés des cases non-cochées
+            // de la section e- ou des articles qui contiennent aussi les mots "sans/avec gratification".
+            val gratifSection = section(recapSection, "d-", "e-")
+            // isItemChecked lit le symbole (✓/✗) précédant la ligne, indépendamment du texte.
+            val sansGratif = isItemChecked(gratifSection, "sans gratification")
+            val avecGratif = isItemChecked(gratifSection, "avec gratification")
+            val gratificationStatus = when {
+                avecGratif && !sansGratif -> "avec"
+                sansGratif && !avecGratif -> "sans"
+                else                      -> ""
+            }
+            // Montant : "La gratification mensuelle s'élève à : 0 € (en chiffre)"
+            val gratificationAmount = Regex("""s'élève à\s*:\s*(.+?)\s*€""")
+                .find(gratifSection)?.groupValues?.get(1)?.trim() ?: ""
+            val gratificationCoherent: Boolean? = when (gratificationStatus) {
+                "sans" -> {
+                    val num = gratificationAmount.replace(",", ".").replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+                    if (num == null) null else num == 0.0
+                }
+                "avec" -> {
+                    val num = gratificationAmount.replace(",", ".").replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+                    if (num == null) null else num > 0.0
+                }
+                else -> null
+            }
+            val gratification = when (gratificationStatus) {
+                "avec" -> "avec – ${gratificationAmount.ifBlank { "?" }} €"
+                "sans" -> "sans gratification"
+                else   -> lbl(recapSection, """La gratification mensuelle s'élève à""")
             }
 
             // — Dates de présence effectives (entre "dates précises" et "c-") —
@@ -91,6 +117,13 @@ object ConventionPdfParser {
                     LocalDate.parse(m.value, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                 }.getOrNull() }
                 .toList()
+
+            // — Vérification jours effectifs —
+            val declaredDaysCount = Regex("""(\d+)\s*jours?\s+effectifs?""")
+                .find(recapSection)?.groupValues?.get(1)?.toIntOrNull()
+            val effectiveDaysCount = workingDates.size.takeIf { it > 0 }
+            val daysCountCoherent: Boolean? = if (declaredDaysCount != null && effectiveDaysCount != null)
+                effectiveDaysCount == declaredDaysCount else null
 
             // — Jour de repos hebdomadaire —
             val hasWeeklyRestDay = computeHasWeeklyRestDay(workingDates)
@@ -162,17 +195,23 @@ object ConventionPdfParser {
                 studentAddress     = studentAddress,
                 studentPhone       = studentPhone,
                 studentEmail       = studentEmail,
-                academicYear       = academicYear,
-                startDate          = startDate,
-                endDate            = endDate,
-                durationLabel      = durationLabel,
-                nightPresence      = nightPresence,
-                sundayPresence     = sundayPresence,
-                holidayPresence    = holidayPresence,
-                homePresence       = homePresence,
-                hasWeeklyRestDay   = hasWeeklyRestDay,
-                theme              = theme,
-                gratification      = gratification,
+                academicYear         = academicYear,
+                startDate            = startDate,
+                endDate              = endDate,
+                durationLabel        = durationLabel,
+                declaredDaysCount    = declaredDaysCount,
+                effectiveDaysCount   = effectiveDaysCount,
+                daysCountCoherent    = daysCountCoherent,
+                nightPresence         = nightPresence,
+                sundayPresence        = sundayPresence,
+                holidayPresence       = holidayPresence,
+                homePresence          = homePresence,
+                hasWeeklyRestDay      = hasWeeklyRestDay,
+                theme                 = theme,
+                gratificationStatus   = gratificationStatus,
+                gratificationAmount   = gratificationAmount,
+                gratificationCoherent = gratificationCoherent,
+                gratification         = gratification,
                 signingDateTutor   = signingDateTutor,
                 signingDateStudent = signingDateStudent,
                 signingDateHost    = signingDateHost,
