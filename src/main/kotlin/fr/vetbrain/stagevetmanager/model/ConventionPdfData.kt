@@ -35,16 +35,33 @@ data class ConventionPdfData(
     val startDate: String = "",
     val endDate: String = "",
     val durationLabel: String = "",
+    /** Nombre de jours effectifs déclaré dans la convention ("X jours effectifs"). */
+    val declaredDaysCount: Int? = null,
+    /** Nombre de dates de présence effectivement listées dans la convention. */
+    val effectiveDaysCount: Int? = null,
+    /** true si declaredDaysCount == effectiveDaysCount, false si incohérent, null si indéterminé. */
+    val daysCountCoherent: Boolean? = null,
 
     // — Modalités particulières (art. 3.2) ————————
     val nightPresence: Boolean = false,
     val sundayPresence: Boolean = false,
     val holidayPresence: Boolean = false,
     val homePresence: Boolean = false,
-    val hasWeeklyRestDay: Boolean? = null, // null = pas de dates de présence pour vérifier
+    val hasWeeklyRestDay: Boolean? = null,
 
     // — Encadrement / conditions ——————————————————
     val theme: String = "",
+    /** "avec" | "sans" | "" selon la case cochée à l'alinéa d-. */
+    val gratificationStatus: String = "",
+    /** Montant brut extrait (ex. "0", "612,50"). Vide si sans gratification ou non renseigné. */
+    val gratificationAmount: String = "",
+    /**
+     * true  = cohérent (sans + pas de montant, ou avec + montant > 0)
+     * false = incohérent (ex. avec + 0 €, ou sans + montant > 0)
+     * null  = indéterminé
+     */
+    val gratificationCoherent: Boolean? = null,
+    /** Champ de compatibilité : résumé lisible de la gratification. */
     val gratification: String = "",
 
     // — Signatures (ordre PDF : Tuteur | Stagiaire | Maître de stage | École) —
