@@ -86,6 +86,7 @@ fun App() {
                     prefs.put("username", user)
                     screen = Screen.DASHBOARD
                 },
+                onContinueOffline = { screen = Screen.DASHBOARD },
                 onOpenSettings = { screen = Screen.SETTINGS },
             )
 

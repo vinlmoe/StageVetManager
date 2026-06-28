@@ -24,6 +24,7 @@ fun LoginScreen(
     initialUsername: String = "",
     initialPassword: String = "",
     onLogin: (username: String, password: String) -> Unit,
+    onContinueOffline: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var username by remember { mutableStateOf(initialUsername) }
@@ -103,6 +104,10 @@ fun LoginScreen(
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Text("Se connecter", fontSize = 14.sp)
+                }
+
+                TextButton(onClick = onContinueOffline) {
+                    Text("Continuer sans connexion à stagevet", fontSize = 12.sp)
                 }
 
                 TextButton(onClick = onOpenSettings) {
