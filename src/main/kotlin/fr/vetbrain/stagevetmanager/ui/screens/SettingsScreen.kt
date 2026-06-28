@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material3.*
@@ -36,6 +37,8 @@ fun SettingsScreen(
     dbDir: String,
     onDbDirChange: (String) -> Unit,
     onBackupDatabase: (onSuccess: (String) -> Unit, onError: (String) -> Unit) -> Unit,
+    dbCount: Int,
+    onClearDatabase: () -> Unit,
     // OneDrive
     oneDrivePath: String,
     onOneDrivePathChange: (String) -> Unit,
@@ -55,7 +58,25 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        var backupMessage by remember { mutableStateOf<Pair<Boolean, String>?>(null) } // (isError, message)
+        var backupMessage  by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+        var showClearDialog by remember { mutableStateOf(false) }
+
+        if (showClearDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDialog = false },
+                title = { Text("Vider la base locale ?") },
+                text = { Text("Cette action supprime définitivement les $dbCount stage(s) stockés localement. Elle ne modifie pas les données sur stagevet.fr.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onClearDatabase()
+                        showClearDialog = false
+                    }) { Text("Vider", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDialog = false }) { Text("Annuler") }
+                },
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -182,6 +203,16 @@ fun SettingsScreen(
                 Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Sauvegarder la base maintenant", fontSize = 13.sp)
+            }
+
+            OutlinedButton(
+                onClick = { showClearDialog = true },
+                enabled = dbCount > 0,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Vider la base locale ($dbCount stage(s))", fontSize = 13.sp)
             }
 
             val msg = backupMessage

@@ -316,24 +316,6 @@ fun FilterBar(
                 Spacer(Modifier.width(4.dp))
                 Text("Excel", fontSize = 13.sp)
             }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(
-                onClick = { showOneDriveDialog = true },
-                enabled = !isLoading && count > 0,
-            ) {
-                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("OneDrive", fontSize = 13.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-            OutlinedButton(
-                onClick = { showTrackingDialog = true },
-                enabled = !isLoading && count > 0,
-            ) {
-                Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Suivi ER", fontSize = 13.sp)
-            }
         }
 
         Spacer(Modifier.height(8.dp))

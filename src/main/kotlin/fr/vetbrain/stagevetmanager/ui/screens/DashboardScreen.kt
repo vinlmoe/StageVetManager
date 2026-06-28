@@ -7,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Settings
@@ -88,8 +87,7 @@ fun DashboardScreen(
     val allInternships     by vm.allInternships.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
-    var showClearDialog by remember { mutableStateOf(false) }
-    var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+    var displayMode by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     if (trackingWarnings.isNotEmpty()) {
         AlertDialog(
@@ -110,23 +108,6 @@ fun DashboardScreen(
             },
             confirmButton = {
                 TextButton(onClick = { vm.clearTrackingWarnings() }) { Text("OK") }
-            },
-        )
-    }
-
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text("Vider la base locale ?") },
-            text = { Text("Cette action supprime définitivement les $dbCount stage(s) stockés localement. Elle ne modifie pas les données sur stagevet.fr.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.clearDatabase()
-                    showClearDialog = false
-                }) { Text("Vider", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Annuler") }
             },
         )
     }
@@ -156,9 +137,6 @@ fun DashboardScreen(
                         ViewTab(Icons.AutoMirrored.Filled.List, "Stages",    displayMode == DisplayMode.INTERNSHIPS) { displayMode = DisplayMode.INTERNSHIPS }
                         ViewTab(Icons.Default.Group,            "Étudiants", displayMode == DisplayMode.BILAN)       { displayMode = DisplayMode.BILAN }
                         ViewTab(Icons.Default.LocalHospital,    "Cliniques", displayMode == DisplayMode.CLINIC)      { displayMode = DisplayMode.CLINIC }
-                        IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
-                        }
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Default.Settings, contentDescription = "Paramètres")
                         }
@@ -185,46 +163,48 @@ fun DashboardScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            FilterBar(
-                filterText = filterText,
-                activeFilter = activeFilter,
-                count = displayed.size,
-                dbCount = dbCount,
-                isLoading = isLoading,
-                scrapeFilters = scrapeFilters,
-                localFilters = localFilters,
-                onTextChange = vm::setFilter,
-                onViewChange = vm::setView,
-                onScrapeFiltersChange = { f -> vm.setScrapeFilters(f); onScrapeFiltersChange(f) },
-                onLocalFiltersChange = vm::setLocalFilters,
-                browserType = browserType,
-                onBrowserChange = onBrowserChange,
-                onRequestScrape = onRequestScrape,
-                onLoadFromDb = vm::loadFromDatabase,
-                onExportOneDrive = onExportOneDrive,
-                onExportOneDriveComplement = onExportOneDriveComplement,
-                trackingTargets = trackingTargets,
-                onExportTracking = onExportTracking,
-                onExport = {
-                    val filename = vm.suggestedExportFileName()
-                    val dir = exportDir.ifBlank { System.getProperty("user.home") }
-                    try {
-                        val dialog = FileDialog(null as Frame?, "Enregistrer l'export Excel", FileDialog.SAVE)
-                        dialog.directory = dir
-                        dialog.file = filename
-                        dialog.isVisible = true
-                        val chosen = dialog.file
-                        val chosenDir = dialog.directory
-                        if (chosen != null && chosenDir != null) {
-                            vm.exportToExcel(Paths.get(chosenDir, chosen))
+            if (displayMode != DisplayMode.DETAIL) {
+                FilterBar(
+                    filterText = filterText,
+                    activeFilter = activeFilter,
+                    count = displayed.size,
+                    dbCount = dbCount,
+                    isLoading = isLoading,
+                    scrapeFilters = scrapeFilters,
+                    localFilters = localFilters,
+                    onTextChange = vm::setFilter,
+                    onViewChange = vm::setView,
+                    onScrapeFiltersChange = { f -> vm.setScrapeFilters(f); onScrapeFiltersChange(f) },
+                    onLocalFiltersChange = vm::setLocalFilters,
+                    browserType = browserType,
+                    onBrowserChange = onBrowserChange,
+                    onRequestScrape = onRequestScrape,
+                    onLoadFromDb = vm::loadFromDatabase,
+                    onExportOneDrive = onExportOneDrive,
+                    onExportOneDriveComplement = onExportOneDriveComplement,
+                    trackingTargets = trackingTargets,
+                    onExportTracking = onExportTracking,
+                    onExport = {
+                        val filename = vm.suggestedExportFileName()
+                        val dir = exportDir.ifBlank { System.getProperty("user.home") }
+                        try {
+                            val dialog = FileDialog(null as Frame?, "Enregistrer l'export Excel", FileDialog.SAVE)
+                            dialog.directory = dir
+                            dialog.file = filename
+                            dialog.isVisible = true
+                            val chosen = dialog.file
+                            val chosenDir = dialog.directory
+                            if (chosen != null && chosenDir != null) {
+                                vm.exportToExcel(Paths.get(chosenDir, chosen))
+                            }
+                        } catch (_: Exception) {
+                            vm.exportToExcel(Paths.get(dir, filename))
                         }
-                    } catch (_: Exception) {
-                        vm.exportToExcel(Paths.get(dir, filename))
-                    }
-                },
-            )
+                    },
+                )
 
-            HorizontalDivider()
+                HorizontalDivider()
+            }
 
             when (displayMode) {
                 DisplayMode.INTERNSHIPS -> InternshipTable(

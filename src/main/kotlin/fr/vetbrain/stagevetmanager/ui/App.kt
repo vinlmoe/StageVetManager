@@ -126,6 +126,8 @@ fun App() {
 
             Screen.SETTINGS -> SettingsScreen(
                 onBackupDatabase = { onSuccess, onError -> vm.backupDatabase(onSuccess, onError) },
+                dbCount = vm.dbCount.collectAsState().value,
+                onClearDatabase = { vm.clearDatabase() },
                 browserType = browserType,
                 headless = headless,
                 chromeDriverPath = chromeDriverPath,
