@@ -37,6 +37,7 @@ fun App() {
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
+    var conventionDir by remember { mutableStateOf(prefs.get("conventionDir", "")) }
     // Migration : ancien paramètre unique → liste de cibles
     var dbDir by remember { mutableStateOf(prefs.get("dbDir", "")) }
 
@@ -93,6 +94,7 @@ fun App() {
             Screen.DASHBOARD -> DashboardScreen(
                 vm = vm,
                 exportDir = exportDir,
+                conventionDir = conventionDir,
                 trackingTargets = trackingTargets,
                 browserType = browserType,
                 isLoggedIn = savedPassword.isNotBlank(),
@@ -130,6 +132,8 @@ fun App() {
                 onBackupDatabase = { onSuccess, onError -> vm.backupDatabase(onSuccess, onError) },
                 dbCount = vm.dbCount.collectAsState().value,
                 onClearDatabase = { vm.clearDatabase() },
+                conventionDir = conventionDir,
+                onConventionDirChange = { conventionDir = it; prefs.put("conventionDir", it) },
                 browserType = browserType,
                 headless = headless,
                 chromeDriverPath = chromeDriverPath,

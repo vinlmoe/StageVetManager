@@ -20,7 +20,11 @@ import fr.vetbrain.stagevetmanager.scraper.ScraperResult
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import java.awt.Desktop
+import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -309,6 +313,63 @@ class DashboardViewModel {
         }
     }
 
+    fun downloadSignedPdf(internship: Internship, conventionDir: String) {
+        if (sessionCookies.isEmpty()) {
+            errorMessage.value = "Session expirée — relancez une extraction pour reconnecter"
+            return
+        }
+        if (conventionDir.isBlank()) {
+            errorMessage.value = "Configurez d'abord le dossier des conventions dans les Paramètres"
+            return
+        }
+        val url = internship.conventionPdfUrl
+        if (url.isBlank()) {
+            errorMessage.value = "Pas d'URL de convention disponible pour ce stage"
+            return
+        }
+        scope.launch {
+            statusMessage.value = "Téléchargement de la convention de ${internship.studentName}…"
+            withContext(Dispatchers.IO) {
+                try {
+                    val bytes = PdfDownloader(sessionCookies).download(url)
+                    val filename = buildPdfFilename(internship)
+                    val dir = Paths.get(conventionDir)
+                    Files.createDirectories(dir)
+                    val filePath = dir.resolve(filename)
+                    Files.write(filePath, bytes)
+                    LocalDatabase.instance.updateLocalPdfPath(internship, filename)
+                    val updated = internship.copy(localPdfPath = filename)
+                    scope.launch(Dispatchers.Main) {
+                        allInternships.value = allInternships.value.map { i ->
+                            if (i.localId() == internship.localId()) updated else i
+                        }
+                        if (selectedInternship.value?.localId() == internship.localId()) {
+                            selectedInternship.value = updated
+                        }
+                        statusMessage.value = "Convention sauvegardée : $filename"
+                    }
+                } catch (e: Exception) {
+                    scope.launch(Dispatchers.Main) {
+                        errorMessage.value = "Téléchargement échoué : ${e.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    fun openLocalPdf(localPdfPath: String, conventionDir: String) {
+        val file = Paths.get(conventionDir, localPdfPath).toFile()
+        if (!file.exists()) {
+            errorMessage.value = "Fichier introuvable : ${file.absolutePath}"
+            return
+        }
+        runCatching {
+            val desktop = Desktop.getDesktop()
+            if (desktop.isSupported(Desktop.Action.OPEN)) desktop.open(file)
+            else desktop.browse(URI("file://${file.absolutePath}"))
+        }.onFailure { errorMessage.value = "Impossible d'ouvrir le PDF : ${it.message}" }
+    }
+
     fun clearDatabase() {
         scope.launch {
             withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
@@ -467,3 +528,14 @@ private fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
 }
 
 enum class SortColumn { STUDENT, YEAR, ORGANIZATION, START_DATE, SIGN_DATE, THEME }
+
+private fun buildPdfFilename(internship: Internship): String {
+    fun sanitize(s: String) = s.trim()
+        .replace(Regex("[^\\p{L}\\p{N} _-]"), "")
+        .replace(Regex("\\s+"), "_")
+        .take(40)
+    val name  = sanitize(internship.studentName)
+    val year  = sanitize(internship.studyYear)
+    val date  = internship.startDate?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) ?: "sans-date"
+    return "${name}_${year}_${date}.pdf"
+}

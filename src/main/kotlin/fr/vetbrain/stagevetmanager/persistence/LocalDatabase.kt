@@ -54,6 +54,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     convention_cancel_url TEXT,
                     duration_label       TEXT,
                     in_suivi_table       INTEGER DEFAULT 0,
+                    local_pdf_path       TEXT DEFAULT '',
                     created_at           TEXT NOT NULL,
                     last_seen            TEXT NOT NULL
                 )
@@ -81,6 +82,11 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN duration_label TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN local_pdf_path TEXT DEFAULT ''"
                 )
             }
 
@@ -282,6 +288,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                         conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
                         durationLabel    = rs.getString("duration_label") ?: "",
                         inSuiviTable     = rs.getInt("in_suivi_table") == 1,
+                        localPdfPath     = rs.getString("local_pdf_path") ?: "",
                     ))
                 }
             }
@@ -300,6 +307,18 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                 "UPDATE internships SET in_suivi_table=? WHERE id=?"
             ).use { stmt ->
                 stmt.setInt(1, if (checked) 1 else 0)
+                stmt.setString(2, internship.localId())
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun updateLocalPdfPath(internship: Internship, path: String) {
+        connect().use { conn ->
+            conn.prepareStatement(
+                "UPDATE internships SET local_pdf_path=? WHERE id=?"
+            ).use { stmt ->
+                stmt.setString(1, path)
                 stmt.setString(2, internship.localId())
                 stmt.executeUpdate()
             }

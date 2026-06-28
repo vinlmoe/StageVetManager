@@ -39,6 +39,9 @@ fun SettingsScreen(
     onBackupDatabase: (onSuccess: (String) -> Unit, onError: (String) -> Unit) -> Unit,
     dbCount: Int,
     onClearDatabase: () -> Unit,
+    // Conventions PDF
+    conventionDir: String,
+    onConventionDirChange: (String) -> Unit,
     // OneDrive
     oneDrivePath: String,
     onOneDrivePathChange: (String) -> Unit,
@@ -223,6 +226,35 @@ fun SettingsScreen(
                     color = if (msg.first) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.primary,
                 )
+            }
+
+            HorizontalDivider()
+
+            // --- Conventions PDF ---
+            Text("Dossier conventions PDF", style = MaterialTheme.typography.titleMedium)
+
+            Text(
+                "Les conventions entièrement signées peuvent être téléchargées dans ce dossier. " +
+                    "Chaque fichier est nommé automatiquement : Nom_Année_DateDébut.pdf.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = conventionDir,
+                    onValueChange = onConventionDirChange,
+                    label = { Text("Dossier de destination") },
+                    placeholder = { Text("Ex : /home/user/Documents/Conventions") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseDirectory(conventionDir)?.let(onConventionDirChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
             }
 
             HorizontalDivider()

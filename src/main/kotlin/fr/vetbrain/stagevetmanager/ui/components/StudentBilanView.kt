@@ -9,10 +9,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +53,9 @@ fun StudentBilanView(
     pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     clinicStatuses: Map<String, ClinicStatus> = emptyMap(),
     isLoggedIn: Boolean = true,
+    conventionDir: String = "",
+    onDownloadSignedPdf: ((Internship) -> Unit)? = null,
+    onOpenLocalPdf: ((String) -> Unit)? = null,
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
@@ -383,6 +388,29 @@ fun StudentBilanView(
                                             modifier = Modifier.size(14.dp)
                                                 .clickable { cancelAlertStage = stage },
                                         )
+                                    }
+                                    // Bouton téléchargement/ouverture locale de la convention signée
+                                    if (stage.signingDate != null && stage.conventionPdfUrl.isNotEmpty() && isLoggedIn) {
+                                        if (stage.localPdfPath.isNotEmpty()) {
+                                            TipIcon(
+                                                tip = "Ouvrir la convention locale (${stage.localPdfPath})",
+                                                imageVector = Icons.Default.FolderOpen,
+                                                tint = Color(0xFF2E7D32),
+                                                modifier = Modifier.size(14.dp)
+                                                    .clickable { onOpenLocalPdf?.invoke(stage.localPdfPath) },
+                                            )
+                                        } else {
+                                            TipIcon(
+                                                tip = if (conventionDir.isNotBlank()) "Télécharger la convention signée"
+                                                      else "Configurez le dossier conventions dans Paramètres",
+                                                imageVector = Icons.Default.Download,
+                                                tint = if (conventionDir.isNotBlank()) Color(0xFF1565C0) else Color.LightGray,
+                                                modifier = Modifier.size(14.dp).let { m ->
+                                                    if (conventionDir.isNotBlank()) m.clickable { onDownloadSignedPdf?.invoke(stage) }
+                                                    else m
+                                                },
+                                            )
+                                        }
                                     }
                                     if (stage.inSuiviTable) {
                                         TipIcon(

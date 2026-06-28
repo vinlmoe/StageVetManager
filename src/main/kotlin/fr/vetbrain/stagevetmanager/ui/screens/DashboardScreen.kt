@@ -57,6 +57,7 @@ private fun ViewTab(
 fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
+    conventionDir: String,
     trackingTargets: List<TrackingTarget>,
     browserType: SeleniumScraper.BrowserType,
     isLoggedIn: Boolean,
@@ -230,6 +231,9 @@ fun DashboardScreen(
                     pdfDataCache = pdfDataCache,
                     clinicStatuses = clinicStatuses,
                     isLoggedIn = isLoggedIn,
+                    conventionDir = conventionDir,
+                    onDownloadSignedPdf = { internship -> vm.downloadSignedPdf(internship, conventionDir) },
+                    onOpenLocalPdf = { localPath -> vm.openLocalPdf(localPath, conventionDir) },
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.BILAN
                         vm.selectInternship(internship)
