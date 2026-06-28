@@ -30,6 +30,7 @@ import java.awt.Desktop
 import java.net.URI
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -102,7 +103,9 @@ fun StudentBilanView(
             confirmButton = {
                 TextButton(onClick = {
                     val pdf = pdfDataCache[clinicBlacklistAlertStageValue.conventionPdfUrl]
-                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    val days = stageDurationDays(clinicBlacklistAlertStageValue, pdf)
+                    val hasInconsistency = (days != null && days > 30) ||
+                        (pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false))
                     if (hasInconsistency) signAlertStage = clinicBlacklistAlertStageValue
                     else openInBrowser(clinicBlacklistAlertStageValue.conventionSignUrl)
                     clinicBlacklistAlertStage = null
@@ -123,7 +126,9 @@ fun StudentBilanView(
             confirmButton = {
                 TextButton(onClick = {
                     val pdf = pdfDataCache[clinicWatchAlertStageValue.conventionPdfUrl]
-                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    val days = stageDurationDays(clinicWatchAlertStageValue, pdf)
+                    val hasInconsistency = (days != null && days > 30) ||
+                        (pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false))
                     if (hasInconsistency) signAlertStage = clinicWatchAlertStageValue
                     else openInBrowser(clinicWatchAlertStageValue.conventionSignUrl)
                     clinicWatchAlertStage = null
@@ -142,6 +147,7 @@ fun StudentBilanView(
             sundayPresence = pdf?.sundayPresence == true,
             holidayPresence = pdf?.holidayPresence == true,
             hasWeeklyRestDay = pdf?.hasWeeklyRestDay,
+            longDurationDays = stageDurationDays(signAlertStageValue, pdf)?.takeIf { it > 30 },
             onConfirm = {
                 openInBrowser(signAlertStageValue.conventionSignUrl)
                 signAlertStage = null
@@ -339,13 +345,15 @@ fun StudentBilanView(
                                     else
                                         stage.conventionSignUrl.isNotEmpty()
                                     if (schoolNotSigned && preSignaturesDone) {
-                                        val hasInconsistency = pdf != null &&
-                                            (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                                        val days = stageDurationDays(stage, pdf)
+                                        val isLongDuration = days != null && days > 30
+                                        val hasInconsistency = isLongDuration ||
+                                            (pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false))
                                         TipIcon(
                                             tip = when {
                                                 stageClinicStatus == ClinicStatus.BLACKLISTED -> "Signer (clinique : ne plus envoyer !)"
                                                 stageClinicStatus == ClinicStatus.WATCH       -> "Signer (clinique : à surveiller)"
-                                                hasInconsistency                              -> "Signer la convention (incohérence détectée)"
+                                                hasInconsistency                              -> "Signer la convention (avertissement)"
                                                 else                                          -> "Signer la convention"
                                             },
                                             imageVector = Icons.Default.Edit,
@@ -440,10 +448,12 @@ internal fun SignInconsistencyDialog(
     sundayPresence: Boolean,
     holidayPresence: Boolean,
     hasWeeklyRestDay: Boolean? = null,
+    longDurationDays: Int? = null,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val warnings = listOfNotNull(
+        "durée de ${longDurationDays} jours effectifs (> 30 jours)".takeIf { longDurationDays != null },
         "présence le dimanche".takeIf { sundayPresence },
         "présence un jour férié".takeIf { holidayPresence },
         "absence de jour de repos hebdomadaire".takeIf { hasWeeklyRestDay == false },
@@ -473,6 +483,14 @@ internal fun SignInconsistencyDialog(
             TextButton(onClick = onDismiss) { Text("Annuler") }
         },
     )
+}
+
+/** Jours effectifs : declaredDaysCount du PDF si disponible, sinon jours calendaires inclusifs. */
+private fun stageDurationDays(stage: Internship, pdf: ConventionPdfData?): Int? {
+    if (pdf?.declaredDaysCount != null) return pdf.declaredDaysCount
+    val s = stage.startDate ?: return null
+    val e = stage.endDate   ?: return null
+    return (ChronoUnit.DAYS.between(s, e) + 1).toInt()
 }
 
 private fun openInBrowser(url: String) {
