@@ -17,6 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.APP_VERSION
 
 @Composable
 fun LoginScreen(
@@ -50,6 +51,11 @@ fun LoginScreen(
                     "Connexion à stagevet.fr",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Text(
+                    "v$APP_VERSION",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                 )
 
                 Spacer(Modifier.height(8.dp))
