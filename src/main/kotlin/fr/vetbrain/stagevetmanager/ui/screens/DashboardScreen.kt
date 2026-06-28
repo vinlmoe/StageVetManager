@@ -256,7 +256,10 @@ fun DashboardScreen(
                             pdfData = pdfDataCache[internship.conventionPdfUrl],
                             isPdfLoading = isPdfLoading,
                             canDownloadPdf = vm.hasSessionCookies,
+                            conventionDir = conventionDir,
                             onDownloadPdf = { vm.downloadConventionPdf(internship.conventionPdfUrl) },
+                            onDownloadSignedPdf = { vm.downloadSignedPdf(internship, conventionDir) },
+                            onOpenLocalPdf = { vm.openLocalPdf(internship.localPdfPath, conventionDir) },
                             onToggleSuivi = { checked -> vm.toggleSuivi(internship, checked) },
                             modifier = Modifier.weight(1f),
                         )

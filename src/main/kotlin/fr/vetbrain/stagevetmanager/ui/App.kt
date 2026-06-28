@@ -108,7 +108,7 @@ fun App() {
                     screen = Screen.LOGIN
                 },
                 onRequestScrape = {
-                    vm.scrape(savedUsername, savedPassword, browserType, headless, chromeDriverPath)
+                    vm.scrape(savedUsername, savedPassword, browserType, headless, chromeDriverPath, conventionDir)
                 },
                 onExportOneDrive = {
                     vm.exportToOneDrive(oneDrivePath)

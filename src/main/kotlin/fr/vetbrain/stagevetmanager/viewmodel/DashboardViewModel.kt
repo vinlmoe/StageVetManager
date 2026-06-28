@@ -163,6 +163,7 @@ class DashboardViewModel {
         browserType: SeleniumScraper.BrowserType,
         headless: Boolean,
         chromeDriverPath: String = "",
+        conventionDir: String = "",
     ) {
         if (isLoading.value) return
         scope.launch {
@@ -224,6 +225,16 @@ class DashboardViewModel {
                         .distinct()
                     if (urlsToAutoParse.isNotEmpty()) {
                         launch { autoParseNewPdfs(urlsToAutoParse) }
+                    }
+                    if (conventionDir.isNotBlank()) {
+                        val toDownload = fromDb.filter { s ->
+                            s.signingDate != null &&
+                            s.conventionPdfUrl.isNotEmpty() &&
+                            s.localPdfPath.isBlank()
+                        }
+                        if (toDownload.isNotEmpty()) {
+                            launch { autoDownloadSignedPdfs(toDownload, conventionDir) }
+                        }
                     }
                 }
                 is ScraperResult.Failure -> {
@@ -292,6 +303,35 @@ class DashboardViewModel {
                 statusMessage.value = "$done/$total convention(s) analysée(s) et sauvegardées"
             }
         }
+    }
+
+    private suspend fun autoDownloadSignedPdfs(internships: List<Internship>, conventionDir: String) {
+        val dir = Paths.get(conventionDir)
+        withContext(Dispatchers.IO) { Files.createDirectories(dir) }
+        val downloader = PdfDownloader(sessionCookies)
+        var done = 0
+        val total = internships.size
+        scope.launch(Dispatchers.Main) { statusMessage.value = "Téléchargement de $total convention(s) signée(s)…" }
+        withContext(Dispatchers.IO) {
+            for (internship in internships) {
+                runCatching {
+                    val bytes    = downloader.download(internship.conventionPdfUrl)
+                    val filename = buildPdfFilename(internship)
+                    Files.write(dir.resolve(filename), bytes)
+                    LocalDatabase.instance.updateLocalPdfPath(internship, filename)
+                    val updated = internship.copy(localPdfPath = filename)
+                    scope.launch(Dispatchers.Main) {
+                        allInternships.value = allInternships.value.map { i ->
+                            if (i.localId() == internship.localId()) updated else i
+                        }
+                    }
+                }
+                done++
+                val d = done
+                scope.launch(Dispatchers.Main) { statusMessage.value = "Conventions téléchargées : $d/$total" }
+            }
+        }
+        scope.launch(Dispatchers.Main) { statusMessage.value = "$done/$total convention(s) signée(s) sauvegardée(s)" }
     }
 
     fun selectInternship(internship: Internship?) {

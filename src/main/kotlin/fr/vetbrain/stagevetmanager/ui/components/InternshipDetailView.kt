@@ -7,8 +7,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -37,7 +39,10 @@ fun InternshipDetailView(
     pdfData: ConventionPdfData?,
     isPdfLoading: Boolean,
     canDownloadPdf: Boolean,
+    conventionDir: String = "",
     onDownloadPdf: () -> Unit,
+    onDownloadSignedPdf: (() -> Unit)? = null,
+    onOpenLocalPdf: (() -> Unit)? = null,
     onToggleSuivi: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -117,7 +122,35 @@ fun InternshipDetailView(
                     ) {
                         Icon(Icons.Default.Description, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Ouvrir PDF", fontSize = 12.sp)
+                        Text("PDF en ligne", fontSize = 12.sp)
+                    }
+                }
+                // Bouton fichier local (conventions signées uniquement)
+                if (internship.signingDate != null && internship.conventionPdfUrl.isNotEmpty() && canDownloadPdf) {
+                    if (internship.localPdfPath.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = { onOpenLocalPdf?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32)),
+                        ) {
+                            Icon(Icons.Default.FolderOpen, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Ouvrir local", fontSize = 12.sp)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onDownloadSignedPdf?.invoke() },
+                            enabled = conventionDir.isNotBlank(),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1565C0)),
+                        ) {
+                            Icon(Icons.Default.Download, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                if (conventionDir.isNotBlank()) "Télécharger" else "Télécharger (dossier non configuré)",
+                                fontSize = 12.sp,
+                            )
+                        }
                     }
                 }
                 // Bouton Signer : visible seulement si les 3 pré-signataires ont signé
