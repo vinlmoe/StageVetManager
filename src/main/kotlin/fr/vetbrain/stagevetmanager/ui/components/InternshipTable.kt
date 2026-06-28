@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.viewmodel.SortColumn
@@ -40,14 +41,14 @@ data class ColumnDef(
 )
 
 private val COLUMNS = listOf(
-    ColumnDef("Étudiant",   0.18f, SortColumn.STUDENT)      { it.studentName },
-    ColumnDef("Année",      0.07f, SortColumn.YEAR)         { it.studyYear },
-    ColumnDef("Organisme",  0.18f, SortColumn.ORGANIZATION) { it.organization },
-    ColumnDef("Adresse",    0.12f, null)                    { it.address },
-    ColumnDef("Début stage",0.10f, SortColumn.START_DATE)   { it.startDate?.format(DATE_FMT) ?: "" },
-    ColumnDef("Fin stage",  0.07f, null)                    { it.endDate?.format(DATE_FMT) ?: "" },
-    ColumnDef("Signature",  0.10f, SortColumn.SIGN_DATE)    { it.signingDate?.format(DATE_FMT) ?: "" },
-    ColumnDef("Thème",      0.10f, SortColumn.THEME)        { it.theme },
+    ColumnDef("Étudiant",    0.18f, SortColumn.STUDENT)      { it.studentName },
+    ColumnDef("Année",       0.07f, SortColumn.YEAR)         { it.studyYear },
+    ColumnDef("Organisme",   0.18f, SortColumn.ORGANIZATION) { it.organization },
+    ColumnDef("Adresse",     0.12f, null)                    { it.address },
+    ColumnDef("Début stage", 0.10f, SortColumn.START_DATE)   { it.startDate?.format(DATE_FMT) ?: "" },
+    ColumnDef("Fin stage",   0.07f, null)                    { it.endDate?.format(DATE_FMT) ?: "" },
+    ColumnDef("Signature",   0.10f, SortColumn.SIGN_DATE)    { it.signingDate?.format(DATE_FMT) ?: "" },
+    ColumnDef("Thème",       0.10f, SortColumn.THEME)        { it.theme },
 )
 // weights above sum to 0.92 — remaining 0.08 goes to the Conv. actions column
 
@@ -59,12 +60,16 @@ fun InternshipTable(
     onSort: (SortColumn) -> Unit,
     modifier: Modifier = Modifier,
     pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
+    clinicStatuses: Map<String, ClinicStatus> = emptyMap(),
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
-    var cancelInternship by remember { mutableStateOf<Internship?>(null) }
-    var signAlertInternship by remember { mutableStateOf<Internship?>(null) }
+    var cancelInternship      by remember { mutableStateOf<Internship?>(null) }
+    var signAlertInternship   by remember { mutableStateOf<Internship?>(null) }
+    var clinicBlacklistAlert  by remember { mutableStateOf<Internship?>(null) }
+    var clinicWatchAlert      by remember { mutableStateOf<Internship?>(null) }
 
+    // — Dialogs —————————————————————————————————————————————————————————————
     val cancelValue = cancelInternship
     if (cancelValue != null) {
         AlertDialog(
@@ -82,6 +87,49 @@ fun InternshipTable(
             },
         )
     }
+
+    val blacklistValue = clinicBlacklistAlert
+    if (blacklistValue != null) {
+        AlertDialog(
+            onDismissRequest = { clinicBlacklistAlert = null },
+            title = { Text("Clinique — Ne plus envoyer") },
+            text  = { Text("L'organisme « ${blacklistValue.organization} » est marqué « Ne plus envoyer ».\n\nVoulez-vous quand même signer cette convention ?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val pdf = pdfDataCache[blacklistValue.conventionPdfUrl]
+                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    if (hasInconsistency) signAlertInternship = blacklistValue
+                    else openInBrowser(blacklistValue.conventionSignUrl)
+                    clinicBlacklistAlert = null
+                }) { Text("Signer quand même", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { clinicBlacklistAlert = null }) { Text("Annuler") }
+            },
+        )
+    }
+
+    val watchValue = clinicWatchAlert
+    if (watchValue != null) {
+        AlertDialog(
+            onDismissRequest = { clinicWatchAlert = null },
+            title = { Text("Clinique — À surveiller") },
+            text  = { Text("L'organisme « ${watchValue.organization} » est marqué « À surveiller ».\n\nVérifiez les conditions de stage avant de signer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val pdf = pdfDataCache[watchValue.conventionPdfUrl]
+                    val hasInconsistency = pdf != null && (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
+                    if (hasInconsistency) signAlertInternship = watchValue
+                    else openInBrowser(watchValue.conventionSignUrl)
+                    clinicWatchAlert = null
+                }) { Text("Continuer", color = Color(0xFFF57F17)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { clinicWatchAlert = null }) { Text("Annuler") }
+            },
+        )
+    }
+
     val signValue = signAlertInternship
     if (signValue != null) {
         val pdf = pdfDataCache[signValue.conventionPdfUrl]
@@ -97,8 +145,8 @@ fun InternshipTable(
         )
     }
 
+    // — Layout ——————————————————————————————————————————————————————————————
     Column(modifier = modifier.fillMaxSize()) {
-        // Header row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,11 +158,7 @@ fun InternshipTable(
                 Row(
                     modifier = Modifier
                         .weight(col.weight)
-                        .then(
-                            if (col.sortCol != null)
-                                Modifier.clickable { onSort(col.sortCol) }
-                            else Modifier
-                        )
+                        .then(if (col.sortCol != null) Modifier.clickable { onSort(col.sortCol) } else Modifier)
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -133,8 +177,7 @@ fun InternshipTable(
                             sortColumn == col.sortCol && !sortAscending -> Icons.Default.ArrowDownward
                             else                                        -> Icons.Default.UnfoldMore
                         }
-                        Icon(icon, contentDescription = null, tint = Color.White,
-                            modifier = Modifier.size(14.dp))
+                        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
                     }
                 }
             }
@@ -155,6 +198,7 @@ fun InternshipTable(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 itemsIndexed(internships) { idx, internship ->
+                    val clinicStatus = clinicStatuses[internship.organization] ?: ClinicStatus.OK
                     val bg = if (idx % 2 == 0) Color.White else Color(0xFFF0F4F8)
                     Row(
                         modifier = Modifier
@@ -165,35 +209,45 @@ fun InternshipTable(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         COLUMNS.forEach { col ->
-                            Text(
-                                col.value(internship),
-                                modifier = Modifier
-                                    .weight(col.weight)
-                                    .padding(horizontal = 4.dp),
-                                fontSize = 12.sp,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            if (col.sortCol == SortColumn.ORGANIZATION) {
+                                // Colonne organisme : dot statut + texte
+                                Row(
+                                    modifier = Modifier.weight(col.weight).padding(horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ClinicStatusDot(clinicStatus)
+                                    if (clinicStatus != ClinicStatus.OK) Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        col.value(internship),
+                                        fontSize = 12.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    col.value(internship),
+                                    modifier = Modifier.weight(col.weight).padding(horizontal = 4.dp),
+                                    fontSize = 12.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
+                        // Actions convention
                         Row(
                             modifier = Modifier.weight(0.08f).padding(horizontal = 2.dp),
                             horizontalArrangement = Arrangement.spacedBy(3.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (internship.signingDate != null) {
-                                TipIcon(
-                                    tip = "Convention signée le ${internship.signingDate.format(DATE_FMT)}",
-                                    imageVector = Icons.Default.CheckCircle,
-                                    tint = Color(0xFF2E7D32),
-                                )
+                                TipIcon("Convention signée le ${internship.signingDate.format(DATE_FMT)}", Icons.Default.CheckCircle, Color(0xFF2E7D32))
                             }
                             if (internship.conventionPdfUrl.isNotEmpty()) {
                                 TipIcon(
-                                    tip = "Voir la convention PDF",
-                                    imageVector = Icons.Default.Description,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(14.dp)
-                                        .clickable { openInBrowser(internship.conventionPdfUrl) },
+                                    "Voir la convention PDF", Icons.Default.Description,
+                                    MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp).clickable { openInBrowser(internship.conventionPdfUrl) },
                                 )
                             }
                             val pdf = pdfDataCache[internship.conventionPdfUrl]
@@ -206,43 +260,48 @@ fun InternshipTable(
                                 val hasInconsistency = pdf != null &&
                                     (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                                 TipIcon(
-                                    tip = if (hasInconsistency)
-                                        "Signer la convention (incohérence détectée)"
-                                    else
-                                        "Signer la convention",
+                                    tip = when {
+                                        clinicStatus == ClinicStatus.BLACKLISTED -> "Signer (clinique : ne plus envoyer !)"
+                                        clinicStatus == ClinicStatus.WATCH       -> "Signer (clinique : à surveiller)"
+                                        hasInconsistency                         -> "Signer (incohérence détectée)"
+                                        else                                     -> "Signer la convention"
+                                    },
                                     imageVector = Icons.Default.Edit,
-                                    tint = if (hasInconsistency) Color(0xFFB71C1C) else Color(0xFFE65100),
+                                    tint = when {
+                                        clinicStatus == ClinicStatus.BLACKLISTED -> Color(0xFFB71C1C)
+                                        clinicStatus == ClinicStatus.WATCH       -> Color(0xFFF57F17)
+                                        hasInconsistency                         -> Color(0xFFB71C1C)
+                                        else                                     -> Color(0xFFE65100)
+                                    },
                                     modifier = Modifier.size(14.dp).clickable {
-                                        if (hasInconsistency) signAlertInternship = internship
-                                        else openInBrowser(internship.conventionSignUrl)
+                                        when (clinicStatus) {
+                                            ClinicStatus.BLACKLISTED -> clinicBlacklistAlert = internship
+                                            ClinicStatus.WATCH       -> clinicWatchAlert = internship
+                                            else -> if (hasInconsistency) signAlertInternship = internship
+                                                    else openInBrowser(internship.conventionSignUrl)
+                                        }
                                     },
                                 )
                                 SignUrgencyBadge(internship.startDate, iconSize = 13)
                             }
                             if (internship.conventionCancelUrl.isNotEmpty()) {
                                 TipIcon(
-                                    tip = "Annuler la convention",
-                                    imageVector = Icons.Default.Cancel,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(14.dp)
-                                        .clickable { cancelInternship = internship },
+                                    "Annuler la convention", Icons.Default.Cancel,
+                                    MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp).clickable { cancelInternship = internship },
                                 )
                             }
                             if (internship.inSuiviTable) {
                                 TipIcon(
-                                    tip = "Dans le tableau de suivi — cliquer pour retirer",
-                                    imageVector = Icons.Default.CheckCircle,
-                                    tint = Color(0xFF1565C0),
-                                    modifier = Modifier.size(14.dp)
-                                        .clickable { onToggleSuivi?.invoke(internship, false) },
+                                    "Dans le tableau de suivi — cliquer pour retirer",
+                                    Icons.Default.CheckCircle, Color(0xFF1565C0),
+                                    modifier = Modifier.size(14.dp).clickable { onToggleSuivi?.invoke(internship, false) },
                                 )
                             } else if (onToggleSuivi != null) {
                                 TipIcon(
-                                    tip = "Marquer dans le tableau de suivi",
-                                    imageVector = Icons.Default.CheckCircle,
-                                    tint = Color.LightGray,
-                                    modifier = Modifier.size(14.dp)
-                                        .clickable { onToggleSuivi.invoke(internship, true) },
+                                    "Marquer dans le tableau de suivi",
+                                    Icons.Default.CheckCircle, Color.LightGray,
+                                    modifier = Modifier.size(14.dp).clickable { onToggleSuivi.invoke(internship, true) },
                                 )
                             }
                         }

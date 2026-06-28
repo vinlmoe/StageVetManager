@@ -7,8 +7,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +39,10 @@ fun InternshipDetailView(
     pdfData: ConventionPdfData?,
     isPdfLoading: Boolean,
     canDownloadPdf: Boolean,
+    conventionDir: String = "",
     onDownloadPdf: () -> Unit,
+    onDownloadSignedPdf: (() -> Unit)? = null,
+    onOpenLocalPdf: (() -> Unit)? = null,
     onToggleSuivi: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -116,7 +122,35 @@ fun InternshipDetailView(
                     ) {
                         Icon(Icons.Default.Description, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Ouvrir PDF", fontSize = 12.sp)
+                        Text("PDF en ligne", fontSize = 12.sp)
+                    }
+                }
+                // Bouton fichier local (conventions signées uniquement)
+                if (internship.signingDate != null && internship.conventionPdfUrl.isNotEmpty() && canDownloadPdf) {
+                    if (internship.localPdfPath.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = { onOpenLocalPdf?.invoke() },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32)),
+                        ) {
+                            Icon(Icons.Default.FolderOpen, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Ouvrir local", fontSize = 12.sp)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onDownloadSignedPdf?.invoke() },
+                            enabled = conventionDir.isNotBlank(),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1565C0)),
+                        ) {
+                            Icon(Icons.Default.Download, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                if (conventionDir.isNotBlank()) "Télécharger" else "Télécharger (dossier non configuré)",
+                                fontSize = 12.sp,
+                            )
+                        }
                     }
                 }
                 // Bouton Signer : visible seulement si les 3 pré-signataires ont signé
@@ -202,7 +236,22 @@ fun InternshipDetailView(
 
         // ── Données extraites du PDF ──────────────────────────────────────
         if (pdfData != null && !isPdfLoading) {
-            DetailCard(title = "Données extraites de la convention") {
+            DetailCard(
+                title = "Données extraites de la convention",
+                action = {
+                    if (internship.conventionPdfUrl.isNotEmpty() && canDownloadPdf) {
+                        TextButton(
+                            onClick = onDownloadPdf,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                        ) {
+                            Icon(Icons.Default.Refresh, null, Modifier.size(14.dp),
+                                tint = Color(0xFF6A1B9A))
+                            Spacer(Modifier.width(3.dp))
+                            Text("Re-analyser", fontSize = 11.sp, color = Color(0xFF6A1B9A))
+                        }
+                    }
+                }
+            ) {
                 // — Stagiaire & École ——
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -262,13 +311,32 @@ fun InternshipDetailView(
                         PdfField("Année univ.",   pdfData.academicYear)
                         PdfField("Début",          pdfData.startDate)
                         PdfField("Fin",            pdfData.endDate)
-                        PdfField("Durée",          pdfData.durationLabel)
+                        PdfField("Durée déclarée", pdfData.durationLabel)
+                        if (pdfData.declaredDaysCount != null || pdfData.effectiveDaysCount != null) {
+                            val declared = pdfData.declaredDaysCount?.toString() ?: "?"
+                            val listed   = pdfData.effectiveDaysCount?.toString() ?: "?"
+                            if (pdfData.daysCountCoherent == false)
+                                PdfWarning("Jours décl./listés", "$declared j / $listed j",
+                                    "⚠ Incohérence nombre de jours")
+                            else
+                                PdfField("Jours décl./listés", "$declared j / $listed j")
+                        }
                     }
                     Column(modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         PdfSectionTitle("Conditions")
                         PdfField("Thème",          pdfData.theme)
-                        PdfField("Gratification",  pdfData.gratification)
+                        when (pdfData.gratificationStatus) {
+                            "avec" -> {
+                                val display = "avec – ${pdfData.gratificationAmount.ifBlank { "?" }} €"
+                                if (pdfData.gratificationCoherent == false)
+                                    PdfWarning("Gratification", display, "⚠ Case «avec» cochée mais 0 €")
+                                else
+                                    PdfField("Gratification", display)
+                            }
+                            "sans" -> PdfField("Gratification", "sans gratification")
+                            else   -> PdfField("Gratification", pdfData.gratification)
+                        }
                         val modalites = listOfNotNull(
                             "nuit".takeIf { pdfData.nightPresence },
                             "dimanche".takeIf { pdfData.sundayPresence },
@@ -310,7 +378,7 @@ fun InternshipDetailView(
                 }
 
                 // — Texte brut (pliable) ——
-                var showRaw by remember { mutableStateOf(false) }
+                var showRaw by remember { mutableStateOf(true) }
                 HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
                 TextButton(
                     onClick = { showRaw = !showRaw },
@@ -336,13 +404,24 @@ fun InternshipDetailView(
 }
 
 @Composable
-private fun DetailCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun DetailCard(
+    title: String,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleSmall)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(title, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleSmall)
+                action?.invoke()
+            }
             HorizontalDivider()
             content()
         }
@@ -375,6 +454,20 @@ private fun PdfField(label: String, value: String) {
             fontSize = 11.sp, color = Color.Gray)
         Text(value, fontSize = 11.sp, modifier = Modifier.weight(1f),
             maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun PdfWarning(label: String, value: String, warning: String) {
+    val warnColor = Color(0xFFB45309)
+    Column {
+        Row {
+            Text("$label :", modifier = Modifier.width(90.dp), fontSize = 11.sp, color = Color.Gray)
+            Text(value, fontSize = 11.sp, modifier = Modifier.weight(1f), color = warnColor,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Text(warning, fontSize = 10.sp, color = warnColor,
+            modifier = Modifier.padding(start = 90.dp))
     }
 }
 

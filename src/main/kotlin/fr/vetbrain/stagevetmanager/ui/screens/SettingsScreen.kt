@@ -7,7 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +33,15 @@ fun SettingsScreen(
     onHeadlessChange: (Boolean) -> Unit,
     onChromeDriverPathChange: (String) -> Unit,
     onExportDirChange: (String) -> Unit,
+    // Base de données partagée
+    dbDir: String,
+    onDbDirChange: (String) -> Unit,
+    onBackupDatabase: (onSuccess: (String) -> Unit, onError: (String) -> Unit) -> Unit,
+    dbCount: Int,
+    onClearDatabase: () -> Unit,
+    // Conventions PDF
+    conventionDir: String,
+    onConventionDirChange: (String) -> Unit,
     // OneDrive
     oneDrivePath: String,
     onOneDrivePathChange: (String) -> Unit,
@@ -50,6 +61,26 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
+        var backupMessage  by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+        var showClearDialog by remember { mutableStateOf(false) }
+
+        if (showClearDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDialog = false },
+                title = { Text("Vider la base locale ?") },
+                text = { Text("Cette action supprime définitivement les $dbCount stage(s) stockés localement. Elle ne modifie pas les données sur stagevet.fr.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        onClearDatabase()
+                        showClearDialog = false
+                    }) { Text("Vider", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDialog = false }) { Text("Annuler") }
+                },
+            )
+        }
+
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -130,6 +161,97 @@ fun SettingsScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = {
                     browseDirectory(exportDir)?.let(onExportDirChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
+            }
+
+            HorizontalDivider()
+
+            // --- Base de données partagée ---
+            Text("Base de données partagée", style = MaterialTheme.typography.titleMedium)
+
+            Text(
+                "Par défaut la base est dans ~/.stagevetmanager/. Indiquez un dossier réseau ou " +
+                    "partagé (ex : /mnt/partage/stagevetmanager) pour que plusieurs postes " +
+                    "utilisent la même base. Laissez vide pour revenir au dossier par défaut.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = dbDir,
+                    onValueChange = onDbDirChange,
+                    label = { Text("Dossier de la base de données") },
+                    placeholder = { Text("Ex : /mnt/partage/stagevetmanager") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseDirectory(dbDir)?.let(onDbDirChange)
+                }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
+                }
+            }
+
+            OutlinedButton(onClick = {
+                backupMessage = null
+                onBackupDatabase(
+                    { path -> backupMessage = false to "Sauvegarde créée : $path" },
+                    { err  -> backupMessage = true  to "Erreur : $err" },
+                )
+            }) {
+                Icon(Icons.Default.Backup, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Sauvegarder la base maintenant", fontSize = 13.sp)
+            }
+
+            OutlinedButton(
+                onClick = { showClearDialog = true },
+                enabled = dbCount > 0,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Vider la base locale ($dbCount stage(s))", fontSize = 13.sp)
+            }
+
+            val msg = backupMessage
+            if (msg != null) {
+                Text(
+                    msg.second,
+                    fontSize = 12.sp,
+                    color = if (msg.first) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            HorizontalDivider()
+
+            // --- Conventions PDF ---
+            Text("Dossier conventions PDF", style = MaterialTheme.typography.titleMedium)
+
+            Text(
+                "Les conventions entièrement signées peuvent être téléchargées dans ce dossier. " +
+                    "Chaque fichier est nommé automatiquement : Nom_Année_DateDébut.pdf.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = conventionDir,
+                    onValueChange = onConventionDirChange,
+                    label = { Text("Dossier de destination") },
+                    placeholder = { Text("Ex : /home/user/Documents/Conventions") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    browseDirectory(conventionDir)?.let(onConventionDirChange)
                 }) {
                     Icon(Icons.Default.FolderOpen, contentDescription = "Parcourir")
                 }

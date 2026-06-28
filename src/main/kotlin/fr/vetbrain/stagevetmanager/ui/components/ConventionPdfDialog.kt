@@ -71,7 +71,18 @@ fun ConventionPdfDialog(
                         Field("Année univ.",      data.academicYear)
                         Field("Début",            data.startDate)
                         Field("Fin",              data.endDate)
-                        Field("Durée",            data.durationLabel)
+                        Field("Durée déclarée",   data.durationLabel)
+                        if (data.declaredDaysCount != null || data.effectiveDaysCount != null) {
+                            val coherent = data.daysCountCoherent
+                            val declared = data.declaredDaysCount?.toString() ?: "?"
+                            val listed   = data.effectiveDaysCount?.toString() ?: "?"
+                            val label    = "Jours décl./listés"
+                            val value    = "$declared j déclarés / $listed j listés"
+                            if (coherent == false)
+                                WarningField(label, value, "⚠ Incohérence : le nombre de dates listées ne correspond pas")
+                            else
+                                Field(label, value)
+                        }
                     }
                     if (data.signingDateTutor.isNotBlank() || data.signingDateStudent.isNotBlank() ||
                         data.signingDateHost.isNotBlank() || data.signingDateSchool.isNotBlank()) {
@@ -84,7 +95,26 @@ fun ConventionPdfDialog(
                     }
                     FieldSection("Conditions") {
                         Field("Thème",            data.theme)
-                        Field("Gratification",    data.gratification)
+                        // Gratification : statut + montant + alerte si incohérent
+                        val gratifLabel = "Gratification"
+                        when (data.gratificationStatus) {
+                            "avec" -> {
+                                val display = "avec – ${data.gratificationAmount.ifBlank { "?" }} €"
+                                if (data.gratificationCoherent == false)
+                                    WarningField(gratifLabel, display,
+                                        "⚠ Incohérence : case \"avec\" cochée mais montant = 0 €")
+                                else
+                                    Field(gratifLabel, display)
+                            }
+                            "sans" -> {
+                                if (data.gratificationCoherent == false)
+                                    WarningField(gratifLabel, "sans gratification",
+                                        "⚠ Incohérence : case \"sans\" cochée mais un montant est renseigné")
+                                else
+                                    Field(gratifLabel, "sans gratification")
+                            }
+                            else   -> Field(gratifLabel, data.gratification)
+                        }
                         val modalites = listOfNotNull(
                             "nuit".takeIf { data.nightPresence },
                             "dimanche".takeIf { data.sundayPresence },
@@ -158,6 +188,29 @@ private fun Field(label: String, value: String) {
             fontWeight = FontWeight.Medium,
         )
         Text(value, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun WarningField(label: String, value: String, warning: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "$label :",
+                modifier = Modifier.width(130.dp),
+                fontSize = 12.sp,
+                color = Color.Gray,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(value, fontSize = 12.sp, modifier = Modifier.weight(1f),
+                color = Color(0xFFB45309))
+        }
+        Text(
+            warning,
+            fontSize = 11.sp,
+            color = Color(0xFFB45309),
+            modifier = Modifier.padding(start = 130.dp),
+        )
     }
 }
 

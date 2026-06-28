@@ -17,12 +17,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.vetbrain.stagevetmanager.APP_VERSION
 
 @Composable
 fun LoginScreen(
     initialUsername: String = "",
     initialPassword: String = "",
     onLogin: (username: String, password: String) -> Unit,
+    onContinueOffline: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var username by remember { mutableStateOf(initialUsername) }
@@ -50,6 +52,11 @@ fun LoginScreen(
                     "Connexion à stagevet.fr",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                Text(
+                    "v$APP_VERSION",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -97,6 +104,10 @@ fun LoginScreen(
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Text("Se connecter", fontSize = 14.sp)
+                }
+
+                TextButton(onClick = onContinueOffline) {
+                    Text("Continuer sans connexion à stagevet", fontSize = 12.sp)
                 }
 
                 TextButton(onClick = onOpenSettings) {

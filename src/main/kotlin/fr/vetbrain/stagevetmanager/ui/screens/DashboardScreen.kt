@@ -7,15 +7,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
+import fr.vetbrain.stagevetmanager.ui.components.ClinicView
 import fr.vetbrain.stagevetmanager.ui.components.FilterBar
 import fr.vetbrain.stagevetmanager.ui.components.InternshipDetailView
 import fr.vetbrain.stagevetmanager.ui.components.InternshipTable
@@ -26,15 +32,35 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.nio.file.Paths
 
-private enum class DisplayMode { INTERNSHIPS, BILAN, DETAIL }
+private enum class DisplayMode { INTERNSHIPS, BILAN, CLINIC, DETAIL }
+
+@Composable
+private fun ViewTab(
+    icon: ImageVector,
+    label: String,
+    active: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = if (active) Modifier.background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                       else Modifier,
+        ) {
+            Icon(icon, contentDescription = label, tint = Color.White)
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     vm: DashboardViewModel,
     exportDir: String,
+    conventionDir: String,
     trackingTargets: List<TrackingTarget>,
     browserType: SeleniumScraper.BrowserType,
+    isLoggedIn: Boolean,
     onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
@@ -59,10 +85,11 @@ fun DashboardScreen(
     val isPdfLoading   by vm.isPdfLoading.collectAsState()
     val selectedInternship by vm.selectedInternship.collectAsState()
     val pdfDataCache       by vm.pdfDataCache.collectAsState()
+    val clinicStatuses     by vm.clinicStatuses.collectAsState()
+    val allInternships     by vm.allInternships.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
-    var showClearDialog by remember { mutableStateOf(false) }
-    var displayMode     by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+    var displayMode by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
 
     if (trackingWarnings.isNotEmpty()) {
         AlertDialog(
@@ -83,23 +110,6 @@ fun DashboardScreen(
             },
             confirmButton = {
                 TextButton(onClick = { vm.clearTrackingWarnings() }) { Text("OK") }
-            },
-        )
-    }
-
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text("Vider la base locale ?") },
-            text = { Text("Cette action supprime définitivement les $dbCount stage(s) stockés localement. Elle ne modifie pas les données sur stagevet.fr.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.clearDatabase()
-                    showClearDialog = false
-                }) { Text("Vider", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Annuler") }
             },
         )
     }
@@ -126,19 +136,9 @@ fun DashboardScreen(
                 },
                 actions = {
                     if (displayMode != DisplayMode.DETAIL) {
-                        IconButton(onClick = {
-                            displayMode = if (displayMode == DisplayMode.INTERNSHIPS)
-                                DisplayMode.BILAN else DisplayMode.INTERNSHIPS
-                        }) {
-                            if (displayMode == DisplayMode.INTERNSHIPS) {
-                                Icon(Icons.Default.Group, contentDescription = "Bilan par étudiant")
-                            } else {
-                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Liste des stages")
-                            }
-                        }
-                        IconButton(onClick = { showClearDialog = true }, enabled = dbCount > 0) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "Vider la base locale")
-                        }
+                        ViewTab(Icons.AutoMirrored.Filled.List, "Stages",    displayMode == DisplayMode.INTERNSHIPS) { displayMode = DisplayMode.INTERNSHIPS }
+                        ViewTab(Icons.Default.Group,            "Étudiants", displayMode == DisplayMode.BILAN)       { displayMode = DisplayMode.BILAN }
+                        ViewTab(Icons.Default.LocalHospital,    "Cliniques", displayMode == DisplayMode.CLINIC)      { displayMode = DisplayMode.CLINIC }
                         IconButton(onClick = onOpenSettings) {
                             Icon(Icons.Default.Settings, contentDescription = "Paramètres")
                         }
@@ -165,46 +165,49 @@ fun DashboardScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            FilterBar(
-                filterText = filterText,
-                activeFilter = activeFilter,
-                count = displayed.size,
-                dbCount = dbCount,
-                isLoading = isLoading,
-                scrapeFilters = scrapeFilters,
-                localFilters = localFilters,
-                onTextChange = vm::setFilter,
-                onViewChange = vm::setView,
-                onScrapeFiltersChange = { f -> vm.setScrapeFilters(f); onScrapeFiltersChange(f) },
-                onLocalFiltersChange = vm::setLocalFilters,
-                browserType = browserType,
-                onBrowserChange = onBrowserChange,
-                onRequestScrape = onRequestScrape,
-                onLoadFromDb = vm::loadFromDatabase,
-                onExportOneDrive = onExportOneDrive,
-                onExportOneDriveComplement = onExportOneDriveComplement,
-                trackingTargets = trackingTargets,
-                onExportTracking = onExportTracking,
-                onExport = {
-                    val filename = vm.suggestedExportFileName()
-                    val dir = exportDir.ifBlank { System.getProperty("user.home") }
-                    try {
-                        val dialog = FileDialog(null as Frame?, "Enregistrer l'export Excel", FileDialog.SAVE)
-                        dialog.directory = dir
-                        dialog.file = filename
-                        dialog.isVisible = true
-                        val chosen = dialog.file
-                        val chosenDir = dialog.directory
-                        if (chosen != null && chosenDir != null) {
-                            vm.exportToExcel(Paths.get(chosenDir, chosen))
+            if (displayMode != DisplayMode.DETAIL) {
+                FilterBar(
+                    filterText = filterText,
+                    activeFilter = activeFilter,
+                    count = displayed.size,
+                    dbCount = dbCount,
+                    isLoading = isLoading,
+                    isLoggedIn = isLoggedIn,
+                    scrapeFilters = scrapeFilters,
+                    localFilters = localFilters,
+                    onTextChange = vm::setFilter,
+                    onViewChange = vm::setView,
+                    onScrapeFiltersChange = { f -> vm.setScrapeFilters(f); onScrapeFiltersChange(f) },
+                    onLocalFiltersChange = vm::setLocalFilters,
+                    browserType = browserType,
+                    onBrowserChange = onBrowserChange,
+                    onRequestScrape = onRequestScrape,
+                    onLoadFromDb = vm::loadFromDatabase,
+                    onExportOneDrive = onExportOneDrive,
+                    onExportOneDriveComplement = onExportOneDriveComplement,
+                    trackingTargets = trackingTargets,
+                    onExportTracking = onExportTracking,
+                    onExport = {
+                        val filename = vm.suggestedExportFileName()
+                        val dir = exportDir.ifBlank { System.getProperty("user.home") }
+                        try {
+                            val dialog = FileDialog(null as Frame?, "Enregistrer l'export Excel", FileDialog.SAVE)
+                            dialog.directory = dir
+                            dialog.file = filename
+                            dialog.isVisible = true
+                            val chosen = dialog.file
+                            val chosenDir = dialog.directory
+                            if (chosen != null && chosenDir != null) {
+                                vm.exportToExcel(Paths.get(chosenDir, chosen))
+                            }
+                        } catch (_: Exception) {
+                            vm.exportToExcel(Paths.get(dir, filename))
                         }
-                    } catch (_: Exception) {
-                        vm.exportToExcel(Paths.get(dir, filename))
-                    }
-                },
-            )
+                    },
+                )
 
-            HorizontalDivider()
+                HorizontalDivider()
+            }
 
             when (displayMode) {
                 DisplayMode.INTERNSHIPS -> InternshipTable(
@@ -214,6 +217,7 @@ fun DashboardScreen(
                     onSort = vm::toggleSort,
                     modifier = Modifier.weight(1f),
                     pdfDataCache = pdfDataCache,
+                    clinicStatuses = clinicStatuses,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.INTERNSHIPS
                         vm.selectInternship(internship)
@@ -225,12 +229,24 @@ fun DashboardScreen(
                     internships = displayed,
                     modifier = Modifier.weight(1f),
                     pdfDataCache = pdfDataCache,
+                    clinicStatuses = clinicStatuses,
+                    isLoggedIn = isLoggedIn,
+                    conventionDir = conventionDir,
+                    onDownloadSignedPdf = { internship -> vm.downloadSignedPdf(internship, conventionDir) },
+                    onOpenLocalPdf = { localPath -> vm.openLocalPdf(localPath, conventionDir) },
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.BILAN
                         vm.selectInternship(internship)
                         displayMode = DisplayMode.DETAIL
                     },
                     onToggleSuivi = { internship, checked -> vm.toggleSuivi(internship, checked) },
+                )
+                DisplayMode.CLINIC -> ClinicView(
+                    internships = allInternships,
+                    clinicStatuses = clinicStatuses,
+                    onSetClinicStatus = vm::setClinicStatus,
+                    searchText = filterText,
+                    modifier = Modifier.weight(1f),
                 )
                 DisplayMode.DETAIL -> {
                     val internship = selectedInternship
@@ -240,7 +256,10 @@ fun DashboardScreen(
                             pdfData = pdfDataCache[internship.conventionPdfUrl],
                             isPdfLoading = isPdfLoading,
                             canDownloadPdf = vm.hasSessionCookies,
+                            conventionDir = conventionDir,
                             onDownloadPdf = { vm.downloadConventionPdf(internship.conventionPdfUrl) },
+                            onDownloadSignedPdf = { vm.downloadSignedPdf(internship, conventionDir) },
+                            onOpenLocalPdf = { vm.openLocalPdf(internship.localPdfPath, conventionDir) },
                             onToggleSuivi = { checked -> vm.toggleSuivi(internship, checked) },
                             modifier = Modifier.weight(1f),
                         )

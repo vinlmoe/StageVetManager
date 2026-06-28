@@ -22,9 +22,7 @@ object DashboardParser {
 
         val studyYear = card.select("ul:nth-of-type(2) li").firstOrNull()
             ?.text()?.trim()
-            ?.removePrefix("Année d'étude")
-            ?.removePrefix(":")
-            ?.trim() ?: ""
+            ?.substringAfter(":")?.trim() ?: ""
 
         val organization = card.selectFirst("ul:nth-of-type(5) a")?.text()?.trim() ?: ""
 
@@ -42,9 +40,7 @@ object DashboardParser {
 
         val theme = card.select("ul:nth-of-type(3) li").firstOrNull()
             ?.text()?.trim()
-            ?.removePrefix("Thème du stage")
-            ?.removePrefix(":")
-            ?.trim() ?: ""
+            ?.substringAfter(":")?.trim() ?: ""
 
         val durationLabel = card.select("ul:nth-of-type(4) li").firstOrNull()
             ?.text()?.trim()

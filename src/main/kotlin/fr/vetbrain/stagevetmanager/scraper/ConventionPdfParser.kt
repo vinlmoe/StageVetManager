@@ -11,10 +11,38 @@ object ConventionPdfParser {
 
     fun parse(pdfBytes: ByteArray, sourceUrl: String = ""): ConventionPdfData {
         return Loader.loadPDF(pdfBytes).use { doc ->
-            val rawText = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+            val strippedText = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
+
+            // Append AcroForm field dump for debug (visible in InternshipDetailView raw text)
+            val acroFormDebug = buildString {
+                val acroForm = doc.documentCatalog.acroForm
+                if (acroForm == null) {
+                    append("\n\n=== ACROFORM : null (pas de formulaire interactif) ===\n")
+                } else {
+                    val fields = acroForm.fields ?: emptyList()
+                    if (fields.isEmpty()) {
+                        append("\n\n=== ACROFORM : 0 champs ===\n")
+                    } else {
+                        append("\n\n=== ACROFORM : ${fields.size} champ(s) ===\n")
+                        fields.forEach { field ->
+                            val value = runCatching { field.valueAsString }.getOrElse { "ERROR" }
+                            append("  '${field.fullyQualifiedName}' = '$value'\n")
+                            // Also list child widgets if any
+                            runCatching {
+                                field.widgets?.forEach { w ->
+                                    val ap = w.appearanceState
+                                    append("    widget appearance state = '$ap'\n")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            val rawText = strippedText + acroFormDebug
+
             // Normalise les apostrophes typographiques (U+2019, U+02BC…) en apostrophe ASCII
             // afin que indexOf("L'ORGANISME") fonctionne quel que soit le générateur PDF.
-            val text = normalizeQuotes(rawText)
+            val text = normalizeQuotes(strippedText)
 
             val ecoleSection     = section(text, "1 - L'ÉTABLISSEMENT D'ENSEIGNEMENT", "2 - L'ORGANISME D'ACCUEIL")
             val orgSection       = section(text, "2 - L'ORGANISME D'ACCUEIL", "3 - LE STAGIAIRE")
@@ -78,9 +106,35 @@ object ConventionPdfParser {
                 .find(recapSection)?.groupValues?.get(1)?.trim() ?: ""
 
             // — Gratification —
-            val gratification = when {
-                recapSection.contains("sans gratification") -> "sans gratification"
-                else -> lbl(recapSection, """La gratification mensuelle s'élève à""")
+            // On isole la sous-section d- pour éviter de lire les libellés des cases non-cochées
+            // de la section e- ou des articles qui contiennent aussi les mots "sans/avec gratification".
+            val gratifSection = section(recapSection, "d-", "e-")
+            // isItemChecked lit le symbole (✓/✗) précédant la ligne, indépendamment du texte.
+            val sansGratif = isItemChecked(gratifSection, "sans gratification")
+            val avecGratif = isItemChecked(gratifSection, "avec gratification")
+            val gratificationStatus = when {
+                avecGratif && !sansGratif -> "avec"
+                sansGratif && !avecGratif -> "sans"
+                else                      -> ""
+            }
+            // Montant : "La gratification mensuelle s'élève à : 0 € (en chiffre)"
+            val gratificationAmount = Regex("""s'élève à\s*:\s*(.+?)\s*€""")
+                .find(gratifSection)?.groupValues?.get(1)?.trim() ?: ""
+            val gratificationCoherent: Boolean? = when (gratificationStatus) {
+                "sans" -> {
+                    val num = gratificationAmount.replace(",", ".").replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+                    if (num == null) null else num == 0.0
+                }
+                "avec" -> {
+                    val num = gratificationAmount.replace(",", ".").replace(Regex("[^0-9.]"), "").toDoubleOrNull()
+                    if (num == null) null else num > 0.0
+                }
+                else -> null
+            }
+            val gratification = when (gratificationStatus) {
+                "avec" -> "avec – ${gratificationAmount.ifBlank { "?" }} €"
+                "sans" -> "sans gratification"
+                else   -> lbl(recapSection, """La gratification mensuelle s'élève à""")
             }
 
             // — Dates de présence effectives (entre "dates précises" et "c-") —
@@ -92,6 +146,13 @@ object ConventionPdfParser {
                 }.getOrNull() }
                 .toList()
 
+            // — Vérification jours effectifs —
+            val declaredDaysCount = Regex("""(\d+)\s*jours?\s+effectifs?""")
+                .find(recapSection)?.groupValues?.get(1)?.toIntOrNull()
+            val effectiveDaysCount = workingDates.size.takeIf { it > 0 }
+            val daysCountCoherent: Boolean? = if (declaredDaysCount != null && effectiveDaysCount != null)
+                effectiveDaysCount == declaredDaysCount else null
+
             // — Jour de repos hebdomadaire —
             val hasWeeklyRestDay = computeHasWeeklyRestDay(workingDates)
 
@@ -102,11 +163,22 @@ object ConventionPdfParser {
             val checkedFields = buildSet<String> {
                 doc.documentCatalog.acroForm?.fields?.forEach { field ->
                     val value = runCatching { field.valueAsString }.getOrElse { "Off" }
-                    if (value != "Off" && value.isNotBlank()) add(field.fullyQualifiedName.lowercase())
+                    // Checked = anything other than "Off", "", "No", "False", "0"
+                    val isChecked = value.isNotBlank() && value.lowercase() !in setOf("off", "no", "false", "0")
+                    if (isChecked) add(field.fullyQualifiedName.lowercase())
+                    // Also check widget appearance states (some PDFs use "Yes"/"Off" per widget)
+                    runCatching {
+                        field.widgets?.forEach { widget ->
+                            val ap = widget.appearanceState?.name
+                            if (ap != null && ap.lowercase() !in setOf("off", "no", "false", "0", "")) {
+                                add(field.fullyQualifiedName.lowercase())
+                            }
+                        }
+                    }
                 }
             }
-            val useAcroForm = checkedFields.isNotEmpty() ||
-                doc.documentCatalog.acroForm?.fields?.isNotEmpty() == true
+            val acroFormHasFields = doc.documentCatalog.acroForm?.fields?.isNotEmpty() == true
+            val useAcroForm = acroFormHasFields
 
             fun modalite(acroKeywords: List<String>, textKeyword: String): Boolean =
                 if (useAcroForm) checkedFields.any { f -> acroKeywords.any { k -> k in f } }
@@ -162,17 +234,23 @@ object ConventionPdfParser {
                 studentAddress     = studentAddress,
                 studentPhone       = studentPhone,
                 studentEmail       = studentEmail,
-                academicYear       = academicYear,
-                startDate          = startDate,
-                endDate            = endDate,
-                durationLabel      = durationLabel,
-                nightPresence      = nightPresence,
-                sundayPresence     = sundayPresence,
-                holidayPresence    = holidayPresence,
-                homePresence       = homePresence,
-                hasWeeklyRestDay   = hasWeeklyRestDay,
-                theme              = theme,
-                gratification      = gratification,
+                academicYear         = academicYear,
+                startDate            = startDate,
+                endDate              = endDate,
+                durationLabel        = durationLabel,
+                declaredDaysCount    = declaredDaysCount,
+                effectiveDaysCount   = effectiveDaysCount,
+                daysCountCoherent    = daysCountCoherent,
+                nightPresence         = nightPresence,
+                sundayPresence        = sundayPresence,
+                holidayPresence       = holidayPresence,
+                homePresence          = homePresence,
+                hasWeeklyRestDay      = hasWeeklyRestDay,
+                theme                 = theme,
+                gratificationStatus   = gratificationStatus,
+                gratificationAmount   = gratificationAmount,
+                gratificationCoherent = gratificationCoherent,
+                gratification         = gratification,
                 signingDateTutor   = signingDateTutor,
                 signingDateStudent = signingDateStudent,
                 signingDateHost    = signingDateHost,
@@ -248,15 +326,23 @@ object ConventionPdfParser {
         if (idx < 0) return false
         val lineStart = section.lastIndexOf('\n', idx).let { if (it < 0) 0 else it + 1 }
         val prefix = section.substring(lineStart, idx)
-        val checkedChars    = setOf('✓', '✔', '☑', '●', '◉')
+        val checkedChars    = setOf('✓', '✔', '☑', '●', '◉', '■', '▪', '◆', '★',
+                                      '✓', '✔', '☒', '●', '◉')
         val notCheckedChars = setOf(
-            '□', '☐', '◻', '❑',          // cases vides
-            '✗', '✘', '✕', '✖', '×', '☓', // croix / X (non-coché dans le format StageVet)
+            '□', '☐', '◻', '❑', '○', '◯',  // cases vides / cercles vides
+            '✗', '✘', '✕', '✖', '×', '☓',  // croix / X (non-coché dans le format StageVet)
+            '☐', '☐', '□',
         )
+        // StageVet PDFs sometimes place the checkbox symbol on the same line right before the label.
+        // If neither explicit checked nor unchecked chars are found, treat non-whitespace as checked
+        // ONLY if there is exactly one non-whitespace character (typical for a single symbol).
+        val nonWs = prefix.filter { !it.isWhitespace() }
         return when {
             prefix.any { it in checkedChars }    -> true
             prefix.any { it in notCheckedChars } -> false
-            else -> prefix.any { !it.isWhitespace() }
+            nonWs.length == 1                    -> true   // single unknown symbol → likely checked
+            nonWs.isEmpty()                      -> false  // no prefix → unchecked
+            else                                 -> false  // multiple chars → probably not a checkbox
         }
     }
 

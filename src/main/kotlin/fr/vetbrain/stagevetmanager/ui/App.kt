@@ -5,12 +5,14 @@ import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.deserializeTrackingTargets
 import fr.vetbrain.stagevetmanager.model.serializeTrackingTargets
+import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
 import fr.vetbrain.stagevetmanager.ui.screens.DashboardScreen
 import fr.vetbrain.stagevetmanager.ui.screens.LoginScreen
 import fr.vetbrain.stagevetmanager.ui.screens.SettingsScreen
 import fr.vetbrain.stagevetmanager.ui.theme.AppTheme
 import fr.vetbrain.stagevetmanager.viewmodel.DashboardViewModel
+import java.nio.file.Paths
 import java.util.prefs.Preferences
 
 private enum class Screen { LOGIN, DASHBOARD, SETTINGS }
@@ -35,7 +37,19 @@ fun App() {
     var oneDrivePath  by remember {
         mutableStateOf(prefs.get("oneDrivePath", "Documents/StageVet/export_stagevet.xlsx"))
     }
+    var conventionDir by remember { mutableStateOf(prefs.get("conventionDir", "")) }
     // Migration : ancien paramètre unique → liste de cibles
+    var dbDir by remember { mutableStateOf(prefs.get("dbDir", "")) }
+
+    // Configurer le chemin de la base avant la création du ViewModel
+    remember(dbDir) {
+        val path = if (dbDir.isBlank()) LocalDatabase.defaultDbPath
+                   else Paths.get(dbDir, "internships.db")
+        if (path != LocalDatabase.instance.dbPath) {
+            LocalDatabase.instance = LocalDatabase(path)
+        }
+    }
+
     var trackingTargets by remember {
         val stored = prefs.get("trackingTargets", "")
         val legacy  = prefs.get("trackingFilePath", "")
@@ -73,14 +87,17 @@ fun App() {
                     prefs.put("username", user)
                     screen = Screen.DASHBOARD
                 },
+                onContinueOffline = { screen = Screen.DASHBOARD },
                 onOpenSettings = { screen = Screen.SETTINGS },
             )
 
             Screen.DASHBOARD -> DashboardScreen(
                 vm = vm,
                 exportDir = exportDir,
+                conventionDir = conventionDir,
                 trackingTargets = trackingTargets,
                 browserType = browserType,
+                isLoggedIn = savedPassword.isNotBlank(),
                 onBrowserChange = {
                     browserType = it
                     prefs.put("browser", it.name)
@@ -91,7 +108,7 @@ fun App() {
                     screen = Screen.LOGIN
                 },
                 onRequestScrape = {
-                    vm.scrape(savedUsername, savedPassword, browserType, headless, chromeDriverPath)
+                    vm.scrape(savedUsername, savedPassword, browserType, headless, chromeDriverPath, conventionDir)
                 },
                 onExportOneDrive = {
                     vm.exportToOneDrive(oneDrivePath)
@@ -112,10 +129,25 @@ fun App() {
             )
 
             Screen.SETTINGS -> SettingsScreen(
+                onBackupDatabase = { onSuccess, onError -> vm.backupDatabase(onSuccess, onError) },
+                dbCount = vm.dbCount.collectAsState().value,
+                onClearDatabase = { vm.clearDatabase() },
+                conventionDir = conventionDir,
+                onConventionDirChange = { conventionDir = it; prefs.put("conventionDir", it) },
                 browserType = browserType,
                 headless = headless,
                 chromeDriverPath = chromeDriverPath,
                 exportDir = exportDir,
+                dbDir = dbDir,
+                onDbDirChange = { newDir ->
+                    dbDir = newDir
+                    prefs.put("dbDir", newDir)
+                    val path = if (newDir.isBlank()) LocalDatabase.defaultDbPath
+                               else Paths.get(newDir, "internships.db")
+                    LocalDatabase.instance = LocalDatabase(path)
+                    LocalDatabase.instance.init()
+                    vm.reloadAll()
+                },
                 onBrowserChange = {
                     browserType = it
                     prefs.put("browser", it.name)

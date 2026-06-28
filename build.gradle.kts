@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "fr.vetbrain"
-version = "1.0.0"
+version = "1.0.1"
 val geckoDriverVersion = "0.35.0"
 
 kotlin {

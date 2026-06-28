@@ -1,10 +1,13 @@
 package fr.vetbrain.stagevetmanager.persistence
 
+import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.MessageDigest
+import java.time.format.DateTimeFormatter
 import java.sql.Connection
 import java.sql.DriverManager
 import java.time.LocalDate
@@ -15,13 +18,13 @@ data class UpsertStats(val added: Int, val updated: Int) {
     override fun toString() = "$added nouveau(x), $updated mis à jour"
 }
 
-class LocalDatabase(private val dbPath: Path = defaultDbPath) {
+class LocalDatabase(val dbPath: Path = defaultDbPath) {
 
     companion object {
         val defaultDbPath: Path = Paths.get(
             System.getProperty("user.home"), ".stagevetmanager", "internships.db"
         )
-        val instance = LocalDatabase()
+        var instance = LocalDatabase()
     }
 
     private fun connect(): Connection {
@@ -51,6 +54,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     convention_cancel_url TEXT,
                     duration_label       TEXT,
                     in_suivi_table       INTEGER DEFAULT 0,
+                    local_pdf_path       TEXT DEFAULT '',
                     created_at           TEXT NOT NULL,
                     last_seen            TEXT NOT NULL
                 )
@@ -78,6 +82,11 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN duration_label TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN local_pdf_path TEXT DEFAULT ''"
                 )
             }
 
@@ -108,6 +117,14 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     "ALTER TABLE pdf_data ADD COLUMN has_weekly_rest_day INTEGER"
                 )
             }
+
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS clinic_statuses (
+                    organization TEXT PRIMARY KEY,
+                    status       TEXT NOT NULL DEFAULT 'OK',
+                    notes        TEXT
+                )
+            """.trimIndent())
 
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS pdf_data (
@@ -271,6 +288,7 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                         conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
                         durationLabel    = rs.getString("duration_label") ?: "",
                         inSuiviTable     = rs.getInt("in_suivi_table") == 1,
+                        localPdfPath     = rs.getString("local_pdf_path") ?: "",
                     ))
                 }
             }
@@ -293,6 +311,29 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                 stmt.executeUpdate()
             }
         }
+    }
+
+    fun updateLocalPdfPath(internship: Internship, path: String) {
+        connect().use { conn ->
+            conn.prepareStatement(
+                "UPDATE internships SET local_pdf_path=? WHERE id=?"
+            ).use { stmt ->
+                stmt.setString(1, path)
+                stmt.setString(2, internship.localId())
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun backup(): Path {
+        val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        val dest = dbPath.resolveSibling("internships_backup_$ts.db")
+        // SQLite WAL checkpoint avant copie pour s'assurer que toutes les données sont dans le fichier principal
+        connect().use { conn ->
+            conn.createStatement().execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        }
+        Files.copy(dbPath, dest)
+        return dest
     }
 
     fun clear() {
@@ -362,6 +403,33 @@ class LocalDatabase(private val dbPath: Path = defaultDbPath) {
                     false -> stmt.setInt(37, 0)
                     null  -> stmt.setNull(37, java.sql.Types.INTEGER)
                 }
+                stmt.executeUpdate()
+            }
+        }
+    }
+
+    fun loadAllClinicStatuses(): Map<String, ClinicStatus> {
+        return connect().use { conn ->
+            val rs = conn.createStatement().executeQuery("SELECT organization, status FROM clinic_statuses")
+            buildMap {
+                while (rs.next()) {
+                    val org = rs.getString("organization") ?: continue
+                    val status = runCatching { ClinicStatus.valueOf(rs.getString("status")) }
+                        .getOrDefault(ClinicStatus.OK)
+                    put(org, status)
+                }
+            }
+        }
+    }
+
+    fun setClinicStatus(organization: String, status: ClinicStatus, notes: String = "") {
+        connect().use { conn ->
+            conn.prepareStatement(
+                "INSERT OR REPLACE INTO clinic_statuses (organization, status, notes) VALUES (?, ?, ?)"
+            ).use { stmt ->
+                stmt.setString(1, organization)
+                stmt.setString(2, status.name)
+                stmt.setString(3, notes)
                 stmt.executeUpdate()
             }
         }
