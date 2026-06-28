@@ -59,6 +59,7 @@ fun DashboardScreen(
     exportDir: String,
     trackingTargets: List<TrackingTarget>,
     browserType: SeleniumScraper.BrowserType,
+    isLoggedIn: Boolean,
     onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onOpenSettings: () -> Unit,
     onLogout: () -> Unit,
@@ -170,6 +171,7 @@ fun DashboardScreen(
                     count = displayed.size,
                     dbCount = dbCount,
                     isLoading = isLoading,
+                    isLoggedIn = isLoggedIn,
                     scrapeFilters = scrapeFilters,
                     localFilters = localFilters,
                     onTextChange = vm::setFilter,
@@ -227,6 +229,7 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f),
                     pdfDataCache = pdfDataCache,
                     clinicStatuses = clinicStatuses,
+                    isLoggedIn = isLoggedIn,
                     onSelectInternship = { internship ->
                         previousMode = DisplayMode.BILAN
                         vm.selectInternship(internship)

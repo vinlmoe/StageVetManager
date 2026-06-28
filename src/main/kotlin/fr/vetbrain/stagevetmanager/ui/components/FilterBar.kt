@@ -34,6 +34,7 @@ fun FilterBar(
     count: Int,
     dbCount: Int,
     isLoading: Boolean,
+    isLoggedIn: Boolean,
     scrapeFilters: ScrapeFilters,
     localFilters: LocalFilters,
     onTextChange: (String) -> Unit,
@@ -303,7 +304,7 @@ fun FilterBar(
                     dialogFilters = scrapeFilters   // ouvre avec les filtres actuels
                     showScrapeDialog = true
                 },
-                enabled = !isLoading,
+                enabled = !isLoading && isLoggedIn,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))

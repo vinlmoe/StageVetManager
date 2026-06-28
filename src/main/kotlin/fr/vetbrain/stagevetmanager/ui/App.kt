@@ -95,6 +95,7 @@ fun App() {
                 exportDir = exportDir,
                 trackingTargets = trackingTargets,
                 browserType = browserType,
+                isLoggedIn = savedPassword.isNotBlank(),
                 onBrowserChange = {
                     browserType = it
                     prefs.put("browser", it.name)

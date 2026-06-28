@@ -50,6 +50,7 @@ fun StudentBilanView(
     modifier: Modifier = Modifier,
     pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     clinicStatuses: Map<String, ClinicStatus> = emptyMap(),
+    isLoggedIn: Boolean = true,
     onSelectInternship: ((Internship) -> Unit)? = null,
     onToggleSuivi: ((Internship, Boolean) -> Unit)? = null,
 ) {
@@ -344,7 +345,7 @@ fun StudentBilanView(
                                         pdf.allPreSignaturesDone && pdf.signingDateSchool.isBlank()
                                     else
                                         stage.conventionSignUrl.isNotEmpty()
-                                    if (schoolNotSigned && preSignaturesDone) {
+                                    if (isLoggedIn && schoolNotSigned && preSignaturesDone) {
                                         val days = stageDurationDays(stage, pdf)
                                         val isLongDuration = days != null && days > 30
                                         val hasInconsistency = isLongDuration ||
