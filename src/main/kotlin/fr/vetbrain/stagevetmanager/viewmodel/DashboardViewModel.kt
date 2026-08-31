@@ -11,6 +11,7 @@ import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.export.LocalExcelUpdater
 import fr.vetbrain.stagevetmanager.export.LocalTrackingUpdater
+import fr.vetbrain.stagevetmanager.export.VetAgroTiceCsvExporter
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.persistence.localId
@@ -280,6 +281,34 @@ class DashboardViewModel {
         }
     }
 
+    fun reanalyzeAllPdfs() {
+        if (sessionCookies.isEmpty()) {
+            errorMessage.value = "Session expirée — relancez une extraction pour reconnecter"
+            return
+        }
+        if (isLoading.value || isPdfLoading.value) return
+
+        val urls = allInternships.value
+            .map { it.conventionPdfUrl }
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (urls.isEmpty()) {
+            errorMessage.value = "Aucune convention PDF à réanalyser"
+            return
+        }
+
+        scope.launch {
+            isLoading.value = true
+            isPdfLoading.value = true
+            try {
+                autoParseNewPdfs(urls)
+            } finally {
+                isPdfLoading.value = false
+                isLoading.value = false
+            }
+        }
+    }
+
     private suspend fun autoParseNewPdfs(urls: List<String>) {
         val total = urls.size
         statusMessage.value = "Analyse automatique de $total convention(s)…"
@@ -414,6 +443,9 @@ class DashboardViewModel {
         scope.launch {
             withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
             allInternships.value = emptyList()
+            _pdfDataCache.value = emptyMap()
+            selectedInternship.value = null
+            selectedPdfData.value = null
             dbCount.value = 0
             statusMessage.value = "Base locale vidée"
         }
@@ -434,6 +466,31 @@ class DashboardViewModel {
                 }
             }
             statusMessage.value = "Export réussi : ${path.fileName}"
+            isLoading.value = false
+        }
+    }
+
+    fun exportVetAgroTiceCsv(path: Path, studyYear: String) {
+        scope.launch {
+            isLoading.value = true
+            statusMessage.value = "Export CSV VetAgroTice — $studyYear en cours…"
+            val exportedCount = withContext(Dispatchers.IO) {
+                try {
+                    val selectedInternships = allInternships.value.filter {
+                        it.studyYear.trim() == studyYear.trim()
+                    }
+                    VetAgroTiceCsvExporter.export(selectedInternships, path, _pdfDataCache.value)
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        errorMessage.value = "Export CSV échoué : ${e.message}"
+                    }
+                    return@withContext null
+                }
+            }
+            if (exportedCount != null) {
+                statusMessage.value =
+                    "Export CSV réussi : $exportedCount stage(s) signé(s) en $studyYear — ${path.fileName}"
+            }
             isLoading.value = false
         }
     }
@@ -514,11 +571,11 @@ class DashboardViewModel {
                     try {
                         if (complement) {
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion du fichier Excel en cours…" }
-                            LocalExcelUpdater.complement(allInternships.value, localPath)
+                            LocalExcelUpdater.complement(allInternships.value, localPath, _pdfDataCache.value)
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier complété : ${java.io.File(localPath).name}" }
                         } else {
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Écriture du fichier Excel en cours…" }
-                            LocalExcelUpdater.update(allInternships.value, localPath)
+                            LocalExcelUpdater.update(allInternships.value, localPath, _pdfDataCache.value)
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier mis à jour : ${java.io.File(localPath).name}" }
                         }
                     } catch (e: Exception) {

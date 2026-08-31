@@ -7,6 +7,24 @@ import java.time.LocalDate
 
 class ConventionPdfParserTest {
 
+    @Test
+    fun `findEmail finds student email when value is on next line`() {
+        val section = """
+            Courriel :
+            marie.dupont@etu.vetagro-sup.fr
+            Téléphone : 06 00 00 00 00
+        """.trimIndent()
+
+        assertEquals("marie.dupont@etu.vetagro-sup.fr", ConventionPdfParser.findEmail(section))
+    }
+
+    @Test
+    fun `findEmail keeps only valid address when label line has trailing data`() {
+        val section = "Courriel : marie.dupont@example.fr Téléphone : 06 00 00 00 00"
+
+        assertEquals("marie.dupont@example.fr", ConventionPdfParser.findEmail(section))
+    }
+
     // Access private helpers via reflection for unit testing
     private fun isFrenchPublicHoliday(date: LocalDate): Boolean {
         val m = ConventionPdfParser::class.java.getDeclaredMethod("isFrenchPublicHoliday", LocalDate::class.java)

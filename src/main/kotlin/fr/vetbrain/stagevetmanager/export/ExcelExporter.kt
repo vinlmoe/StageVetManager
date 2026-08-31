@@ -17,7 +17,7 @@ object ExcelExporter {
         "Étudiant", "Année", "Organisme", "Adresse",
         "Convention n°", "Conv. générée le", "Date signature",
         "Début stage", "Fin stage", "Dates brutes", "Thème",
-        "URL Convention PDF", "URL Signature", "Durée"
+        "URL Convention PDF", "URL Signature", "Durée", "Email étudiant"
     )
 
     val CLINIC_HEADERS = listOf(
@@ -49,14 +49,19 @@ object ExcelExporter {
             it.signingDate != null && !it.signingDate.isBefore(today.minusDays(15)) && !it.signingDate.isAfter(today)
         }
 
-        writeSheet(wb, "Tous les stages", internships)
-        writeSheet(wb, "Débuts 15 prochains jours", startingSoon)
-        writeSheet(wb, "Signés 15 derniers jours", recentlySigned)
+        writeSheet(wb, "Tous les stages", internships, pdfDataCache)
+        writeSheet(wb, "Débuts 15 prochains jours", startingSoon, pdfDataCache)
+        writeSheet(wb, "Signés 15 derniers jours", recentlySigned, pdfDataCache)
         writeClinicSheet(wb, internships, pdfDataCache)
         return wb
     }
 
-    private fun writeSheet(wb: XSSFWorkbook, name: String, rows: List<Internship>) {
+    private fun writeSheet(
+        wb: XSSFWorkbook,
+        name: String,
+        rows: List<Internship>,
+        pdfDataCache: Map<String, ConventionPdfData>,
+    ) {
         val sheet = wb.createSheet(name)
 
         val headerStyle = wb.createCellStyle().apply {
@@ -98,6 +103,7 @@ object ExcelExporter {
             row.createCell(11).setCellValue(s.conventionPdfUrl)
             row.createCell(12).setCellValue(s.conventionSignUrl)
             row.createCell(13).setCellValue(s.durationLabel)
+            row.createCell(14).setCellValue(pdfDataCache[s.conventionPdfUrl]?.studentEmail.orEmpty())
         }
 
         headers.indices.forEach { sheet.autoSizeColumn(it) }

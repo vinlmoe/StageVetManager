@@ -61,7 +61,9 @@ object ConventionPdfParser {
                 ?.groupValues?.get(1) ?: ""
             val studentAddress = lbl(stagiaireSection, "Adresse postale")
             val studentPhone   = lbl(stagiaireSection, """T[eé]l(?:[eé]phone)?""")
-            val studentEmail   = lbl(stagiaireSection, "Courriel|E-?mail")
+            // Certaines versions du PDF placent la valeur sur une autre ligne que le libellé.
+            // Le scan regex de toute la section récupère aussi ces mises en page.
+            val studentEmail   = findEmail(stagiaireSection)
 
             // — Organisme —
             val hostOrganization   = lbl(orgSection, "Nom")
@@ -292,9 +294,9 @@ object ConventionPdfParser {
      * 1) via le label "Courriel / E-mail" → valide si contient '@'
      * 2) via regex directe sur '@' (cas où le label est absent ou mal formaté)
      */
-    private fun findEmail(text: String): String {
+    internal fun findEmail(text: String): String {
         val byLabel = lbl(text, "Courriel|E-?mail")
-        if (byLabel.contains('@')) return byLabel
+        EMAIL_REGEX.find(byLabel)?.value?.let { return it }
         return EMAIL_REGEX.find(text)?.value ?: ""
     }
 

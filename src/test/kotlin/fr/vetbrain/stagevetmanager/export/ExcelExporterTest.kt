@@ -1,5 +1,6 @@
 package fr.vetbrain.stagevetmanager.export
 
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.*
@@ -25,6 +26,7 @@ class ExcelExporterTest {
         endDate = null,
         rawDateStage = "",
         theme = "Chirurgie",
+        conventionPdfUrl = "https://example.test/convention.pdf",
     )
 
     private fun workbook(internships: List<Internship>): XSSFWorkbook =
@@ -36,8 +38,8 @@ class ExcelExporterTest {
     }
 
     @Test
-    fun `workbook has exactly three sheets`() {
-        workbook(emptyList()).use { assertEquals(3, it.numberOfSheets) }
+    fun `workbook has exactly four sheets`() {
+        workbook(emptyList()).use { assertEquals(4, it.numberOfSheets) }
     }
 
     @Test
@@ -50,18 +52,36 @@ class ExcelExporterTest {
     }
 
     @Test
-    fun `header row has 14 columns with correct labels`() {
+    fun `header row has 15 columns with correct labels`() {
         val expectedHeaders = listOf(
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
             "Début stage", "Fin stage", "Dates brutes", "Thème",
-            "URL Convention PDF", "URL Signature", "Durée"
+            "URL Convention PDF", "URL Signature", "Durée", "Email étudiant"
         )
         workbook(emptyList()).use { wb ->
             val header = wb.getSheetAt(0).getRow(0)
             expectedHeaders.forEachIndexed { i, expected ->
                 assertEquals(expected, header.getCell(i).stringCellValue)
             }
+        }
+    }
+
+    @Test
+    fun `student email is exported from parsed PDF data`() {
+        val stages = listOf(internship())
+        val cache = mapOf(
+            "https://example.test/convention.pdf" to ConventionPdfData(
+                rawText = "",
+                studentEmail = "marie.dupont@example.test",
+            )
+        )
+
+        XSSFWorkbook(ByteArrayInputStream(ExcelExporter.exportToBytes(stages, cache))).use { wb ->
+            assertEquals(
+                "marie.dupont@example.test",
+                wb.getSheet("Tous les stages").getRow(1).getCell(14).stringCellValue,
+            )
         }
     }
 

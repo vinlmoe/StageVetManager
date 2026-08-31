@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,8 +89,81 @@ fun DashboardScreen(
     val clinicStatuses     by vm.clinicStatuses.collectAsState()
     val allInternships     by vm.allInternships.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+    var showVetAgroTiceYearDialog by remember { mutableStateOf(false) }
+    var selectedVetAgroTiceYear by remember { mutableStateOf<String?>(null) }
 
     var displayMode by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
+
+    val signedStudyYears = remember(allInternships) {
+        allInternships
+            .filter { it.signingDate != null && it.studyYear.isNotBlank() }
+            .map { it.studyYear.trim() }
+            .distinct()
+            .sorted()
+    }
+
+    fun saveVetAgroTiceCsv(studyYear: String) {
+        val safeYear = studyYear.replace(Regex("[^a-zA-Z0-9_-]+"), "_").trim('_')
+        val filename = "vetagrotice_${safeYear}_${java.time.LocalDate.now()}.csv"
+        val dir = exportDir.ifBlank { System.getProperty("user.home") }
+        try {
+            val dialog = FileDialog(null as Frame?, "Enregistrer l'export CSV VetAgroTice", FileDialog.SAVE)
+            dialog.directory = dir
+            dialog.file = filename
+            dialog.isVisible = true
+            val chosen = dialog.file
+            val chosenDir = dialog.directory
+            if (chosen != null && chosenDir != null) {
+                vm.exportVetAgroTiceCsv(Paths.get(chosenDir, chosen), studyYear)
+            }
+        } catch (_: Exception) {
+            vm.exportVetAgroTiceCsv(Paths.get(dir, filename), studyYear)
+        }
+    }
+
+    if (showVetAgroTiceYearDialog) {
+        AlertDialog(
+            onDismissRequest = { showVetAgroTiceYearDialog = false },
+            title = { Text("Export CSV VetAgroTice") },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("Choisissez l’année d’étude à exporter.")
+                    Spacer(Modifier.height(8.dp))
+                    signedStudyYears.forEach { year ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { selectedVetAgroTiceYear = year },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = selectedVetAgroTiceYear == year,
+                                onClick = { selectedVetAgroTiceYear = year },
+                            )
+                            Text(year)
+                        }
+                    }
+                    if (signedStudyYears.isEmpty()) {
+                        Text("Aucun stage signé avec une année d’étude renseignée.")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = selectedVetAgroTiceYear != null,
+                    onClick = {
+                        val year = selectedVetAgroTiceYear ?: return@Button
+                        showVetAgroTiceYearDialog = false
+                        saveVetAgroTiceCsv(year)
+                    },
+                ) { Text("Choisir le fichier") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVetAgroTiceYearDialog = false }) { Text("Annuler") }
+            },
+        )
+    }
 
     if (trackingWarnings.isNotEmpty()) {
         AlertDialog(
@@ -183,6 +257,7 @@ fun DashboardScreen(
                     onBrowserChange = onBrowserChange,
                     onRequestScrape = onRequestScrape,
                     onLoadFromDb = vm::loadFromDatabase,
+                    onReanalyzeAllPdfs = vm::reanalyzeAllPdfs,
                     onExportOneDrive = onExportOneDrive,
                     onExportOneDriveComplement = onExportOneDriveComplement,
                     trackingTargets = trackingTargets,
@@ -203,6 +278,10 @@ fun DashboardScreen(
                         } catch (_: Exception) {
                             vm.exportToExcel(Paths.get(dir, filename))
                         }
+                    },
+                    onExportVetAgroTice = {
+                        selectedVetAgroTiceYear = signedStudyYears.firstOrNull()
+                        showVetAgroTiceYearDialog = true
                     },
                 )
 

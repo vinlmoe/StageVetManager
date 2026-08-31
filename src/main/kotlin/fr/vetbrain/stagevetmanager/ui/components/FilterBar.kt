@@ -45,7 +45,9 @@ fun FilterBar(
     onBrowserChange: (SeleniumScraper.BrowserType) -> Unit,
     onRequestScrape: () -> Unit,
     onLoadFromDb: () -> Unit,
+    onReanalyzeAllPdfs: () -> Unit,
     onExport: () -> Unit,
+    onExportVetAgroTice: () -> Unit,
     onExportOneDrive: () -> Unit,
     onExportOneDriveComplement: () -> Unit,
     trackingTargets: List<TrackingTarget>,
@@ -316,6 +318,21 @@ fun FilterBar(
                 Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Excel", fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = onExportVetAgroTice, enabled = !isLoading && count > 0) {
+                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("CSV VetAgroTice", fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onReanalyzeAllPdfs,
+                enabled = !isLoading && isLoggedIn && count > 0,
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Réanalyser les PDF", fontSize = 13.sp)
             }
         }
 
