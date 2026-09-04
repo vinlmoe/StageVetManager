@@ -212,6 +212,11 @@ class SeleniumScraper(
     fun getSessionCookies(): Map<String, String> =
         driver?.manage()?.cookies?.associate { it.name to it.value } ?: emptyMap()
 
+    /** Ajoute au journal Selenium les étapes effectuées ensuite par le transport HTTP. */
+    fun logHttpProgress(message: String) {
+        log("HTTP dashboard — $message")
+    }
+
     fun close() {
         try { driver?.quit() } catch (_: Exception) {}
         driver = null
@@ -230,7 +235,14 @@ class SeleniumScraper(
 
         val driver = when (browserType) {
             BrowserType.CHROME -> createChromeDriver(isWindows)
-            BrowserType.FIREFOX -> createFirefoxDriver(isWindows)
+            BrowserType.FIREFOX -> try {
+                createFirefoxDriver(os)
+            } catch (e: FirefoxNotInstalledException) {
+                log("Firefox indisponible : ${e.message}")
+                log("Repli automatique vers Chrome…")
+                onProgress("Firefox introuvable — utilisation de Chrome…")
+                createChromeDriver(isWindows)
+            }
         }
 
         log("pageLoadTimeout → 30s")
@@ -243,13 +255,19 @@ class SeleniumScraper(
         logSection("ChromeDriver — résolution du binaire")
         val driverBinary = if (isWindows) "chromedriver.exe" else "chromedriver"
 
-        // Priorité : paramètre > cache SM > dossier app > PATH > auto-download (Windows) > SM (autres OS)
+        // Hors Windows, laisser Selenium Manager choisir lui-même une version compatible.
+        // Forcer le « dernier » fichier du cache peut sélectionner un pilote obsolète
+        // après une mise à jour automatique de Chrome.
         val resolved: File? = when {
             chromeDriverPath.isNotBlank() -> {
                 val f = File(chromeDriverPath)
                 log("Chemin paramètre : ${f.absolutePath} | existe=${f.exists()} canExec=${f.canExecute()}")
                 f.takeIf { it.exists() && it.canExecute() }
                     ?: throw RuntimeException("ChromeDriver introuvable au chemin configuré : $chromeDriverPath")
+            }
+            !isWindows -> {
+                log("Résolution automatique par Selenium Manager (cache compatible inclus).")
+                null
             }
             else -> {
                 log("Vérification cache Selenium Manager (~/.cache/selenium/chromedriver/)…")
@@ -325,7 +343,7 @@ class SeleniumScraper(
         }
     }
 
-    private fun createFirefoxDriver(isWindows: Boolean): WebDriver {
+    private fun createFirefoxDriver(os: String): WebDriver {
         logSection("FirefoxDriver — résolution GeckoDriver")
         val geckoDriver = resolveGeckoDriver()
         if (geckoDriver != null) {
@@ -337,21 +355,19 @@ class SeleniumScraper(
         }
 
         val opts = FirefoxOptions()
-        if (isWindows) {
-            logSection("FirefoxDriver — localisation Firefox (Windows)")
-            val firefoxBinary = findFirefoxOnWindows()
-            if (firefoxBinary != null) {
-                log("Firefox trouvé : ${firefoxBinary.absolutePath}")
-                opts.setBinary(firefoxBinary.absolutePath ?: firefoxBinary.path)
-            } else {
-                throw RuntimeException(
-                    "Firefox n'est pas installé sur ce système Windows.\n\n" +
-                    "Téléchargez Firefox depuis https://www.mozilla.org/fr/firefox/\n" +
-                    "ou utilisez Chrome à la place.\n\n" +
-                    "Log complet : $logFilePath"
-                )
-            }
-        }
+        logSection("FirefoxDriver — localisation Firefox")
+        val candidates = FirefoxBinaryLocator.candidatePaths(
+            osName = os,
+            userHome = System.getProperty("user.home"),
+            environment = System.getenv(),
+        )
+        candidates.forEach { log("  Firefox candidat : $it | existe=${File(it).exists()}") }
+        val firefoxBinary = FirefoxBinaryLocator.find(candidates)
+            ?: throw FirefoxNotInstalledException(
+                "aucun binaire Firefox trouvé (${FirefoxBinaryLocator.platformLabel(os)})"
+            )
+        log("Firefox trouvé : ${firefoxBinary.absolutePath}")
+        opts.setBinary(firefoxBinary.absolutePath)
         if (headless) opts.addArguments("-headless")
 
         // Pré-chauffe : laisse l'AV scanner geckodriver.exe avant que Selenium ne le lance
@@ -585,19 +601,6 @@ class SeleniumScraper(
     private fun findDriverNextToApp(name: String): File? {
         val appPath = System.getProperty("jpackage.app-path") ?: return null
         return File(appPath).parentFile?.let { File(it, name) }?.takeIf { it.exists() && it.canExecute() }
-    }
-
-    private fun findFirefoxOnWindows(): File? {
-        val candidates = listOfNotNull(
-            System.getenv("ProgramFiles"),
-            System.getenv("ProgramFiles(x86)"),
-            System.getenv("LOCALAPPDATA"),
-        ).map { "$it\\Mozilla Firefox\\firefox.exe" } + listOf(
-            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
-        )
-        return candidates.also { list -> list.forEach { log("  Firefox candidat : $it | existe=${File(it).exists()}") } }
-            .map(::File).firstOrNull { it.exists() }
     }
 
     // ── Companion (méthodes statiques réutilisables) ─────────────────────────────

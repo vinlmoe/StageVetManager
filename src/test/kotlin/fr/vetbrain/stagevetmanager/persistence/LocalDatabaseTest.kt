@@ -145,4 +145,33 @@ class LocalDatabaseTest {
         assertEquals(0, db.count())
         assertTrue(db.loadAll().isEmpty())
     }
+
+    // ── checkpoints de scraping ──────────────────────────────────────────────
+
+    @Test
+    fun `incomplete scrape resumes with completed page counts`() {
+        val first = db.beginOrResumeScrape("3|2|21||1")
+        assertFalse(first.resumed)
+        db.markScrapePageCompleted(first.runId, 1, 10)
+        db.markScrapePageCompleted(first.runId, 3, 7)
+
+        val resumed = db.beginOrResumeScrape("3|2|21||1")
+
+        assertTrue(resumed.resumed)
+        assertEquals(first.runId, resumed.runId)
+        assertEquals(mapOf(1 to 10, 3 to 7), resumed.completedPages)
+    }
+
+    @Test
+    fun `completed scrape starts a fresh checkpoint`() {
+        val first = db.beginOrResumeScrape("all")
+        db.markScrapePageCompleted(first.runId, 1, 10)
+        db.finishScrapeRun(first.runId, success = true, totalPages = 1, totalItems = 10)
+
+        val next = db.beginOrResumeScrape("all")
+
+        assertFalse(next.resumed)
+        assertNotEquals(first.runId, next.runId)
+        assertTrue(next.completedPages.isEmpty())
+    }
 }

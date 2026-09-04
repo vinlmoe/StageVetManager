@@ -18,6 +18,12 @@ data class UpsertStats(val added: Int, val updated: Int) {
     override fun toString() = "$added nouveau(x), $updated mis à jour"
 }
 
+data class ScrapeCheckpoint(
+    val runId: Long,
+    val completedPages: Map<Int, Int>,
+    val resumed: Boolean,
+)
+
 class LocalDatabase(val dbPath: Path = defaultDbPath) {
 
     companion object {
@@ -167,6 +173,120 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     has_weekly_rest_day  INTEGER
                 )
             """.trimIndent())
+
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS scrape_runs (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filter_key     TEXT NOT NULL,
+                    status         TEXT NOT NULL,
+                    started_at     TEXT NOT NULL,
+                    updated_at     TEXT NOT NULL,
+                    total_pages    INTEGER,
+                    total_items    INTEGER,
+                    error_message  TEXT
+                )
+            """.trimIndent())
+            conn.createStatement().execute("""
+                CREATE TABLE IF NOT EXISTS scrape_pages (
+                    run_id         INTEGER NOT NULL,
+                    page_number    INTEGER NOT NULL,
+                    item_count     INTEGER NOT NULL,
+                    completed_at   TEXT NOT NULL,
+                    PRIMARY KEY (run_id, page_number),
+                    FOREIGN KEY (run_id) REFERENCES scrape_runs(id) ON DELETE CASCADE
+                )
+            """.trimIndent())
+        }
+    }
+
+    /** Reprend une extraction identique interrompue depuis moins de 24 heures. */
+    fun beginOrResumeScrape(filterKey: String): ScrapeCheckpoint {
+        val now = LocalDateTime.now()
+        val cutoff = now.minusHours(24).toString()
+        return connect().use { conn ->
+            val existingId = conn.prepareStatement("""
+                SELECT id FROM scrape_runs
+                WHERE filter_key=? AND status IN ('RUNNING', 'FAILED') AND started_at>=?
+                ORDER BY id DESC LIMIT 1
+            """.trimIndent()).use { stmt ->
+                stmt.setString(1, filterKey)
+                stmt.setString(2, cutoff)
+                stmt.executeQuery().use { rs -> if (rs.next()) rs.getLong("id") else null }
+            }
+            val runId = existingId ?: run {
+                conn.prepareStatement(
+                    "INSERT INTO scrape_runs(filter_key,status,started_at,updated_at) VALUES(?,'RUNNING',?,?)"
+                ).use { stmt ->
+                    stmt.setString(1, filterKey)
+                    stmt.setString(2, now.toString())
+                    stmt.setString(3, now.toString())
+                    stmt.executeUpdate()
+                }
+                conn.createStatement().executeQuery("SELECT last_insert_rowid()").use { rs ->
+                    rs.next()
+                    rs.getLong(1)
+                }
+            }
+            if (existingId != null) {
+                conn.prepareStatement("UPDATE scrape_runs SET status='RUNNING', updated_at=? WHERE id=?").use {
+                    it.setString(1, now.toString())
+                    it.setLong(2, runId)
+                    it.executeUpdate()
+                }
+            }
+            val pages = conn.prepareStatement(
+                "SELECT page_number,item_count FROM scrape_pages WHERE run_id=?"
+            ).use { stmt ->
+                stmt.setLong(1, runId)
+                stmt.executeQuery().use { rs ->
+                    buildMap { while (rs.next()) put(rs.getInt(1), rs.getInt(2)) }
+                }
+            }
+            ScrapeCheckpoint(runId, pages, existingId != null)
+        }
+    }
+
+    fun markScrapePageCompleted(runId: Long, pageNumber: Int, itemCount: Int) {
+        val now = LocalDateTime.now().toString()
+        connect().use { conn ->
+            conn.prepareStatement("""
+                INSERT OR REPLACE INTO scrape_pages(run_id,page_number,item_count,completed_at)
+                VALUES(?,?,?,?)
+            """.trimIndent()).use {
+                it.setLong(1, runId)
+                it.setInt(2, pageNumber)
+                it.setInt(3, itemCount)
+                it.setString(4, now)
+                it.executeUpdate()
+            }
+            conn.prepareStatement("UPDATE scrape_runs SET updated_at=? WHERE id=?").use {
+                it.setString(1, now)
+                it.setLong(2, runId)
+                it.executeUpdate()
+            }
+        }
+    }
+
+    fun finishScrapeRun(
+        runId: Long,
+        success: Boolean,
+        totalPages: Int? = null,
+        totalItems: Int? = null,
+        errorMessage: String? = null,
+    ) {
+        connect().use { conn ->
+            conn.prepareStatement("""
+                UPDATE scrape_runs SET status=?, updated_at=?, total_pages=?, total_items=?, error_message=?
+                WHERE id=?
+            """.trimIndent()).use {
+                it.setString(1, if (success) "COMPLETED" else "FAILED")
+                it.setString(2, LocalDateTime.now().toString())
+                if (totalPages == null) it.setNull(3, java.sql.Types.INTEGER) else it.setInt(3, totalPages)
+                if (totalItems == null) it.setNull(4, java.sql.Types.INTEGER) else it.setInt(4, totalItems)
+                it.setString(5, errorMessage)
+                it.setLong(6, runId)
+                it.executeUpdate()
+            }
         }
     }
 
@@ -340,6 +460,8 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         connect().use { conn ->
             conn.createStatement().execute("DELETE FROM internships")
             conn.createStatement().execute("DELETE FROM pdf_data")
+            conn.createStatement().execute("DELETE FROM scrape_pages")
+            conn.createStatement().execute("DELETE FROM scrape_runs")
         }
     }
 
