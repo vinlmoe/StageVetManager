@@ -39,7 +39,19 @@ private data class FilterState(
 
 class DashboardViewModel {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    // Sans handler, le SupervisorJob avale les exceptions non rattrapées : l'UI
+    // resterait bloquée sur isLoading=true sans qu'aucun message ne soit affiché.
+    private val crashHandler = CoroutineExceptionHandler { _, throwable ->
+        if (throwable is CancellationException) return@CoroutineExceptionHandler
+        System.err.println("[SVM] Erreur non rattrapée : ${throwable.javaClass.name}: ${throwable.message}")
+        throwable.printStackTrace()
+        isLoading.value = false
+        isPdfLoading.value = false
+        errorMessage.value = "Erreur inattendue : ${throwable.message ?: throwable.javaClass.simpleName}"
+        statusMessage.value = "Erreur — opération interrompue"
+    }
+
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + crashHandler)
 
     val allInternships  = MutableStateFlow<List<Internship>>(emptyList())
     val scrapeFilters   = MutableStateFlow(ScrapeFilters())
@@ -135,6 +147,31 @@ class DashboardViewModel {
         }
     }
 
+    /**
+     * Bascule vers une autre base locale. L'ouverture et la migration du schéma
+     * sont des I/O disque : elles ne doivent pas bloquer le thread de composition.
+     */
+    fun switchDatabase(path: Path) {
+        scope.launch {
+            isLoading.value = true
+            statusMessage.value = "Ouverture de la base…"
+            try {
+                withContext(Dispatchers.IO) {
+                    LocalDatabase.instance = LocalDatabase(path)
+                    LocalDatabase.instance.init()
+                }
+                reloadAll()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Impossible d'ouvrir la base : ${e.message ?: e.javaClass.simpleName}"
+                statusMessage.value = "Erreur d'ouverture de la base"
+            } finally {
+                isLoading.value = false
+            }
+        }
+    }
+
     fun reloadAll() {
         scope.launch {
             loadFromDatabase()
@@ -178,153 +215,167 @@ class DashboardViewModel {
             var totalUpdated = 0
             var logPath = ""
 
-            val result = withContext(Dispatchers.IO) {
-                val scraper = SeleniumScraper(
-                    browserType = browserType,
-                    headless = headless,
-                    chromeDriverPath = chromeDriverPath,
-                    onProgress = { msg ->
-                        scope.launch(Dispatchers.Main) { statusMessage.value = msg }
-                    }
-                )
-                try {
-                    logPath = scraper.logFilePath
-                    val loggedIn = scraper.login(username, password)
-                    if (!loggedIn) {
-                        ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
-                    } else {
-                        sessionCookies = scraper.getSessionCookies()
-                        val persistPage: (List<Internship>) -> Unit = { pageInternships ->
-                            val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
-                            totalAdded += stats.added
-                            totalUpdated += stats.updated
-                            scope.launch(Dispatchers.Main) {
-                                allInternships.value = allInternships.value + pageInternships
-                            }
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val scraper = SeleniumScraper(
+                        browserType = browserType,
+                        headless = headless,
+                        chromeDriverPath = chromeDriverPath,
+                        onProgress = { msg ->
+                            scope.launch(Dispatchers.Main) { statusMessage.value = msg }
                         }
-                        val httpResult = DashboardHttpScraper(
-                            sessionCookies = sessionCookies,
-                            onProgress = { msg ->
-                                scraper.logHttpProgress(msg)
-                                scope.launch(Dispatchers.Main) { statusMessage.value = msg }
-                            },
-                        )
-                        // Chaque page HTTP validée est sauvegardée immédiatement. Les identifiants
-                        // mémorisés évitent de la rejouer si Selenium doit reprendre la pagination.
-                        val activeFilters = scrapeFilters.value
-                        val checkpoint = LocalDatabase.instance.beginOrResumeScrape(
-                            activeFilters.checkpointKey()
-                        )
-                        if (checkpoint.resumed && checkpoint.completedPages.isNotEmpty()) {
-                            scraper.logHttpProgress(
-                                "Reprise : ${checkpoint.completedPages.size} page(s) déjà sauvegardée(s)"
-                            )
-                        }
-                        val httpPersistedIds = mutableSetOf<String>()
-                        val httpScrapeResult = httpResult.scrapeAllPages(
-                            filters = activeFilters,
-                            completedPages = checkpoint.completedPages,
-                        ) { pageNumber, internships ->
-                            persistPage(internships)
-                            internships.mapTo(httpPersistedIds) { internship -> internship.localId() }
-                            LocalDatabase.instance.markScrapePageCompleted(
-                                checkpoint.runId, pageNumber, internships.size
-                            )
-                        }
-
-                        if (httpScrapeResult is ScraperResult.Success) {
-                            LocalDatabase.instance.finishScrapeRun(
-                                checkpoint.runId,
-                                success = true,
-                                totalPages = httpScrapeResult.pageCount,
-                                totalItems = httpScrapeResult.totalCount,
-                            )
-                            scraper.logHttpProgress(
-                                "Extraction terminée : ${httpScrapeResult.totalCount} stage(s) " +
-                                    "sur ${httpScrapeResult.pageCount} page(s)"
-                            )
-                            httpScrapeResult
+                    )
+                    try {
+                        logPath = scraper.logFilePath
+                        val loggedIn = scraper.login(username, password)
+                        if (!loggedIn) {
+                            ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                         } else {
-                            val httpFailure = httpScrapeResult as ScraperResult.Failure
-                            scraper.logHttpProgress(
-                                "Échec (${httpFailure.message}) — reprise avec Selenium"
-                            )
-                            scope.launch(Dispatchers.Main) {
-                                statusMessage.value = "HTTP indisponible — reprise avec le navigateur…"
-                            }
-                            val seleniumResult = scraper.scrapeAllPages(activeFilters) { seleniumPage ->
-                                val notAlreadyPersisted = seleniumPage.filter {
-                                    it.localId() !in httpPersistedIds
+                            sessionCookies = scraper.getSessionCookies()
+                            val persistPage: (List<Internship>) -> Unit = { pageInternships ->
+                                val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
+                                totalAdded += stats.added
+                                totalUpdated += stats.updated
+                                scope.launch(Dispatchers.Main) {
+                                    allInternships.value = allInternships.value + pageInternships
                                 }
-                                if (notAlreadyPersisted.isNotEmpty()) persistPage(notAlreadyPersisted)
                             }
-                            when (seleniumResult) {
-                                is ScraperResult.Success -> LocalDatabase.instance.finishScrapeRun(
+                            val httpResult = DashboardHttpScraper(
+                                sessionCookies = sessionCookies,
+                                onProgress = { msg ->
+                                    scraper.logHttpProgress(msg)
+                                    scope.launch(Dispatchers.Main) { statusMessage.value = msg }
+                                },
+                            )
+                            // Chaque page HTTP validée est sauvegardée immédiatement. Les identifiants
+                            // mémorisés évitent de la rejouer si Selenium doit reprendre la pagination.
+                            val activeFilters = scrapeFilters.value
+                            val checkpoint = LocalDatabase.instance.beginOrResumeScrape(
+                                activeFilters.checkpointKey()
+                            )
+                            if (checkpoint.resumed && checkpoint.completedPages.isNotEmpty()) {
+                                scraper.logHttpProgress(
+                                    "Reprise : ${checkpoint.completedPages.size} page(s) déjà sauvegardée(s)"
+                                )
+                            }
+                            val httpPersistedIds = mutableSetOf<String>()
+                            val httpScrapeResult = httpResult.scrapeAllPages(
+                                filters = activeFilters,
+                                completedPages = checkpoint.completedPages,
+                            ) { pageNumber, internships ->
+                                persistPage(internships)
+                                internships.mapTo(httpPersistedIds) { internship -> internship.localId() }
+                                LocalDatabase.instance.markScrapePageCompleted(
+                                    checkpoint.runId, pageNumber, internships.size
+                                )
+                            }
+
+                            if (httpScrapeResult is ScraperResult.Success) {
+                                LocalDatabase.instance.finishScrapeRun(
                                     checkpoint.runId,
                                     success = true,
-                                    totalPages = seleniumResult.pageCount,
-                                    totalItems = seleniumResult.totalCount,
+                                    totalPages = httpScrapeResult.pageCount,
+                                    totalItems = httpScrapeResult.totalCount,
                                 )
-                                is ScraperResult.Failure -> LocalDatabase.instance.finishScrapeRun(
-                                    checkpoint.runId,
-                                    success = false,
-                                    errorMessage = seleniumResult.message,
+                                scraper.logHttpProgress(
+                                    "Extraction terminée : ${httpScrapeResult.totalCount} stage(s) " +
+                                        "sur ${httpScrapeResult.pageCount} page(s)"
                                 )
+                                httpScrapeResult
+                            } else {
+                                val httpFailure = httpScrapeResult as ScraperResult.Failure
+                                scraper.logHttpProgress(
+                                    "Échec (${httpFailure.message}) — reprise avec Selenium"
+                                )
+                                scope.launch(Dispatchers.Main) {
+                                    statusMessage.value = "HTTP indisponible — reprise avec le navigateur…"
+                                }
+                                val seleniumResult = scraper.scrapeAllPages(activeFilters) { seleniumPage ->
+                                    val notAlreadyPersisted = seleniumPage.filter {
+                                        it.localId() !in httpPersistedIds
+                                    }
+                                    if (notAlreadyPersisted.isNotEmpty()) persistPage(notAlreadyPersisted)
+                                }
+                                when (seleniumResult) {
+                                    is ScraperResult.Success -> LocalDatabase.instance.finishScrapeRun(
+                                        checkpoint.runId,
+                                        success = true,
+                                        totalPages = seleniumResult.pageCount,
+                                        totalItems = seleniumResult.totalCount,
+                                    )
+                                    is ScraperResult.Failure -> LocalDatabase.instance.finishScrapeRun(
+                                        checkpoint.runId,
+                                        success = false,
+                                        errorMessage = seleniumResult.message,
+                                    )
+                                }
+                                seleniumResult
                             }
-                            seleniumResult
                         }
+                    } finally {
+                        scraper.close()
                     }
-                } finally {
-                    scraper.close()
                 }
-            }
 
-            when (result) {
-                is ScraperResult.Success -> {
-                    val (fromDb, count) = withContext(Dispatchers.IO) {
-                        LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
-                    }
-                    allInternships.value = fromDb
-                    dbCount.value = count
-                    statusMessage.value = buildString {
-                        append("${result.totalCount} stage(s) extraits — ")
-                        append("$totalAdded nouveau(x), $totalUpdated mis à jour")
-                        append(" — base : $count au total")
-                        if (logPath.isNotBlank()) append(" | log : $logPath")
-                    }
-                    val pdfCache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
-                    _pdfDataCache.value = pdfCache
-                    val urlsToAutoParse = fromDb
-                        .mapNotNull { internship ->
-                            internship.conventionPdfUrl.takeIf { url ->
-                                url.isNotEmpty() && shouldAutoParsePdfAfterImport(internship, pdfCache[url])
+                when (result) {
+                    is ScraperResult.Success -> {
+                        val (fromDb, count) = withContext(Dispatchers.IO) {
+                            LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
+                        }
+                        allInternships.value = fromDb
+                        dbCount.value = count
+                        statusMessage.value = buildString {
+                            append("${result.totalCount} stage(s) extraits — ")
+                            append("$totalAdded nouveau(x), $totalUpdated mis à jour")
+                            append(" — base : $count au total")
+                            if (logPath.isNotBlank()) append(" | log : $logPath")
+                        }
+                        val pdfCache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
+                        _pdfDataCache.value = pdfCache
+                        val urlsToAutoParse = fromDb
+                            .mapNotNull { internship ->
+                                internship.conventionPdfUrl.takeIf { url ->
+                                    url.isNotEmpty() && shouldAutoParsePdfAfterImport(internship, pdfCache[url])
+                                }
+                            }
+                            .distinct()
+                        if (urlsToAutoParse.isNotEmpty()) {
+                            launch { autoParseNewPdfs(urlsToAutoParse) }
+                        }
+                        if (conventionDir.isNotBlank()) {
+                            val toDownload = fromDb.filter { s ->
+                                s.signingDate != null &&
+                                s.conventionPdfUrl.isNotEmpty() &&
+                                s.localPdfPath.isBlank()
+                            }
+                            if (toDownload.isNotEmpty()) {
+                                launch { autoDownloadSignedPdfs(toDownload, conventionDir) }
                             }
                         }
-                        .distinct()
-                    if (urlsToAutoParse.isNotEmpty()) {
-                        launch { autoParseNewPdfs(urlsToAutoParse) }
                     }
-                    if (conventionDir.isNotBlank()) {
-                        val toDownload = fromDb.filter { s ->
-                            s.signingDate != null &&
-                            s.conventionPdfUrl.isNotEmpty() &&
-                            s.localPdfPath.isBlank()
+                    is ScraperResult.Failure -> {
+                        loadFromDatabase()
+                        errorMessage.value = buildString {
+                            append(result.message)
+                            if (logPath.isNotBlank()) append("\n\nLog complet : $logPath")
                         }
-                        if (toDownload.isNotEmpty()) {
-                            launch { autoDownloadSignedPdfs(toDownload, conventionDir) }
-                        }
+                        statusMessage.value = "Erreur lors de l'extraction"
                     }
                 }
-                is ScraperResult.Failure -> {
-                    loadFromDatabase()
-                    errorMessage.value = buildString {
-                        append(result.message)
-                        if (logPath.isNotBlank()) append("\n\nLog complet : $logPath")
-                    }
-                    statusMessage.value = "Erreur lors de l'extraction"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Typiquement une SQLException levée hors des blocs déjà protégés
+                // (beginOrResumeScrape, finishScrapeRun, loadAll…).
+                loadFromDatabase()
+                errorMessage.value = buildString {
+                    append("Extraction interrompue : ${e.message ?: e.javaClass.simpleName}")
+                    if (logPath.isNotBlank()) append("\n\nLog complet : $logPath")
                 }
+                statusMessage.value = "Erreur lors de l'extraction"
+            } finally {
+                isLoading.value = false
             }
-            isLoading.value = false
         }
     }
 
@@ -337,32 +388,34 @@ class DashboardViewModel {
         scope.launch {
             isPdfLoading.value = true
             statusMessage.value = "Téléchargement de la convention…"
-            withContext(Dispatchers.IO) {
-                try {
+            try {
+                val data = withContext(Dispatchers.IO) {
                     val bytes = PdfDownloader(sessionCookies).download(url)
-                    val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
-                    LocalDatabase.instance.savePdfData(data)
-                    data.schoolSigningDate?.let { LocalDatabase.instance.updateSchoolSignatureFromPdf(url, it) }
-                    scope.launch(Dispatchers.Main) {
-                        selectedPdfData.value = data
-                        _pdfDataCache.value = _pdfDataCache.value + (url to data)
-                        data.schoolSigningDate?.let { date ->
-                            allInternships.value = allInternships.value.map { internship ->
-                                if (internship.conventionPdfUrl == url && internship.signingDate == null)
-                                    internship.copy(signingDate = date, conventionSignUrl = "")
-                                else internship
-                            }
-                        }
-                        statusMessage.value = "Convention téléchargée et analysée"
+                    val parsed = ConventionPdfParser.parse(bytes, sourceUrl = url)
+                    LocalDatabase.instance.savePdfData(parsed)
+                    parsed.schoolSigningDate?.let {
+                        LocalDatabase.instance.updateSchoolSignatureFromPdf(url, it)
                     }
-                } catch (e: Exception) {
-                    scope.launch(Dispatchers.Main) {
-                        errorMessage.value = "Téléchargement PDF échoué : ${e.message}"
-                        statusMessage.value = "Erreur téléchargement PDF"
+                    parsed
+                }
+                selectedPdfData.value = data
+                _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                data.schoolSigningDate?.let { date ->
+                    allInternships.value = allInternships.value.map { internship ->
+                        if (internship.conventionPdfUrl == url && internship.signingDate == null)
+                            internship.copy(signingDate = date, conventionSignUrl = "")
+                        else internship
                     }
                 }
+                statusMessage.value = "Convention téléchargée et analysée"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Téléchargement PDF échoué : ${e.message ?: e.javaClass.simpleName}"
+                statusMessage.value = "Erreur téléchargement PDF"
+            } finally {
+                isPdfLoading.value = false
             }
-            isPdfLoading.value = false
         }
     }
 
@@ -572,13 +625,23 @@ class DashboardViewModel {
 
     fun clearDatabase() {
         scope.launch {
-            withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
-            allInternships.value = emptyList()
-            _pdfDataCache.value = emptyMap()
-            selectedInternship.value = null
-            selectedPdfData.value = null
-            dbCount.value = 0
-            statusMessage.value = "Base locale vidée"
+            try {
+                val backup = withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
+                allInternships.value = emptyList()
+                _pdfDataCache.value = emptyMap()
+                selectedInternship.value = null
+                selectedPdfData.value = null
+                dbCount.value = 0
+                statusMessage.value = if (backup != null)
+                    "Base locale vidée — sauvegarde : ${backup.fileName}"
+                else
+                    "Base locale vidée"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Effacement échoué : ${e.message ?: e.javaClass.simpleName}"
+                loadFromDatabase()
+            }
         }
     }
 
@@ -586,18 +649,21 @@ class DashboardViewModel {
         scope.launch {
             isLoading.value = true
             statusMessage.value = "Export Excel en cours…"
-            withContext(Dispatchers.IO) {
-                try {
+            try {
+                // `return@withContext` ne quittait que le withContext : le message de
+                // succès s'affichait ensuite même après un échec.
+                withContext(Dispatchers.IO) {
                     ExcelExporter.export(allInternships.value, path, _pdfDataCache.value)
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        errorMessage.value = "Export échoué : ${e.message}"
-                    }
-                    return@withContext
                 }
+                statusMessage.value = "Export réussi : ${path.fileName}"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Export échoué : ${e.message ?: e.javaClass.simpleName}"
+                statusMessage.value = "Erreur lors de l'export Excel"
+            } finally {
+                isLoading.value = false
             }
-            statusMessage.value = "Export réussi : ${path.fileName}"
-            isLoading.value = false
         }
     }
 
@@ -605,24 +671,23 @@ class DashboardViewModel {
         scope.launch {
             isLoading.value = true
             statusMessage.value = "Export CSV VetAgroTice — $studyYear en cours…"
-            val exportedCount = withContext(Dispatchers.IO) {
-                try {
+            try {
+                val exportedCount = withContext(Dispatchers.IO) {
                     val selectedInternships = allInternships.value.filter {
                         it.studyYear.trim() == studyYear.trim()
                     }
                     VetAgroTiceCsvExporter.export(selectedInternships, path, _pdfDataCache.value)
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        errorMessage.value = "Export CSV échoué : ${e.message}"
-                    }
-                    return@withContext null
                 }
-            }
-            if (exportedCount != null) {
                 statusMessage.value =
                     "Export CSV réussi : $exportedCount stage(s) signé(s) en $studyYear — ${path.fileName}"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Export CSV échoué : ${e.message ?: e.javaClass.simpleName}"
+                statusMessage.value = "Erreur lors de l'export CSV"
+            } finally {
+                isLoading.value = false
             }
-            isLoading.value = false
         }
     }
 
@@ -736,9 +801,11 @@ private fun ScrapeFilters.checkpointKey(): String = listOf(
     periode, anneeEtude, theme, status, order,
 ).joinToString("|")
 
-private fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
-    if (lf.periode.isNotEmpty()) {
-        val months = lf.periode.toIntOrNull() ?: return true
+internal fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
+    // Un `periode` non numérique ne doit désactiver QUE ce critère : un `return true`
+    // ici court-circuitait aussi les filtres anneeEtude et theme placés plus bas.
+    val months = lf.periode.takeIf { it.isNotEmpty() }?.toIntOrNull()
+    if (months != null) {
         val cutoff = LocalDate.now().minusMonths(months.toLong())
         // Inclure les stages dont la date de début est dans la période ou à venir
         if (startDate != null && startDate.isBefore(cutoff)) return false
@@ -761,13 +828,16 @@ private fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
 
 enum class SortColumn { STUDENT, YEAR, ORGANIZATION, START_DATE, SIGN_DATE, THEME }
 
-private fun buildPdfFilename(internship: Internship): String {
+internal fun buildPdfFilename(internship: Internship): String {
     fun sanitize(s: String) = s.trim()
         .replace(Regex("[^\\p{L}\\p{N} _-]"), "")
         .replace(Regex("\\s+"), "_")
         .take(40)
-    val name  = sanitize(internship.studentName)
-    val year  = sanitize(internship.studyYear)
+    val name  = sanitize(internship.studentName).ifBlank { "sans-nom" }
+    val year  = sanitize(internship.studyYear).ifBlank { "sans-annee" }
     val date  = internship.startDate?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) ?: "sans-date"
-    return "${name}_${year}_${date}.pdf"
+    // Suffixe issu de localId() : deux conventions d'un même étudiant démarrant le même
+    // jour (convention annulée puis régénérée) écrasaient sinon le même fichier.
+    val suffix = internship.localId().take(8)
+    return "${name}_${year}_${date}_$suffix.pdf"
 }

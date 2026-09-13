@@ -41,13 +41,16 @@ fun App() {
     // Migration : ancien paramètre unique → liste de cibles
     var dbDir by remember { mutableStateOf(prefs.get("dbDir", "")) }
 
-    // Configurer le chemin de la base avant la création du ViewModel
-    remember(dbDir) {
+    // Sélection de la base avant la création du ViewModel (dont l'init() lit
+    // LocalDatabase.instance). Simple affectation, sans I/O : les changements
+    // ultérieurs passent par vm.switchDatabase() sur Dispatchers.IO.
+    remember {
         val path = if (dbDir.isBlank()) LocalDatabase.defaultDbPath
                    else Paths.get(dbDir, "internships.db")
         if (path != LocalDatabase.instance.dbPath) {
             LocalDatabase.instance = LocalDatabase(path)
         }
+        path
     }
 
     var trackingTargets by remember {
@@ -142,11 +145,12 @@ fun App() {
                 onDbDirChange = { newDir ->
                     dbDir = newDir
                     prefs.put("dbDir", newDir)
-                    val path = if (newDir.isBlank()) LocalDatabase.defaultDbPath
-                               else Paths.get(newDir, "internships.db")
-                    LocalDatabase.instance = LocalDatabase(path)
-                    LocalDatabase.instance.init()
-                    vm.reloadAll()
+                    // La bascule (ouverture + migration du schéma) part sur Dispatchers.IO :
+                    // elle était exécutée ici même, sur le thread de composition.
+                    vm.switchDatabase(
+                        if (newDir.isBlank()) LocalDatabase.defaultDbPath
+                        else Paths.get(newDir, "internships.db")
+                    )
                 },
                 onBrowserChange = {
                     browserType = it

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Une seule exécution par branche : les pushs successifs annulent la précédente.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Compilation et tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer le JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Configurer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Les pilotes GeckoDriver ne servent qu'à l'exécution de l'application ;
+      # aucun test n'utilise Selenium. On évite ainsi 26 Mo de téléchargement
+      # depuis github.com à chaque exécution.
+      - name: Tests unitaires
+        run: ./gradlew test --no-daemon -PskipGeckoDrivers
+
+      - name: Publier le rapport de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-tests
+          path: build/reports/tests/test/
+          retention-days: 14
+
+  drivers:
+    name: Téléchargement et intégrité des pilotes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer le JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Configurer Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Valide le chemin de packaging : les empreintes SHA-256 épinglées dans
+      # build.gradle.kts doivent correspondre aux binaires publiés par Mozilla.
+      # Un écart signale une release retaguée ou un binaire altéré.
+      - name: Vérifier les empreintes GeckoDriver
+        run: ./gradlew downloadGeckoDrivers --no-daemon

@@ -150,6 +150,65 @@ class DashboardHttpScraperTest {
         assertEquals(2, server.requestCount)
     }
 
+    @Test
+    fun `follows the next link when pagination only exposes a window of pages`() {
+        // stagevet.fr peut n'afficher que « 1 2 3 … Suivant » : le maximum des liens
+        // numérotés (3) n'est alors PAS la dernière page. Sans vérification du lien
+        // « suivant » après la page 3, les pages 4+ étaient perdues silencieusement
+        // et l'extraction était déclarée réussie.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val number = request.requestUrl?.queryParameter("page")?.toIntOrNull() ?: 1
+                val windowLinks = if (number == 1) (1..3).joinToString("") {
+                    "<a class='page-link' href='/dashboard?page=$it'>$it</a>"
+                } else ""
+                // La page 3 annonce une page 4 que la fenêtre de la page 1 ignorait.
+                val nextHref = if (number == 3) "/dashboard?page=4" else null
+                return MockResponse().setResponseCode(200).setBody(
+                    page(
+                        cardHtml.replace("Dupont Marie", "Etudiant page $number"),
+                        nextHref = nextHref,
+                        pageLinks = windowLinks,
+                    ),
+                )
+            }
+        }
+
+        val seenPages = mutableListOf<Int>()
+        val students = mutableListOf<String>()
+        val result = newScraper().scrapeAllPages { pageNumber, internships ->
+            seenPages += pageNumber
+            students += internships.single().studentName
+        }
+
+        val success = assertInstanceOf(ScraperResult.Success::class.java, result)
+        assertEquals(4, success.pageCount)
+        assertEquals(4, success.totalCount)
+        assertEquals((1..4).toSet(), seenPages.toSet())
+        assertTrue(students.contains("Etudiant page 4"), "la page hors fenêtre doit être extraite")
+    }
+
+    @Test
+    fun `stops when the last numbered page has no next link`() {
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val number = request.requestUrl?.queryParameter("page")?.toIntOrNull() ?: 1
+                val links = if (number == 1) (1..3).joinToString("") {
+                    "<a class='page-link' href='/dashboard?page=$it'>$it</a>"
+                } else ""
+                return MockResponse().setResponseCode(200).setBody(
+                    page(cardHtml.replace("Dupont Marie", "Etudiant page $number"), pageLinks = links),
+                )
+            }
+        }
+
+        val result = newScraper().scrapeAllPages()
+
+        val success = assertInstanceOf(ScraperResult.Success::class.java, result)
+        assertEquals(3, success.pageCount)
+        assertEquals(3, server.requestCount)
+    }
+
     private fun newScraper(maxConcurrency: Int = 5) = DashboardHttpScraper(
         sessionCookies = linkedMapOf("session" to "test-session", "preference" to "fr"),
         baseUrl = server.url("/dashboard"),

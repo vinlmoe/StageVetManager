@@ -2,10 +2,12 @@ package fr.vetbrain.stagevetmanager.export
 
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.File
-import java.io.FileOutputStream
 import java.nio.file.Paths
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -13,6 +15,7 @@ import java.time.format.DateTimeFormatter
 object LocalExcelUpdater {
 
     private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    private val DATA_FORMATTER = DataFormatter()
 
     fun update(
         internships: List<Internship>,
@@ -54,7 +57,7 @@ object LocalExcelUpdater {
                 rows.forEachIndexed { i, s -> appendRow(sheet, i + 1, s, pdfDataCache) }
             }
 
-            FileOutputStream(file).use { workbook.write(it) }
+            SafeFileWrite.replace(file) { out -> workbook.write(out) }
         } finally {
             workbook.close()
         }
@@ -68,20 +71,42 @@ object LocalExcelUpdater {
         writeHeaderRow(sheet)
         (1..sheet.lastRowNum).forEach { rowIdx ->
             val row = sheet.getRow(rowIdx) ?: return@forEach
-            val pdfUrl = row.getCell(11)?.toString().orEmpty()
+            val pdfUrl = cellText(row.getCell(11))
             row.createCell(14).setCellValue(pdfDataCache[pdfUrl]?.studentEmail.orEmpty())
         }
         val existing = (1..sheet.lastRowNum).mapNotNull { rowIdx ->
-            sheet.getRow(rowIdx)?.getCell(4)?.toString()?.trim()?.ifBlank { null }
+            cellText(sheet.getRow(rowIdx)?.getCell(4)).ifBlank { null }
         }.toHashSet()
 
         val toAppend = if (existing.isEmpty()) internships
-            else internships.filter { s -> s.conventionNumber.isBlank() || s.conventionNumber !in existing }
-        val startIdx = if (sheet.lastRowNum == 0 && sheet.getRow(0) == null) {
-            writeHeaderRow(sheet); 1
-        } else sheet.lastRowNum + 1
+            else internships.filter { s ->
+                s.conventionNumber.isBlank() || normalizeKey(s.conventionNumber) !in existing
+            }
+        val startIdx = sheet.lastRowNum + 1
         toAppend.forEachIndexed { i, s -> appendRow(sheet, startIdx + i, s, pdfDataCache) }
     }
+
+    /**
+     * Lecture textuelle d'une cellule indépendante de son type.
+     *
+     * `Cell.toString()` renvoie "12345.0" pour une cellule numérique : la
+     * déduplication par numéro de convention échouait donc dès que le classeur
+     * stockait ces numéros en numérique, et chaque exécution réajoutait toutes
+     * les lignes.
+     */
+    private fun cellText(cell: Cell?): String {
+        if (cell == null) return ""
+        val raw = when (cell.cellType) {
+            CellType.FORMULA -> runCatching { DATA_FORMATTER.formatCellValue(cell) }
+                .getOrElse { cell.toString() }
+            else -> DATA_FORMATTER.formatCellValue(cell)
+        }
+        return normalizeKey(raw)
+    }
+
+    /** Supprime un éventuel ".0" résiduel et les espaces insécables. */
+    private fun normalizeKey(value: String): String =
+        value.trim().replace(' ', ' ').trim().removeSuffix(".0")
 
     private fun rollingSheets(internships: List<Internship>, today: LocalDate) = listOf(
         "Débuts 15 prochains jours" to internships.filter {

@@ -62,6 +62,10 @@ class DashboardHttpScraper(
             onPageScraped(1, firstPage.internships)
             onProgress("Page HTTP 1 : ${firstPage.internships.size} stage(s) (total : $totalCount)")
 
+            // Page de départ du parcours séquentiel : la page 1 par défaut, ou la
+            // dernière page numérotée lorsqu'un lot parallèle a été traité avant.
+            var tail: ParsedPage = firstPage
+
             val lastPage = findLastPageNumber(firstPage.html, firstPage.finalUrl)
             if (lastPage != null && lastPage > 2) {
                 val remaining = downloadNumberedPages(
@@ -73,10 +77,26 @@ class DashboardHttpScraper(
                 pageCount += remaining.pageCount
                 totalCount += remaining.itemCount
                 onProgress("$pageCount/$lastPage pages HTTP traitées ($totalCount stage(s))")
-                return ScraperResult.Success(totalCount, pageCount)
+
+                // Une pagination « fenêtrée » (1 2 3 … Suivant, sans lien vers la
+                // dernière page) faisait conclure à tort que lastPage était la fin :
+                // les pages au-delà étaient perdues sans la moindre erreur. On ne
+                // s'arrête donc que si la dernière page traitée n'a plus de suivant.
+                val lastParsed = remaining.lastParsedPage
+                if (lastParsed == null) {
+                    return ScraperResult.Success(totalCount, pageCount)
+                }
+                tail = lastParsed
+                visited += tail.finalUrl.toString()
+                if (findNextUrl(tail.html, tail.finalUrl) != null) {
+                    onProgress(
+                        "Pagination plus longue qu'annoncée ($lastPage pages) — " +
+                            "poursuite séquentielle…"
+                    )
+                }
             }
 
-            var nextUrl = findNextUrl(firstPage.html, firstPage.finalUrl)
+            var nextUrl = findNextUrl(tail.html, tail.finalUrl)
             while (nextUrl != null) {
                 if (!visited.add(nextUrl.toString())) {
                     throw IOException("Boucle détectée dans la pagination HTTP : $nextUrl")
@@ -111,7 +131,9 @@ class DashboardHttpScraper(
             .values.sum()
         if (pageNumbers.isEmpty()) {
             onProgress("Reprise du checkpoint : $alreadyCompletedCount page(s) déjà enregistrée(s)")
-            return PageTotals(alreadyCompletedCount, alreadyCompletedItems)
+            // Aucune page téléchargée ici : l'appelant ne peut pas vérifier la suite
+            // de la pagination, il conclut sur le checkpoint.
+            return PageTotals(alreadyCompletedCount, alreadyCompletedItems, lastParsedPage = null)
         }
 
         val concurrency = minOf(maxConcurrency, pageNumbers.size)
@@ -136,6 +158,7 @@ class DashboardHttpScraper(
 
         return try {
             var downloadedItems = 0
+            var highest: NumberedPage? = null
             repeat(futures.size) {
                 try {
                     val numberedPage = completion.take().get()
@@ -143,6 +166,11 @@ class DashboardHttpScraper(
                     // restent sérialisées, mais ont lieu dès la fin de chaque page.
                     onPageScraped(numberedPage.number, numberedPage.page.internships)
                     downloadedItems += numberedPage.page.internships.size
+                    // Les pages arrivent dans le désordre : on retient celle de plus
+                    // grand numéro pour pouvoir vérifier la fin de la pagination.
+                    if (highest == null || numberedPage.number > highest!!.number) {
+                        highest = numberedPage
+                    }
                 } catch (e: ExecutionException) {
                     throw (e.cause as? Exception ?: e)
                 }
@@ -150,6 +178,9 @@ class DashboardHttpScraper(
             PageTotals(
                 pageCount = alreadyCompletedCount + futures.size,
                 itemCount = alreadyCompletedItems + downloadedItems,
+                // Seule la vraie dernière page permet de conclure ; si le checkpoint a
+                // fait sauter des pages en fin de liste, on ne conclut pas.
+                lastParsedPage = highest?.takeIf { it.number == lastPage }?.page,
             )
         } finally {
             futures.forEach { if (!it.isDone) it.cancel(true) }
@@ -273,7 +304,12 @@ class DashboardHttpScraper(
         val internships: List<Internship>,
     )
     private data class NumberedPage(val number: Int, val page: ParsedPage)
-    private data class PageTotals(val pageCount: Int, val itemCount: Int)
+    private data class PageTotals(
+        val pageCount: Int,
+        val itemCount: Int,
+        /** Dernière page numérotée effectivement téléchargée, si elle est connue. */
+        val lastParsedPage: ParsedPage? = null,
+    )
 
     companion object {
         private val RETRYABLE_CODES = setOf(429, 500, 502, 503, 504)

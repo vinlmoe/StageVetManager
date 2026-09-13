@@ -10,6 +10,7 @@ import java.security.MessageDigest
 import java.time.format.DateTimeFormatter
 import java.sql.Connection
 import java.sql.DriverManager
+import org.sqlite.SQLiteConfig
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -30,13 +31,55 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         val defaultDbPath: Path = Paths.get(
             System.getProperty("user.home"), ".stagevetmanager", "internships.db"
         )
+
+        private const val BUSY_TIMEOUT_MS = 15_000
+
+        /**
+         * Base active. Réassignée quand l'utilisateur change de dossier : `@Volatile`
+         * garantit que les coroutines IO voient la nouvelle instance immédiatement
+         * (l'écriture vient du thread UI).
+         */
+        @Volatile
         var instance = LocalDatabase()
     }
 
+    /**
+     * Ouvre une connexion configurée pour l'accès concurrent.
+     *
+     * Sans configuration explicite, le mode journal restait `delete` (un seul accès
+     * à la fois), les clés étrangères étaient ignorées, et surtout les transactions
+     * s'ouvraient en mode *deferred* : `upsertAll` lit (SELECT) avant d'écrire, et
+     * l'escalade du verrou de lecture en verrou d'écriture renvoie SQLITE_BUSY
+     * **immédiatement**, sans respecter busy_timeout. D'où des stages perdus quand
+     * autoParseNewPdfs et autoDownloadSignedPdfs écrivent en parallèle après une
+     * extraction. `BEGIN IMMEDIATE` prend le verrou d'écriture dès l'ouverture, ce
+     * qui rend l'attente possible.
+     */
     private fun connect(): Connection {
         dbPath.parent.toFile().mkdirs()
         Class.forName("org.sqlite.JDBC")
-        return DriverManager.getConnection("jdbc:sqlite:${dbPath.toAbsolutePath()}")
+
+        val config = SQLiteConfig().apply {
+            setBusyTimeout(BUSY_TIMEOUT_MS)
+            enforceForeignKeys(true)
+            setSynchronous(SQLiteConfig.SynchronousMode.NORMAL)
+            setTransactionMode(SQLiteConfig.TransactionMode.IMMEDIATE)
+        }
+        val conn = DriverManager.getConnection(
+            "jdbc:sqlite:${dbPath.toAbsolutePath()}", config.toProperties(),
+        )
+        // WAL : un rédacteur et plusieurs lecteurs en parallèle. Indisponible sur
+        // certains partages réseau (le dossier de base est configurable par
+        // l'utilisateur) — on retombe alors sur le mode journal par défaut.
+        runCatching { conn.createStatement().use { it.execute("PRAGMA journal_mode = WAL") } }
+        return conn
+    }
+
+    /** Valeur d'un PRAGMA telle qu'elle s'applique réellement aux connexions ouvertes ici. */
+    internal fun pragma(name: String): String = connect().use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery("PRAGMA $name").use { if (it.next()) it.getString(1) else "" }
+        }
     }
 
     fun init() {
@@ -456,24 +499,68 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         }
     }
 
+    /**
+     * Copie la base vers `internships_backup_<horodatage>.db`.
+     *
+     * Échoue plutôt que de produire une sauvegarde trompeuse : une base absente ou
+     * vide renvoyait auparavant un chemin « Sauvegarde créée » vers un fichier de
+     * 0 octet (connect() crée le fichier au passage).
+     */
     fun backup(): Path {
-        val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-        val dest = dbPath.resolveSibling("internships_backup_$ts.db")
-        // SQLite WAL checkpoint avant copie pour s'assurer que toutes les données sont dans le fichier principal
+        if (!Files.exists(dbPath) || Files.size(dbPath) == 0L || count() == 0) {
+            throw IllegalStateException("Base locale vide — rien à sauvegarder")
+        }
+
+        // Rapatrie le contenu du WAL dans le fichier principal avant la copie :
+        // sans ce checkpoint la sauvegarde omettrait les dernières transactions.
         connect().use { conn ->
-            conn.createStatement().execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.createStatement().use { it.execute("PRAGMA wal_checkpoint(TRUNCATE)") }
+        }
+
+        val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+        // L'horodatage est à la seconde : deux sauvegardes rapprochées levaient une
+        // FileAlreadyExistsException au lieu de créer un second fichier.
+        var dest = dbPath.resolveSibling("internships_backup_$ts.db")
+        var suffix = 2
+        while (Files.exists(dest)) {
+            dest = dbPath.resolveSibling("internships_backup_${ts}_$suffix.db")
+            suffix++
         }
         Files.copy(dbPath, dest)
         return dest
     }
 
-    fun clear() {
+    /**
+     * Vide la base. Les statuts cliniques sont conservés : ils décrivent les
+     * organismes, pas les stages, et survivent donc à une remise à zéro.
+     *
+     * Renvoie le chemin de la sauvegarde automatique effectuée juste avant, ou
+     * `null` si la base était déjà vide. `in_suivi_table` et `local_pdf_path` sont
+     * des annotations locales qu'une ré-extraction ne restaure pas : l'effacement
+     * ne doit jamais avoir lieu sans ce filet.
+     */
+    fun clear(): Path? {
+        val safetyBackup = runCatching { backup() }.getOrNull()
         connect().use { conn ->
-            conn.createStatement().execute("DELETE FROM internships")
-            conn.createStatement().execute("DELETE FROM pdf_data")
-            conn.createStatement().execute("DELETE FROM scrape_pages")
-            conn.createStatement().execute("DELETE FROM scrape_runs")
+            conn.autoCommit = false
+            try {
+                conn.createStatement().use { stmt ->
+                    // Un DELETE partiel laissait une base incohérente (stages effacés
+                    // mais checkpoints conservés → reprise d'extraction erronée).
+                    stmt.execute("DELETE FROM internships")
+                    stmt.execute("DELETE FROM pdf_data")
+                    stmt.execute("DELETE FROM scrape_pages")
+                    stmt.execute("DELETE FROM scrape_runs")
+                }
+                conn.commit()
+            } catch (e: Exception) {
+                conn.rollback()
+                throw e
+            } finally {
+                conn.autoCommit = true
+            }
         }
+        return safetyBackup
     }
 
     fun savePdfData(data: ConventionPdfData) {

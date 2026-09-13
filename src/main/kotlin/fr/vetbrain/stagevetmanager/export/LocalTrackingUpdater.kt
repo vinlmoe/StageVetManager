@@ -6,7 +6,6 @@ import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.File
 import java.io.FileNotFoundException
-import java.io.FileOutputStream
 
 class LocalTrackingUpdater {
 
@@ -43,11 +42,15 @@ class LocalTrackingUpdater {
                 if (header.isNotEmpty()) {
                     var colLieu = -1; var colDuree = -1
                     for (offset in 0..5) {
+                        // Le balayage s'arrêtait uniquement sur un sous-en-tête vide :
+                        // avec des groupes contigus il débordait sur le thème suivant et
+                        // tous les groupes finissaient par pointer les mêmes colonnes.
+                        if (offset > 0 && cellStr(headerRow0, col + offset).isNotEmpty()) break
                         val subH = cellStr(headerRow1, col + offset).lowercase()
                         if (subH.isEmpty()) break
                         when {
-                            subH.contains("lieu") -> colLieu = col + offset
-                            subH.contains("dur")  -> colDuree = col + offset
+                            subH.contains("lieu") -> if (colLieu < 0) colLieu = col + offset
+                            subH.contains("dur")  -> if (colDuree < 0) colDuree = col + offset
                         }
                     }
                     if (colLieu >= 0 && colDuree >= 0)
@@ -92,7 +95,7 @@ class LocalTrackingUpdater {
                 matched++
             }
 
-            FileOutputStream(file).use { workbook.write(it) }
+            SafeFileWrite.replace(file) { out -> workbook.write(out) }
             return TrackingUpdateResult(matched, warnings)
         } finally {
             workbook.close()
@@ -118,8 +121,13 @@ class LocalTrackingUpdater {
 
     private fun findThemeGroup(theme: String, groups: List<ThemeGroup>): ThemeGroup? {
         val themeNorm = theme.trim().lowercase()
+        // Sans ce garde, `groupNorm.contains("")` est toujours vrai : un stage dont le
+        // thème n'a pas pu être parsé était écrit silencieusement dans le premier
+        // groupe de colonnes du tableau. Mieux vaut un warning « thème introuvable ».
+        if (themeNorm.isEmpty()) return null
         return groups.firstOrNull { tg ->
             val groupNorm = tg.name.trim().lowercase()
+            if (groupNorm.isEmpty()) return@firstOrNull false
             themeNorm.contains(groupNorm) || groupNorm.contains(themeNorm)
         }
     }
