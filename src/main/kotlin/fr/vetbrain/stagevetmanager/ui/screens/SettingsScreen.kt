@@ -68,7 +68,17 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = { showClearDialog = false },
                 title = { Text("Vider la base locale ?") },
-                text = { Text("Cette action supprime définitivement les $dbCount stage(s) stockés localement. Elle ne modifie pas les données sur stagevet.fr.") },
+                text = {
+                    Text(
+                        "Cette action supprime les $dbCount stage(s) stockés localement, " +
+                        "les conventions PDF analysées et les points de reprise d'extraction. " +
+                        "Elle ne modifie pas les données sur stagevet.fr.\n\n" +
+                        "Une ré-extraction ne restaure PAS les cases « suivi » cochées ni les " +
+                        "chemins des PDF téléchargés : ces annotations n'existent qu'en local. " +
+                        "Les statuts des cliniques sont conservés.\n\n" +
+                        "Une sauvegarde de la base est créée automatiquement avant l'effacement."
+                    )
+                },
                 confirmButton = {
                     TextButton(onClick = {
                         onClearDatabase()

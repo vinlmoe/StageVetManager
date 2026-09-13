@@ -625,13 +625,23 @@ class DashboardViewModel {
 
     fun clearDatabase() {
         scope.launch {
-            withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
-            allInternships.value = emptyList()
-            _pdfDataCache.value = emptyMap()
-            selectedInternship.value = null
-            selectedPdfData.value = null
-            dbCount.value = 0
-            statusMessage.value = "Base locale vidée"
+            try {
+                val backup = withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
+                allInternships.value = emptyList()
+                _pdfDataCache.value = emptyMap()
+                selectedInternship.value = null
+                selectedPdfData.value = null
+                dbCount.value = 0
+                statusMessage.value = if (backup != null)
+                    "Base locale vidée — sauvegarde : ${backup.fileName}"
+                else
+                    "Base locale vidée"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                errorMessage.value = "Effacement échoué : ${e.message ?: e.javaClass.simpleName}"
+                loadFromDatabase()
+            }
         }
     }
 
