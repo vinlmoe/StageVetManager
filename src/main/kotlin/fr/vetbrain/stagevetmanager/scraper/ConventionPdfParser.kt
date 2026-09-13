@@ -9,12 +9,20 @@ import java.time.format.DateTimeFormatter
 
 object ConventionPdfParser {
 
+    /**
+     * Ajoute le dump des champs AcroForm au texte brut, pour affiner les regex
+     * depuis la vue détail. Désactivé par défaut : ce dump est un artefact de
+     * debug qui se retrouvait sinon dans l'export CSV livré aux utilisateurs.
+     * Activer avec `-Dstagevet.pdf.debug=true`.
+     */
+    private val DUMP_ACROFORM: Boolean
+        get() = System.getProperty("stagevet.pdf.debug")?.toBoolean() == true
+
     fun parse(pdfBytes: ByteArray, sourceUrl: String = ""): ConventionPdfData {
         return Loader.loadPDF(pdfBytes).use { doc ->
             val strippedText = PDFTextStripper().apply { sortByPosition = true }.getText(doc)
 
-            // Append AcroForm field dump for debug (visible in InternshipDetailView raw text)
-            val acroFormDebug = buildString {
+            val acroFormDebug = if (!DUMP_ACROFORM) "" else buildString {
                 val acroForm = doc.documentCatalog.acroForm
                 if (acroForm == null) {
                     append("\n\n=== ACROFORM : null (pas de formulaire interactif) ===\n")

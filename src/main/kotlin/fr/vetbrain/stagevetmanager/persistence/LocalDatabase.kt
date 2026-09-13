@@ -30,6 +30,13 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         val defaultDbPath: Path = Paths.get(
             System.getProperty("user.home"), ".stagevetmanager", "internships.db"
         )
+
+        /**
+         * Base active. Réassignée quand l'utilisateur change de dossier : `@Volatile`
+         * garantit que les coroutines IO voient la nouvelle instance immédiatement
+         * (l'écriture vient du thread UI).
+         */
+        @Volatile
         var instance = LocalDatabase()
     }
 

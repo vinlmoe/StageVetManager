@@ -174,7 +174,9 @@ class SeleniumScraper(
             while (true) {
                 log("sleep(1500) — stabilisation page ${ pageCount + 1}…")
                 Thread.sleep(1500)
-                val html = d.pageSource
+                // getPageSource() est @Nullable côté Selenium : le parser recevait un
+                // String non-null par inférence, d'où un NPE possible en fin de session.
+                val html = d.pageSource ?: ""
                 val pageInternships = DashboardParser.parse(html)
                 pageCount++
                 totalCount += pageInternships.size
@@ -622,12 +624,31 @@ class SeleniumScraper(
             val cacheDir = File(System.getProperty("user.home"), ".cache/selenium/chromedriver/$platform")
             if (!cacheDir.exists()) return null
             val binary = if (os.contains("win")) "chromedriver.exe" else "chromedriver"
+            // Tri sémantique obligatoire : lexicographiquement "99.0.4844.51" est
+            // supérieur à "120.0.6099.109", ce qui sélectionnait le pilote le plus
+            // ancien après une mise à jour de Chrome (SessionNotCreatedException).
             return cacheDir.listFiles()
                 ?.filter { it.isDirectory }
-                ?.maxByOrNull { it.name }
+                ?.filter { File(it, binary).let { f -> f.exists() && f.canExecute() } }
+                ?.maxWithOrNull(compareBy(VERSION_ORDER) { it.name })
                 ?.let { File(it, binary) }
-                ?.takeIf { it.exists() && it.canExecute() }
         }
+
+        /** Compare des versions "120.0.6099.109" composant numérique par composant. */
+        internal val VERSION_ORDER: Comparator<String> = Comparator { left, right ->
+            val a = parseVersion(left)
+            val b = parseVersion(right)
+            var result = 0
+            for (i in 0 until maxOf(a.size, b.size)) {
+                result = (a.getOrElse(i) { 0 }).compareTo(b.getOrElse(i) { 0 })
+                if (result != 0) break
+            }
+            // Départage stable des noms non numériques ("120.0.1" vs "120.0.1-beta").
+            if (result != 0) result else left.compareTo(right)
+        }
+
+        private fun parseVersion(name: String): List<Int> =
+            name.split('.').map { part -> part.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
 
         fun resolveGeckoDriver(): File? {
             val os   = System.getProperty("os.name").lowercase()

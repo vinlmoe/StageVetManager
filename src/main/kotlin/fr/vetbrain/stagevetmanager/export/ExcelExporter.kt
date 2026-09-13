@@ -5,7 +5,6 @@ import fr.vetbrain.stagevetmanager.model.Internship
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.ByteArrayOutputStream
-import java.io.FileOutputStream
 import java.nio.file.Path
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -26,8 +25,11 @@ object ExcelExporter {
 
     fun export(internships: List<Internship>, path: Path, pdfDataCache: Map<String, ConventionPdfData> = emptyMap()) {
         val wb = buildWorkbook(internships, pdfDataCache)
-        FileOutputStream(path.toFile()).use { wb.write(it) }
-        wb.close()
+        try {
+            SafeFileWrite.replace(path.toFile()) { out -> wb.write(out) }
+        } finally {
+            wb.close()
+        }
     }
 
     fun exportToBytes(internships: List<Internship>, pdfDataCache: Map<String, ConventionPdfData> = emptyMap()): ByteArray {
