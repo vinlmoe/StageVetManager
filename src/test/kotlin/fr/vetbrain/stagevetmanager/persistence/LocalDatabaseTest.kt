@@ -110,6 +110,20 @@ class LocalDatabaseTest {
         assertEquals(LocalDate.of(2025, 6, 1), loaded[0].signingDate)
     }
 
+    @Test
+    fun `PDF school signature updates only the matching unsigned stage`() {
+        val url = "https://stagevet.fr/convention/pdf/abc"
+        val pending = internship().copy(conventionPdfUrl = url, conventionSignUrl = "$url/signature/xyz")
+        val other = internship(studentName = "Martin Luc").copy(conventionPdfUrl = "https://stagevet.fr/other")
+        db.upsertAll(listOf(pending, other))
+
+        assertEquals(1, db.updateSchoolSignatureFromPdf(url, LocalDate.of(2026, 9, 13)))
+        val updated = db.loadAll().associateBy { it.studentName }
+        assertEquals(LocalDate.of(2026, 9, 13), updated.getValue(pending.studentName).signingDate)
+        assertEquals("", updated.getValue(pending.studentName).conventionSignUrl)
+        assertNull(updated.getValue(other.studentName).signingDate)
+    }
+
     // ── loadAll ───────────────────────────────────────────────────────────────
 
     @Test

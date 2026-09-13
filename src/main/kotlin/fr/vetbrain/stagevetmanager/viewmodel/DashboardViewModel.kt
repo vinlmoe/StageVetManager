@@ -177,7 +177,6 @@ class DashboardViewModel {
             var totalAdded = 0
             var totalUpdated = 0
             var logPath = ""
-            var signatureRefreshWarning = ""
 
             val result = withContext(Dispatchers.IO) {
                 val scraper = SeleniumScraper(
@@ -213,14 +212,6 @@ class DashboardViewModel {
                         // Chaque page HTTP validée est sauvegardée immédiatement. Les identifiants
                         // mémorisés évitent de la rejouer si Selenium doit reprendre la pagination.
                         val activeFilters = scrapeFilters.value
-                        val pendingSignatureIds = LocalDatabase.instance.loadAll()
-                            .filter { it.needsSignatureRefresh() }
-                            .mapTo(mutableSetOf()) { it.localId() }
-                        val refreshedIds = mutableSetOf<String>()
-                        val persistSelectedPage: (List<Internship>) -> Unit = { internships ->
-                            persistPage(internships)
-                            internships.mapTo(refreshedIds) { it.localId() }
-                        }
                         val checkpoint = LocalDatabase.instance.beginOrResumeScrape(
                             activeFilters.checkpointKey()
                         )
@@ -234,7 +225,7 @@ class DashboardViewModel {
                             filters = activeFilters,
                             completedPages = checkpoint.completedPages,
                         ) { pageNumber, internships ->
-                            persistSelectedPage(internships)
+                            persistPage(internships)
                             internships.mapTo(httpPersistedIds) { internship -> internship.localId() }
                             LocalDatabase.instance.markScrapePageCompleted(
                                 checkpoint.runId, pageNumber, internships.size
@@ -265,7 +256,7 @@ class DashboardViewModel {
                                 val notAlreadyPersisted = seleniumPage.filter {
                                     it.localId() !in httpPersistedIds
                                 }
-                                if (notAlreadyPersisted.isNotEmpty()) persistSelectedPage(notAlreadyPersisted)
+                                if (notAlreadyPersisted.isNotEmpty()) persistPage(notAlreadyPersisted)
                             }
                             when (seleniumResult) {
                                 is ScraperResult.Success -> LocalDatabase.instance.finishScrapeRun(
@@ -281,51 +272,6 @@ class DashboardViewModel {
                                 )
                             }
                             seleniumResult
-                        }.also { primaryResult ->
-                            if (primaryResult is ScraperResult.Success) {
-                                val missingIds = pendingSignatureIds - refreshedIds
-                                if (missingIds.isNotEmpty()) {
-                                    scraper.logHttpProgress(
-                                        "Vérification de ${missingIds.size} stage(s) en attente de signature hors sélection"
-                                    )
-                                    val extraResult = DashboardHttpScraper(
-                                        sessionCookies = sessionCookies,
-                                        onProgress = { msg -> scraper.logHttpProgress(msg) },
-                                    ).scrapeAllPages(ScrapeFilters()) { _, internships ->
-                                        val matches = internships.filter { it.localId() in missingIds }
-                                        if (matches.isNotEmpty()) {
-                                            persistPage(matches)
-                                            matches.mapTo(refreshedIds) { it.localId() }
-                                        }
-                                    }
-                                    if (extraResult is ScraperResult.Failure) {
-                                        scraper.logHttpProgress(
-                                            "Vérification HTTP incomplète : ${extraResult.message} — reprise avec Selenium"
-                                        )
-                                        val seleniumExtra = scraper.scrapeAllPages(ScrapeFilters()) { internships ->
-                                            val matches = internships.filter {
-                                                it.localId() in missingIds && it.localId() !in refreshedIds
-                                            }
-                                            if (matches.isNotEmpty()) {
-                                                persistPage(matches)
-                                                matches.mapTo(refreshedIds) { it.localId() }
-                                            }
-                                        }
-                                        if (seleniumExtra is ScraperResult.Failure) {
-                                            signatureRefreshWarning =
-                                                "Vérification des signatures incomplète : ${seleniumExtra.message}"
-                                        }
-                                    }
-                                    val notFound = missingIds - refreshedIds
-                                    if (notFound.isNotEmpty()) {
-                                        signatureRefreshWarning =
-                                            "${notFound.size} stage(s) en attente de signature introuvable(s)"
-                                        scraper.logHttpProgress(
-                                            "${notFound.size} stage(s) en attente de signature introuvable(s) sur le dashboard"
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 } finally {
@@ -344,7 +290,6 @@ class DashboardViewModel {
                         append("${result.totalCount} stage(s) extraits — ")
                         append("$totalAdded nouveau(x), $totalUpdated mis à jour")
                         append(" — base : $count au total")
-                        if (signatureRefreshWarning.isNotBlank()) append(" | $signatureRefreshWarning")
                         if (logPath.isNotBlank()) append(" | log : $logPath")
                     }
                     val pdfCache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
@@ -397,9 +342,17 @@ class DashboardViewModel {
                     val bytes = PdfDownloader(sessionCookies).download(url)
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
                     LocalDatabase.instance.savePdfData(data)
+                    data.schoolSigningDate?.let { LocalDatabase.instance.updateSchoolSignatureFromPdf(url, it) }
                     scope.launch(Dispatchers.Main) {
                         selectedPdfData.value = data
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                        data.schoolSigningDate?.let { date ->
+                            allInternships.value = allInternships.value.map { internship ->
+                                if (internship.conventionPdfUrl == url && internship.signingDate == null)
+                                    internship.copy(signingDate = date, conventionSignUrl = "")
+                                else internship
+                            }
+                        }
                         statusMessage.value = "Convention téléchargée et analysée"
                     }
                 } catch (e: Exception) {
@@ -454,8 +407,16 @@ class DashboardViewModel {
                     val bytes = downloader.download(url)
                     val data  = ConventionPdfParser.parse(bytes, sourceUrl = url)
                     LocalDatabase.instance.savePdfData(data)
+                    data.schoolSigningDate?.let { LocalDatabase.instance.updateSchoolSignatureFromPdf(url, it) }
                     scope.launch(Dispatchers.Main) {
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
+                        data.schoolSigningDate?.let { date ->
+                            allInternships.value = allInternships.value.map { internship ->
+                                if (internship.conventionPdfUrl == url && internship.signingDate == null)
+                                    internship.copy(signingDate = date, conventionSignUrl = "")
+                                else internship
+                            }
+                        }
                     }
                 }.onSuccess {
                     succeeded++

@@ -1,5 +1,8 @@
 package fr.vetbrain.stagevetmanager.model
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 data class ConventionPdfData(
     val rawText: String,
     val sourceUrl: String = "",
@@ -73,4 +76,8 @@ data class ConventionPdfData(
     /** True si les 3 signataires requis AVANT la signature école ont tous signé. */
     val allPreSignaturesDone: Boolean get() =
         signingDateTutor.isNotBlank() && signingDateStudent.isNotBlank() && signingDateHost.isNotBlank()
+
+    val schoolSigningDate: LocalDate? get() = runCatching {
+        LocalDate.parse(signingDateSchool.substringBefore(' ').trim(), DateTimeFormatter.ofPattern("dd-MM-uuuu"))
+    }.getOrNull()
 }

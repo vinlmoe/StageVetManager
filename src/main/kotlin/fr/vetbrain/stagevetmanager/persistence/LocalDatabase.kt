@@ -290,6 +290,17 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         }
     }
 
+    fun updateSchoolSignatureFromPdf(url: String, date: LocalDate): Int = connect().use { conn ->
+        conn.prepareStatement("""
+            UPDATE internships SET signing_date=?, convention_sign_url=''
+            WHERE convention_pdf_url=? AND signing_date IS NULL
+        """.trimIndent()).use { stmt ->
+            stmt.setString(1, date.toString())
+            stmt.setString(2, url)
+            stmt.executeUpdate()
+        }
+    }
+
     fun upsertAll(internships: List<Internship>): UpsertStats {
         var added = 0
         var updated = 0

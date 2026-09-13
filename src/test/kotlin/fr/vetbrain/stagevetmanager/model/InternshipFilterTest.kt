@@ -19,6 +19,13 @@ class InternshipFilterTest {
         assertFalse(pending.copy(conventionSignUrl = "").needsSignatureRefresh(today))
     }
 
+    @Test
+    fun `school signature date is read from the convention`() {
+        val pdf = ConventionPdfData(rawText = "", signingDateSchool = "13-09-2026 à 14:30")
+        assertEquals(LocalDate.of(2026, 9, 13), pdf.schoolSigningDate)
+        assertNull(pdf.copy(signingDateSchool = "").schoolSigningDate)
+    }
+
     private fun internship(
         studentName: String = "Dupont Marie",
         organization: String = "Clinique du Lac",
