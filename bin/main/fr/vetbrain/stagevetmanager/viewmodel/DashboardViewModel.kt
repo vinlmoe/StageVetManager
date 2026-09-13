@@ -11,12 +11,10 @@ import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.export.LocalExcelUpdater
 import fr.vetbrain.stagevetmanager.export.LocalTrackingUpdater
-import fr.vetbrain.stagevetmanager.export.VetAgroTiceCsvExporter
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.persistence.localId
 import fr.vetbrain.stagevetmanager.scraper.ConventionPdfParser
-import fr.vetbrain.stagevetmanager.scraper.DashboardHttpScraper
 import fr.vetbrain.stagevetmanager.scraper.PdfDownloader
 import fr.vetbrain.stagevetmanager.scraper.ScraperResult
 import fr.vetbrain.stagevetmanager.scraper.SeleniumScraper
@@ -193,8 +191,7 @@ class DashboardViewModel {
                     if (!loggedIn) {
                         ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                     } else {
-                        sessionCookies = scraper.getSessionCookies()
-                        val persistPage: (List<Internship>) -> Unit = { pageInternships ->
+                        val result = scraper.scrapeAllPages(filters = scrapeFilters.value) { pageInternships ->
                             val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
                             totalAdded += stats.added
                             totalUpdated += stats.updated
@@ -202,77 +199,8 @@ class DashboardViewModel {
                                 allInternships.value = allInternships.value + pageInternships
                             }
                         }
-                        val httpResult = DashboardHttpScraper(
-                            sessionCookies = sessionCookies,
-                            onProgress = { msg ->
-                                scraper.logHttpProgress(msg)
-                                scope.launch(Dispatchers.Main) { statusMessage.value = msg }
-                            },
-                        )
-                        // Chaque page HTTP validée est sauvegardée immédiatement. Les identifiants
-                        // mémorisés évitent de la rejouer si Selenium doit reprendre la pagination.
-                        val activeFilters = scrapeFilters.value
-                        val checkpoint = LocalDatabase.instance.beginOrResumeScrape(
-                            activeFilters.checkpointKey()
-                        )
-                        if (checkpoint.resumed && checkpoint.completedPages.isNotEmpty()) {
-                            scraper.logHttpProgress(
-                                "Reprise : ${checkpoint.completedPages.size} page(s) déjà sauvegardée(s)"
-                            )
-                        }
-                        val httpPersistedIds = mutableSetOf<String>()
-                        val httpScrapeResult = httpResult.scrapeAllPages(
-                            filters = activeFilters,
-                            completedPages = checkpoint.completedPages,
-                        ) { pageNumber, internships ->
-                            persistPage(internships)
-                            internships.mapTo(httpPersistedIds) { internship -> internship.localId() }
-                            LocalDatabase.instance.markScrapePageCompleted(
-                                checkpoint.runId, pageNumber, internships.size
-                            )
-                        }
-
-                        if (httpScrapeResult is ScraperResult.Success) {
-                            LocalDatabase.instance.finishScrapeRun(
-                                checkpoint.runId,
-                                success = true,
-                                totalPages = httpScrapeResult.pageCount,
-                                totalItems = httpScrapeResult.totalCount,
-                            )
-                            scraper.logHttpProgress(
-                                "Extraction terminée : ${httpScrapeResult.totalCount} stage(s) " +
-                                    "sur ${httpScrapeResult.pageCount} page(s)"
-                            )
-                            httpScrapeResult
-                        } else {
-                            val httpFailure = httpScrapeResult as ScraperResult.Failure
-                            scraper.logHttpProgress(
-                                "Échec (${httpFailure.message}) — reprise avec Selenium"
-                            )
-                            scope.launch(Dispatchers.Main) {
-                                statusMessage.value = "HTTP indisponible — reprise avec le navigateur…"
-                            }
-                            val seleniumResult = scraper.scrapeAllPages(activeFilters) { seleniumPage ->
-                                val notAlreadyPersisted = seleniumPage.filter {
-                                    it.localId() !in httpPersistedIds
-                                }
-                                if (notAlreadyPersisted.isNotEmpty()) persistPage(notAlreadyPersisted)
-                            }
-                            when (seleniumResult) {
-                                is ScraperResult.Success -> LocalDatabase.instance.finishScrapeRun(
-                                    checkpoint.runId,
-                                    success = true,
-                                    totalPages = seleniumResult.pageCount,
-                                    totalItems = seleniumResult.totalCount,
-                                )
-                                is ScraperResult.Failure -> LocalDatabase.instance.finishScrapeRun(
-                                    checkpoint.runId,
-                                    success = false,
-                                    errorMessage = seleniumResult.message,
-                                )
-                            }
-                            seleniumResult
-                        }
+                        sessionCookies = scraper.getSessionCookies()
+                        result
                     }
                 } finally {
                     scraper.close()
@@ -358,42 +286,12 @@ class DashboardViewModel {
         }
     }
 
-    fun reanalyzeAllPdfs() {
-        if (sessionCookies.isEmpty()) {
-            errorMessage.value = "Session expirée — relancez une extraction pour reconnecter"
-            return
-        }
-        if (isLoading.value || isPdfLoading.value) return
-
-        val urls = allInternships.value
-            .map { it.conventionPdfUrl }
-            .filter { it.isNotBlank() }
-            .distinct()
-        if (urls.isEmpty()) {
-            errorMessage.value = "Aucune convention PDF à réanalyser"
-            return
-        }
-
-        scope.launch {
-            isLoading.value = true
-            isPdfLoading.value = true
-            try {
-                autoParseNewPdfs(urls)
-            } finally {
-                isPdfLoading.value = false
-                isLoading.value = false
-            }
-        }
-    }
-
     private suspend fun autoParseNewPdfs(urls: List<String>) {
         val total = urls.size
         statusMessage.value = "Analyse automatique de $total convention(s)…"
         withContext(Dispatchers.IO) {
             val downloader = PdfDownloader(sessionCookies)
             var done = 0
-            var succeeded = 0
-            val failures = mutableListOf<String>()
             for (url in urls) {
                 runCatching {
                     val bytes = downloader.download(url)
@@ -402,24 +300,13 @@ class DashboardViewModel {
                     scope.launch(Dispatchers.Main) {
                         _pdfDataCache.value = _pdfDataCache.value + (url to data)
                     }
-                }.onSuccess {
-                    succeeded++
-                }.onFailure { error ->
-                    failures += "${url.substringAfterLast('/')} : ${error.message ?: error.javaClass.simpleName}"
                 }
                 done++
                 val d = done
                 scope.launch(Dispatchers.Main) { statusMessage.value = "Conventions analysées : $d/$total" }
             }
             scope.launch(Dispatchers.Main) {
-                statusMessage.value = "$succeeded/$total convention(s) analysée(s) — ${failures.size} échec(s)"
-                if (failures.isNotEmpty()) {
-                    errorMessage.value = buildString {
-                        append("${failures.size} convention(s) n'ont pas pu être analysée(s) :\n")
-                        append(failures.take(8).joinToString("\n"))
-                        if (failures.size > 8) append("\n… et ${failures.size - 8} autre(s)")
-                    }
-                }
+                statusMessage.value = "$done/$total convention(s) analysée(s) et sauvegardées"
             }
         }
     }
@@ -438,8 +325,6 @@ class DashboardViewModel {
         withContext(Dispatchers.IO) { Files.createDirectories(dir) }
         val downloader = PdfDownloader(sessionCookies)
         var done = 0
-        var succeeded = 0
-        val failures = mutableListOf<String>()
         val total = internships.size
         scope.launch(Dispatchers.Main) { statusMessage.value = "Téléchargement de $total convention(s) signée(s)…" }
         withContext(Dispatchers.IO) {
@@ -455,26 +340,13 @@ class DashboardViewModel {
                             if (i.localId() == internship.localId()) updated else i
                         }
                     }
-                }.onSuccess {
-                    succeeded++
-                }.onFailure { error ->
-                    failures += "${internship.studentName} : ${error.message ?: error.javaClass.simpleName}"
                 }
                 done++
                 val d = done
                 scope.launch(Dispatchers.Main) { statusMessage.value = "Conventions téléchargées : $d/$total" }
             }
         }
-        scope.launch(Dispatchers.Main) {
-            statusMessage.value = "$succeeded/$total convention(s) sauvegardée(s) — ${failures.size} échec(s)"
-            if (failures.isNotEmpty()) {
-                errorMessage.value = buildString {
-                    append("${failures.size} téléchargement(s) de convention en échec :\n")
-                    append(failures.take(8).joinToString("\n"))
-                    if (failures.size > 8) append("\n… et ${failures.size - 8} autre(s)")
-                }
-            }
-        }
+        scope.launch(Dispatchers.Main) { statusMessage.value = "$done/$total convention(s) signée(s) sauvegardée(s)" }
     }
 
     fun selectInternship(internship: Internship?) {
@@ -557,9 +429,6 @@ class DashboardViewModel {
         scope.launch {
             withContext(Dispatchers.IO) { LocalDatabase.instance.clear() }
             allInternships.value = emptyList()
-            _pdfDataCache.value = emptyMap()
-            selectedInternship.value = null
-            selectedPdfData.value = null
             dbCount.value = 0
             statusMessage.value = "Base locale vidée"
         }
@@ -580,31 +449,6 @@ class DashboardViewModel {
                 }
             }
             statusMessage.value = "Export réussi : ${path.fileName}"
-            isLoading.value = false
-        }
-    }
-
-    fun exportVetAgroTiceCsv(path: Path, studyYear: String) {
-        scope.launch {
-            isLoading.value = true
-            statusMessage.value = "Export CSV VetAgroTice — $studyYear en cours…"
-            val exportedCount = withContext(Dispatchers.IO) {
-                try {
-                    val selectedInternships = allInternships.value.filter {
-                        it.studyYear.trim() == studyYear.trim()
-                    }
-                    VetAgroTiceCsvExporter.export(selectedInternships, path, _pdfDataCache.value)
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        errorMessage.value = "Export CSV échoué : ${e.message}"
-                    }
-                    return@withContext null
-                }
-            }
-            if (exportedCount != null) {
-                statusMessage.value =
-                    "Export CSV réussi : $exportedCount stage(s) signé(s) en $studyYear — ${path.fileName}"
-            }
             isLoading.value = false
         }
     }
@@ -685,11 +529,11 @@ class DashboardViewModel {
                     try {
                         if (complement) {
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Complétion du fichier Excel en cours…" }
-                            LocalExcelUpdater.complement(allInternships.value, localPath, _pdfDataCache.value)
+                            LocalExcelUpdater.complement(allInternships.value, localPath)
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier complété : ${java.io.File(localPath).name}" }
                         } else {
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Écriture du fichier Excel en cours…" }
-                            LocalExcelUpdater.update(allInternships.value, localPath, _pdfDataCache.value)
+                            LocalExcelUpdater.update(allInternships.value, localPath)
                             scope.launch(Dispatchers.Main) { statusMessage.value = "Fichier mis à jour : ${java.io.File(localPath).name}" }
                         }
                     } catch (e: Exception) {
@@ -714,10 +558,6 @@ class DashboardViewModel {
         scope.cancel()
     }
 }
-
-private fun ScrapeFilters.checkpointKey(): String = listOf(
-    periode, anneeEtude, theme, status, order,
-).joinToString("|")
 
 private fun Internship.matchesLocalFilters(lf: LocalFilters): Boolean {
     if (lf.periode.isNotEmpty()) {

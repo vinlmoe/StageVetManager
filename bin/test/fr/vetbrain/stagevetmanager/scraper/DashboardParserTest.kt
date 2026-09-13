@@ -1,0 +1,141 @@
+package fr.vetbrain.stagevetmanager.scraper
+
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import java.time.LocalDate
+
+class DashboardParserTest {
+
+    private val fixtureHtml: String =
+        DashboardParserTest::class.java.getResourceAsStream("/fixtures/sample_card.html")!!
+            .bufferedReader().readText()
+
+    @Test
+    fun `parse empty HTML returns empty list`() {
+        assertTrue(DashboardParser.parse("").isEmpty())
+    }
+
+    @Test
+    fun `parse valid card maps all fields correctly`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(1, results.size)
+        with(results[0]) {
+            assertEquals("Dupont Marie", studentName)
+            assertEquals("3ème année", studyYear)
+            assertEquals("Clinique Vétérinaire du Lac", organization)
+            assertEquals("Lyon, 69000", address)
+            assertEquals("Conv. n° 2025-001", conventionNumber)
+            assertEquals("Générée le 15/01/2025", conventionGenDate)
+            assertEquals(LocalDate.of(2025, 6, 1), signingDate)
+            assertEquals(LocalDate.of(2025, 6, 1), startDate)
+            assertEquals(LocalDate.of(2025, 6, 30), endDate)
+            assertEquals("01/06/2025 au 30/06/2025", rawDateStage)
+            assertEquals("Chirurgie générale", theme)
+        }
+    }
+
+    @Test
+    fun `parse card without student anchor returns empty list`() {
+        val html = fixtureHtml.replace(
+            """<h4 class="h4"><a href="#">Dupont Marie</a></h4>""",
+            """<h4 class="h4">Dupont Marie</h4>"""
+        )
+        assertTrue(DashboardParser.parse(html).isEmpty())
+    }
+
+    @Test
+    fun `signingDate parsed from dd-MM-yyyy in data-original-title`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(LocalDate.of(2025, 6, 1), results[0].signingDate)
+    }
+
+    @Test
+    fun `signingDate is null when data-original-title contains no date pattern`() {
+        val html = fixtureHtml.replace("Signé le 01-06-2025", "Pas encore signé")
+        val results = DashboardParser.parse(html)
+        assertNull(results[0].signingDate)
+    }
+
+    @Test
+    fun `parseDateRange extracts start and end from dd slash MM slash yyyy`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(LocalDate.of(2025, 6, 1), results[0].startDate)
+        assertEquals(LocalDate.of(2025, 6, 30), results[0].endDate)
+    }
+
+    @Test
+    fun `parseDateRange extracts start and end from dd dash MM dash yyyy`() {
+        val html = fixtureHtml.replace("01/06/2025 au 30/06/2025", "01-06-2025 au 30-06-2025")
+        val results = DashboardParser.parse(html)
+        assertEquals(LocalDate.of(2025, 6, 1), results[0].startDate)
+        assertEquals(LocalDate.of(2025, 6, 30), results[0].endDate)
+    }
+
+    @Test
+    fun `parseDateRange returns null null when rawDateStage has no dates`() {
+        val html = fixtureHtml.replace("01/06/2025 au 30/06/2025", "Dates non renseignées")
+        val results = DashboardParser.parse(html)
+        assertNull(results[0].startDate)
+        assertNull(results[0].endDate)
+    }
+
+    @Test
+    fun `study year prefix is stripped`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertFalse(results[0].studyYear.contains("Année d'étude"))
+    }
+
+    @Test
+    fun `theme prefix is stripped`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertFalse(results[0].theme.contains("Thème du stage"))
+    }
+
+    @Test
+    fun `durationLabel is parsed from fourth ul li element`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals("4 semaines", results[0].durationLabel)
+    }
+
+    @Test
+    fun `durationLabel is empty when duration ul is absent`() {
+        val html = fixtureHtml.replace(
+            "<ul><li>Durée : 4 semaines</li></ul>",
+            ""
+        )
+        val results = DashboardParser.parse(html)
+        assertEquals("", results[0].durationLabel)
+    }
+
+    @Test
+    fun `conventionPdfUrl is extracted from btn-success link without signature`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1",
+            results[0].conventionPdfUrl
+        )
+    }
+
+    @Test
+    fun `conventionSignUrl is extracted from btn-success link with signature path`() {
+        val results = DashboardParser.parse(fixtureHtml)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1/signature/xyz789xyz789xyz789xyz789xyz789xyz789xyz7",
+            results[0].conventionSignUrl
+        )
+    }
+
+    @Test
+    fun `conventionSignUrl is empty when no signing link is present`() {
+        val html = fixtureHtml.replace(
+            """<a class="btn btn-success" href="https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1/signature/xyz789xyz789xyz789xyz789xyz789xyz789xyz7">Signer la convention (DEVE)</a>""",
+            ""
+        )
+        val results = DashboardParser.parse(html)
+        assertEquals("", results[0].conventionSignUrl)
+        assertEquals(
+            "https://www.stagevet.fr/convention/pdf/abc123def456abc123def456abc123def456abc1",
+            results[0].conventionPdfUrl
+        )
+    }
+}
