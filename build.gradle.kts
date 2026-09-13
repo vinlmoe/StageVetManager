@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "fr.vetbrain"
-version = "1.0.1"
+version = "1.0.2"
 val geckoDriverVersion = "0.35.0"
 
 kotlin {
@@ -152,7 +152,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "StageVetManager"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.2"
             description = "Gestion des stages vétérinaires - VetAgro Sup"
             vendor = "VetBrain"
             // Selenium 4.x et OkHttp utilisent java.net.http (HttpClient + WebSocket)
