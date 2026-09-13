@@ -21,6 +21,11 @@ data class Internship(
     val inSuiviTable: Boolean = false,
     val localPdfPath: String = "",
 ) {
+    /** Convention non signée dont le stage n'est pas terminé. */
+    fun needsSignatureRefresh(today: LocalDate = LocalDate.now()): Boolean =
+        signingDate == null && (conventionPdfUrl.isNotBlank() || conventionSignUrl.isNotBlank()) &&
+            (endDate ?: startDate)?.let { !it.isBefore(today) } == true
+
     fun matchesText(query: String): Boolean {
         if (query.isBlank()) return true
         val q = query.lowercase()

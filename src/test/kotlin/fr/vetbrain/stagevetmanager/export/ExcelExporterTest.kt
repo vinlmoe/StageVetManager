@@ -69,7 +69,6 @@ class ExcelExporterTest {
     }
 
     @Test
-<<<<<<< HEAD
     fun `student email is exported from parsed PDF data`() {
         val stages = listOf(internship())
         val cache = mapOf(
@@ -84,7 +83,10 @@ class ExcelExporterTest {
                 "marie.dupont@example.test",
                 wb.getSheet("Tous les stages").getRow(1).getCell(14).stringCellValue,
             )
-=======
+        }
+    }
+
+    @Test
     fun `clinic sheet header row has correct labels`() {
         val expectedHeaders = listOf(
             "Organisme", "Adresse", "Nb stages", "Email(s)", "Étudiants"
@@ -94,7 +96,6 @@ class ExcelExporterTest {
             expectedHeaders.forEachIndexed { i, expected ->
                 assertEquals(expected, header.getCell(i).stringCellValue)
             }
->>>>>>> 502b6f99b260c061d2482bb3b9bc34bfe45634a8
         }
     }
 

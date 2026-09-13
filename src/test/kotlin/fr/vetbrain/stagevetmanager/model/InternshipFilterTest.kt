@@ -6,6 +6,19 @@ import java.time.LocalDate
 
 class InternshipFilterTest {
 
+    @Test
+    fun `unsigned conventions are refreshed until the internship ends`() {
+        val today = LocalDate.of(2026, 9, 13)
+        val pending = internship(
+            startDate = today.minusDays(10), endDate = today,
+            conventionSignUrl = "https://stagevet.fr/signature/abc",
+        )
+        assertTrue(pending.needsSignatureRefresh(today))
+        assertFalse(pending.copy(endDate = today.minusDays(1)).needsSignatureRefresh(today))
+        assertFalse(pending.copy(signingDate = today).needsSignatureRefresh(today))
+        assertFalse(pending.copy(conventionSignUrl = "").needsSignatureRefresh(today))
+    }
+
     private fun internship(
         studentName: String = "Dupont Marie",
         organization: String = "Clinique du Lac",
