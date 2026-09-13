@@ -1,11 +1,34 @@
+# — Sorties de build —————————————————————————————————————————————————
 .gradle/
 build/
+out/
+# bin/ : sortie du plugin Eclipse/Buildship. Y compris des copies des sources,
+# qui divergeaient de src/ et polluaient les recherches dans le dépôt.
+bin/
 *.class
 *.jar
-out/
+# Exception : le wrapper doit être versionné, sinon ./gradlew est inutilisable.
+!gradle/wrapper/gradle-wrapper.jar
+
+# — Environnement local ——————————————————————————————————————————————
 .idea/
 *.iml
 local.properties
 .kotlin/
 .claude/
 .jdk/
+.DS_Store
+
+# — Données d'exécution ——————————————————————————————————————————————
+# Journaux de scraping : contiennent des chemins locaux et l'environnement du poste.
+logs/
+# Bases locales, sauvegardes et exports : données personnelles d'étudiants.
+*.db
+*.db-wal
+*.db-shm
+internships_backup_*.db
+*_extract_stagevet.xlsx
+# Binaires de pilotes téléchargés hors du dossier build/.
+geckodriver-v*
+chromedriver
+chromedriver.exe

@@ -1,7 +1,7 @@
 # StageVetManager — Guide développeur
 
 Application Kotlin/Compose Desktop qui scrape stagevet.fr, stocke les stages localement
-en SQLite et les exporte vers Excel ou OneDrive.
+en SQLite et les exporte vers Excel ou CSV VetAgroTice.
 
 ---
 
@@ -21,7 +21,11 @@ en SQLite et les exporte vers Excel ou OneDrive.
 | Vue bilan | `ui/components/StudentBilanView.kt` | Regroupement par étudiant, expansion |
 | Dialog PDF | `ui/components/ConventionPdfDialog.kt` | Affiche `ConventionPdfData` |
 | Export Excel | `export/ExcelExporter.kt` | Apache POI, 3 feuilles |
-| Export OneDrive | `onedrive/OneDriveExcelUpdater.kt` | Graph API, sessions Excel |
+| Export Excel (fichier existant) | `export/LocalExcelUpdater.kt` | Complète un classeur sans le réécrire |
+| Tableau de suivi ER | `export/LocalTrackingUpdater.kt` | Écrit Lieu/Durée par groupe de thème |
+| Export CSV | `export/VetAgroTiceCsvExporter.kt` | Stages signés, une colonne par champ |
+| Écriture de fichiers | `export/SafeFileWrite.kt` | Temporaire + déplacement atomique + `.bak` |
+| Scraping HTTP | `scraper/DashboardHttpScraper.kt` | Chemin nominal après connexion Selenium |
 
 **Flux de données :**
 ```
@@ -30,7 +34,7 @@ stagevet.fr → SeleniumScraper → DashboardParser → List<Internship>
     → DashboardViewModel.allInternships (StateFlow)
     → displayed (filtré + trié)
     → InternshipTable  ou  StudentBilanView
-    → ExcelExporter / OneDriveExcelUpdater
+    → ExcelExporter / LocalExcelUpdater / LocalTrackingUpdater / VetAgroTiceCsvExporter
 
 Flux PDF (à la demande) :
     Clic icône 🔍 dans StudentBilanView
@@ -45,7 +49,7 @@ Flux PDF (à la demande) :
 
 ## Ajouter un nouveau champ scrappé
 
-Effectuer les étapes dans cet ordre. Compiler (`gradle compileKotlin`) après chaque groupe
+Effectuer les étapes dans cet ordre. Compiler (`./gradlew compileKotlin`) après chaque groupe
 pour détecter les erreurs au plus tôt.
 
 ### 1 — Modèle · `model/Internship.kt`
@@ -115,9 +119,7 @@ le bloc `updateStmt.run { ... }`. Vérifier que le `setString(N, id)` du WHERE r
 monNouveauChamp = rs.getString("mon_nouveau_champ") ?: "",
 ```
 
-> **Règle `localId()`** (fin du fichier) : la clé de déduplication est
-> `studentName|organization|rawDateStage`. Ne **pas** y ajouter de nouveaux champs, sauf si
-> le champ identifie une version *différente* du même stage.
+> Voir « Invariants de persistance » plus bas avant de toucher à `localId()`.
 
 ---
 
@@ -171,39 +173,49 @@ Text(
 
 ### 7 — Export Excel · `export/ExcelExporter.kt`
 
-Dans `writeSheet()` :
+Ajouter l'intitulé à la constante `HEADERS` (partagée avec `LocalExcelUpdater`) :
 
 ```kotlin
-// Ajouter à la liste headers (ligne ~63)
-val headers = listOf(
-    "Étudiant", /* … */, "Thème", "Mon champ"   // ← ici
+val HEADERS = listOf(
+    "Étudiant", /* … */, "Durée", "Email étudiant", "Mon champ",   // ← ici
 )
-
-// Ajouter la cellule de données (après row.createCell(10))
-row.createCell(11).setCellValue(s.monNouveauChamp)
 ```
+
+Puis la cellule correspondante dans `writeSheet()`, après la dernière déjà
+présente — l'index est `HEADERS.size - 1` :
+
+```kotlin
+row.createCell(15).setCellValue(s.monNouveauChamp)
+```
+
+> `ExcelExporter.export()` passe par `SafeFileWrite` : ne pas réintroduire de
+> `FileOutputStream(file)` direct, il tronquerait le fichier de l'utilisateur
+> avant de savoir si l'écriture aboutit.
 
 ---
 
-### 8 — Export OneDrive · `onedrive/OneDriveExcelUpdater.kt`
+### 8 — Complétion d'un classeur existant · `export/LocalExcelUpdater.kt`
 
-Dans le `companion object` :
+Il n'y a plus d'export OneDrive (le package `onedrive/` a été supprimé) : les
+boutons « OneDrive » de l'interface écrivent dans un fichier local configuré
+dans les Paramètres.
 
-```kotlin
-private val HEADERS = listOf(
-    "Étudiant", /* … */, "Thème", "Mon champ"   // ← ici
-)
-// LAST_COL = ('A' + HEADERS.size - 1) se recalcule automatiquement
-```
-
-Dans `clearAndWrite()`, ajouter la valeur à la liste de données :
+`LocalExcelUpdater` réutilise `ExcelExporter.HEADERS` et son propre `appendRow()`.
+Ajouter la cellule au même index qu'à l'étape 7 :
 
 ```kotlin
-add(listOf(
-    s.studentName, /* … */, s.theme,
-    s.monNouveauChamp,   // ← ici
-))
+// dans appendRow()
+row.createCell(15).setCellValue(s.monNouveauChamp)
 ```
+
+> La déduplication de `complementMainSheet()` lit les cellules via
+> `cellText()` / `DataFormatter`, jamais `Cell.toString()` : ce dernier renvoie
+> `"12345.0"` pour une cellule numérique et casse la comparaison.
+
+### 9 — Export CSV VetAgroTice · `export/VetAgroTiceCsvExporter.kt`
+
+Ajouter l'intitulé dans `HEADERS` **et** la valeur à la même position dans
+`values()` — les deux listes sont positionnelles et doivent rester alignées.
 
 ---
 
@@ -211,10 +223,33 @@ add(listOf(
 
 | Fichier de test | Ce qui change |
 |----------------|--------------|
-| `ExcelExporterTest.kt` | `header row has 11 columns` → mettre à jour le nombre et la liste `expectedHeaders` |
+| `ExcelExporterTest.kt` | Mettre à jour le nombre de colonnes attendu et la liste `expectedHeaders` (voir `ExcelExporter.HEADERS`) |
 | `LocalDatabaseTest.kt` | Vérifier que `upsertAll` puis `loadAll` mappent correctement le nouveau champ (ajouter un cas de test si la valeur peut être non nulle) |
 | `DashboardParserTest.kt` | Ajouter un cas vérifiant l'extraction du nouveau champ depuis la fixture HTML |
 | `src/test/resources/fixtures/sample_card.html` | Ajouter l'élément HTML correspondant au nouveau champ |
+
+---
+
+## Invariants de persistance
+
+À ne pas casser lors d'une modification de `persistence/LocalDatabase.kt` :
+
+- **`connect()` configure chaque connexion** (WAL, `busy_timeout`, `foreign_keys`,
+  et surtout transactions en mode `IMMEDIATE`). Les PRAGMA SQLite sont propres à
+  la connexion : ouvrir une connexion sans passer par `connect()` réintroduit les
+  `SQLITE_BUSY` sur écritures concurrentes. `upsertAll` lit avant d'écrire, donc en
+  mode `deferred` l'escalade du verrou échoue *immédiatement*, sans attendre.
+- **`clear()` sauvegarde avant d'effacer** et renvoie le chemin obtenu.
+  `in_suivi_table` et `local_pdf_path` sont des annotations locales qu'une
+  ré-extraction ne restaure pas ; les statuts cliniques sont volontairement
+  conservés.
+- **`backup()` refuse une base vide** plutôt que de produire un fichier de 0 octet
+  annoncé comme une sauvegarde réussie.
+- **Règle `localId()`** : la clé de déduplication est
+  `studentName|organization|rawDateStage`. Ne **pas** y ajouter de nouveaux champs,
+  sauf si le champ identifie une version *différente* du même stage.
+- **`in_suivi_table` est absent de l'`UPDATE` de `upsertAll`** : annotation locale,
+  jamais écrasée par le scraper.
 
 ---
 
@@ -240,7 +275,17 @@ texte réel d'une convention :
 ## Commandes utiles
 
 ```bash
-gradle compileKotlin --no-daemon   # compilation rapide
-gradle test --no-daemon             # tous les tests unitaires
-gradle run                          # lancer l'application
+./gradlew compileKotlin      # compilation rapide
+./gradlew test               # tous les tests unitaires
+./gradlew run                # lancer l'application
+
+# Sans accès réseau à github.com (les pilotes GeckoDriver ne servent qu'à
+# l'exécution ; aucun test n'utilise Selenium) :
+./gradlew test -PskipGeckoDrivers
+
+# Journaliser le texte brut des conventions PDF pour affiner les regex :
+./gradlew run -Dstagevet.pdf.debug=true
 ```
+
+> Toujours utiliser `./gradlew` et non `gradle` : le wrapper épingle la version
+> de Gradle (8.14.3) avec laquelle le build est validé en CI.

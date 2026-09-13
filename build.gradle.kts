@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.security.MessageDigest
 
 plugins {
     kotlin("jvm") version "2.0.21"
@@ -30,18 +31,37 @@ sourceSets {
     }
 }
 
-data class GeckoDriverPlatform(val key: String, val archive: String, val binary: String, val output: String)
-
-val geckoPlatforms = listOf(
-    GeckoDriverPlatform("linux-x64",   "geckodriver-v${geckoDriverVersion}-linux64.tar.gz",       "geckodriver",     "geckodriver-linux-x64"),
-    GeckoDriverPlatform("linux-arm64", "geckodriver-v${geckoDriverVersion}-linux-aarch64.tar.gz", "geckodriver",     "geckodriver-linux-arm64"),
-    GeckoDriverPlatform("macos-x64",   "geckodriver-v${geckoDriverVersion}-macos.tar.gz",         "geckodriver",     "geckodriver-macos-x64"),
-    GeckoDriverPlatform("macos-arm64", "geckodriver-v${geckoDriverVersion}-macos-aarch64.tar.gz", "geckodriver",     "geckodriver-macos-arm64"),
-    GeckoDriverPlatform("win-x64",     "geckodriver-v${geckoDriverVersion}-win64.zip",            "geckodriver.exe", "geckodriver-win-x64.exe"),
+data class GeckoDriverPlatform(
+    val key: String,
+    val archive: String,
+    val binary: String,
+    val output: String,
+    /** SHA-256 du binaire extrait. */
+    val sha256: String,
 )
 
+// Empreintes vérifiées sur deux téléchargements indépendants (postes, OS et dates
+// différents). Un binaire exécutable récupéré sur le réseau sans contrôle
+// d'intégrité est une surface d'attaque : le build échoue en cas d'écart.
+val geckoPlatforms = listOf(
+    GeckoDriverPlatform("linux-x64",   "geckodriver-v${geckoDriverVersion}-linux64.tar.gz",       "geckodriver",     "geckodriver-linux-x64",
+        "9766f9483667c6f75666599ef78d50a3c520bf165b4f7257077083bf1642a1db"),
+    GeckoDriverPlatform("linux-arm64", "geckodriver-v${geckoDriverVersion}-linux-aarch64.tar.gz", "geckodriver",     "geckodriver-linux-arm64",
+        "d3ce850c9919dc97ef9d6d877009979c8efc0c4cff68de8cfa8ba58cfecb292d"),
+    GeckoDriverPlatform("macos-x64",   "geckodriver-v${geckoDriverVersion}-macos.tar.gz",         "geckodriver",     "geckodriver-macos-x64",
+        "d0dcfc12368c101184a603e8fd400ea6490745322057a25e0eaf8d1b8767f0cc"),
+    GeckoDriverPlatform("macos-arm64", "geckodriver-v${geckoDriverVersion}-macos-aarch64.tar.gz", "geckodriver",     "geckodriver-macos-arm64",
+        "724b778f99450b8a515970259f5b4eb6a410acb9ddb2ff945e7a4f7892f992d3"),
+    GeckoDriverPlatform("win-x64",     "geckodriver-v${geckoDriverVersion}-win64.zip",            "geckodriver.exe", "geckodriver-win-x64.exe",
+        "66de6385e14b05afcc6381aa64a643c796fbe68ac17738bb652b69315b5fe50a"),
+)
+
+fun sha256Of(file: File): String = MessageDigest.getInstance("SHA-256")
+    .digest(file.readBytes())
+    .joinToString("") { "%02x".format(it) }
+
 tasks.register("downloadGeckoDrivers") {
-    description = "Télécharge les binaires GeckoDriver pour toutes les plateformes cibles"
+    description = "Télécharge et vérifie les binaires GeckoDriver pour toutes les plateformes cibles"
     group = "distribution"
 
     val downloadDir = layout.buildDirectory.dir("geckodriver-downloads")
@@ -49,6 +69,12 @@ tasks.register("downloadGeckoDrivers") {
 
     outputs.dir(outputDir)
     inputs.property("geckoDriverVersion", geckoDriverVersion)
+    inputs.property("geckoDriverHashes", geckoPlatforms.joinToString(",") { it.sha256 })
+
+    // Les pilotes ne servent qu'à l'exécution de l'application ; aucun test n'utilise
+    // Selenium. `-PskipGeckoDrivers` permet donc de compiler et tester sans accès
+    // réseau à github.com (avion, CI restreinte, poste hors ligne).
+    onlyIf { !project.hasProperty("skipGeckoDrivers") }
 
     doLast {
         val dlDir  = downloadDir.get().asFile.also { it.mkdirs() }
@@ -56,7 +82,16 @@ tasks.register("downloadGeckoDrivers") {
 
         for (p in geckoPlatforms) {
             val dest = File(outDir, p.output)
-            if (dest.exists()) { logger.lifecycle("  ✓ GeckoDriver ${p.key} déjà présent"); continue }
+            if (dest.exists()) {
+                // Un fichier déjà présent était accepté sans contrôle.
+                val actual = sha256Of(dest)
+                if (actual == p.sha256) {
+                    logger.lifecycle("  ✓ GeckoDriver ${p.key} déjà présent (empreinte vérifiée)")
+                    continue
+                }
+                logger.lifecycle("  ! GeckoDriver ${p.key} : empreinte inattendue, re-téléchargement")
+                dest.delete()
+            }
 
             val archiveFile = File(dlDir, p.archive)
             val url = "https://github.com/mozilla/geckodriver/releases/download/v${geckoDriverVersion}/${p.archive}"
@@ -89,9 +124,20 @@ tasks.register("downloadGeckoDrivers") {
                     rename(p.binary, p.output)
                 }
             }
+            val actual = sha256Of(dest)
+            if (actual != p.sha256) {
+                dest.delete()
+                archiveFile.delete()
+                throw GradleException(
+                    "GeckoDriver ${p.key} : empreinte SHA-256 inattendue.\n" +
+                    "  attendu : ${p.sha256}\n" +
+                    "  obtenu  : $actual\n" +
+                    "Téléchargement corrompu ou binaire altéré — build interrompu."
+                )
+            }
             dest.setExecutable(true)
             archiveFile.delete()
-            logger.lifecycle("  ✓ GeckoDriver ${p.key} prêt")
+            logger.lifecycle("  ✓ GeckoDriver ${p.key} prêt (empreinte vérifiée)")
         }
     }
 }
