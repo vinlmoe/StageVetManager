@@ -608,7 +608,7 @@ class SeleniumScraper(
     // ── Companion (méthodes statiques réutilisables) ─────────────────────────────
 
     companion object {
-        private const val GECKO_VERSION = "0.35.0"
+        private const val GECKO_VERSION = "0.37.1"
 
         fun findBestCachedChromeDriver(): File? {
             val os   = System.getProperty("os.name").lowercase()

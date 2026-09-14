@@ -9,7 +9,7 @@ plugins {
 
 group = "fr.vetbrain"
 version = "1.0.2"
-val geckoDriverVersion = "0.35.0"
+val geckoDriverVersion = "0.37.1"
 
 kotlin {
     jvmToolchain(21)
@@ -45,15 +45,15 @@ data class GeckoDriverPlatform(
 // d'intégrité est une surface d'attaque : le build échoue en cas d'écart.
 val geckoPlatforms = listOf(
     GeckoDriverPlatform("linux-x64",   "geckodriver-v${geckoDriverVersion}-linux64.tar.gz",       "geckodriver",     "geckodriver-linux-x64",
-        "9766f9483667c6f75666599ef78d50a3c520bf165b4f7257077083bf1642a1db"),
+        "f831b7e61454804e8a307edd951bf8a5f373efe3f718e75454a6485a51f6e39f"),
     GeckoDriverPlatform("linux-arm64", "geckodriver-v${geckoDriverVersion}-linux-aarch64.tar.gz", "geckodriver",     "geckodriver-linux-arm64",
-        "d3ce850c9919dc97ef9d6d877009979c8efc0c4cff68de8cfa8ba58cfecb292d"),
+        "aed949129c68c12ff52db53eab4a260bc865b63080c050342fb8dc6dd6e684ee"),
     GeckoDriverPlatform("macos-x64",   "geckodriver-v${geckoDriverVersion}-macos.tar.gz",         "geckodriver",     "geckodriver-macos-x64",
-        "d0dcfc12368c101184a603e8fd400ea6490745322057a25e0eaf8d1b8767f0cc"),
+        "5d82307edc8549124bd4e7b6f275e1228e0a530e5abbfb294be3f310486561a4"),
     GeckoDriverPlatform("macos-arm64", "geckodriver-v${geckoDriverVersion}-macos-aarch64.tar.gz", "geckodriver",     "geckodriver-macos-arm64",
-        "724b778f99450b8a515970259f5b4eb6a410acb9ddb2ff945e7a4f7892f992d3"),
+        "5d82307edc8549124bd4e7b6f275e1228e0a530e5abbfb294be3f310486561a4"),
     GeckoDriverPlatform("win-x64",     "geckodriver-v${geckoDriverVersion}-win64.zip",            "geckodriver.exe", "geckodriver-win-x64.exe",
-        "66de6385e14b05afcc6381aa64a643c796fbe68ac17738bb652b69315b5fe50a"),
+        "e95b4eac7960ffcd5acbfd92bb7d49d48f99c1d01a20ddd297fef8c80821020d"),
 )
 
 fun sha256Of(file: File): String = MessageDigest.getInstance("SHA-256")
