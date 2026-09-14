@@ -53,6 +53,10 @@ class DashboardHttpScraper(
             val visited = mutableSetOf<String>()
             var totalCount = 0
             var pageCount = 0
+            // Vrai dès qu'un marqueur de pagination a été reconnu dans le HTML.
+            // S'il reste faux, l'absence de page suivante n'est pas une preuve :
+            // voir probeUnlinkedPages().
+            var sawPagination = false
 
             onProgress("Téléchargement HTTP de la page 1…")
             val firstPage = downloadAndParse(firstUrl)
@@ -68,6 +72,7 @@ class DashboardHttpScraper(
 
             val lastPage = findLastPageNumber(firstPage.html, firstPage.finalUrl)
             if (lastPage != null && lastPage > 2) {
+                sawPagination = true
                 val remaining = downloadNumberedPages(
                     firstUrl = firstPage.finalUrl,
                     lastPage = lastPage,
@@ -98,6 +103,7 @@ class DashboardHttpScraper(
 
             var nextUrl = findNextUrl(tail.html, tail.finalUrl)
             while (nextUrl != null) {
+                sawPagination = true
                 if (!visited.add(nextUrl.toString())) {
                     throw IOException("Boucle détectée dans la pagination HTTP : $nextUrl")
                 }
@@ -109,7 +115,14 @@ class DashboardHttpScraper(
                 onPageScraped(pageCount, downloaded.internships)
                 onProgress("Page HTTP $pageCount : ${downloaded.internships.size} stage(s) (total : $totalCount)")
 
+                tail = downloaded
                 nextUrl = findNextUrl(downloaded.html, downloaded.finalUrl)
+            }
+
+            if (!sawPagination) {
+                val probed = probeUnlinkedPages(firstUrl, tail, pageCount, onPageScraped)
+                pageCount += probed.pageCount
+                totalCount += probed.itemCount
             }
 
             ScraperResult.Success(totalCount, pageCount)
@@ -117,6 +130,79 @@ class DashboardHttpScraper(
             ScraperResult.Failure("Extraction HTTP impossible : ${e.message}", e)
         }
     }
+
+    /**
+     * Poursuit la pagination « à l'aveugle » quand aucun lien de pagination n'a été
+     * reconnu dans le HTML.
+     *
+     * Un dashboard dont les liens « Suivant » / « page N » sont absents ou rendus
+     * différemment faisait conclure à une extraction complète après la seule page 1 :
+     * seuls les dix premiers stages étaient enregistrés, et l'extraction était
+     * annoncée comme réussie. On demande donc explicitement ?page=2, ?page=3… jusqu'à
+     * ce que le serveur renvoie une page sans carte, rejoue une page déjà extraite
+     * (comportement courant pour un numéro hors limites) ou refuse la requête.
+     */
+    private fun probeUnlinkedPages(
+        firstUrl: HttpUrl,
+        lastKnownPage: ParsedPage,
+        alreadyScrapedPages: Int,
+        onPageScraped: (Int, List<Internship>) -> Unit,
+    ): PageTotals {
+        // Un numéro hors limites peut renvoyer la dernière page comme la première :
+        // on mémorise donc toutes les pages déjà vues, pas seulement la précédente.
+        val seenSignatures = mutableSetOf(pageSignature(lastKnownPage.internships))
+        var pages = 0
+        var items = 0
+        var pageNumber = alreadyScrapedPages + 1
+
+        while (pageNumber <= MAX_PROBED_PAGES) {
+            val url = firstUrl.newBuilder()
+                .setQueryParameter("page", pageNumber.toString())
+                .build()
+            onProgress("Aucun lien de pagination — vérification de la page $pageNumber…")
+            val parsed = downloadIfNotEmpty(url) ?: break
+
+            if (!seenSignatures.add(pageSignature(parsed.internships))) {
+                onProgress("Page $pageNumber déjà extraite — fin de la pagination")
+                break
+            }
+
+            onPageScraped(pageNumber, parsed.internships)
+            pages++
+            items += parsed.internships.size
+            onProgress("Page HTTP $pageNumber : ${parsed.internships.size} stage(s)")
+            pageNumber++
+        }
+
+        return PageTotals(pages, items)
+    }
+
+    /**
+     * Télécharge une page sondée. Renvoie `null` quand la page n'existe pas (erreur
+     * réseau/HTTP) ou ne contient plus de carte : ce n'est pas un échec d'extraction,
+     * seulement la fin de la pagination.
+     */
+    private fun downloadIfNotEmpty(url: HttpUrl): ParsedPage? {
+        val downloaded = try {
+            download(url)
+        } catch (e: IOException) {
+            onProgress("Page $url indisponible (${e.message}) — fin de la pagination")
+            return null
+        }
+        // Une redirection vers la connexion reste une vraie erreur : elle doit
+        // interrompre l'extraction pour laisser Selenium reprendre la main.
+        ensureDashboardResponse(downloaded.finalUrl, downloaded.html)
+        val internships = DashboardParser.parse(downloaded.html)
+        if (internships.isEmpty()) return null
+        return ParsedPage(downloaded.finalUrl, downloaded.html, internships)
+    }
+
+    /** Identité du contenu d'une page, pour détecter un numéro de page hors limites. */
+    private fun pageSignature(internships: List<Internship>): String =
+        internships
+            .map { "${it.studentName}|${it.organization}|${it.rawDateStage}" }
+            .sorted()
+            .joinToString("\n")
 
     private fun downloadNumberedPages(
         firstUrl: HttpUrl,
@@ -265,7 +351,13 @@ class DashboardHttpScraper(
 
     private fun findNextUrl(html: String, currentUrl: HttpUrl): HttpUrl? {
         val href = Jsoup.parse(html, currentUrl.toString())
-            .selectFirst("a[rel=next][href], a.page-link[aria-label*=Suivant][href]")
+            // Plusieurs gabarits coexistent sur stagevet.fr : rel="next" seul,
+            // rel="next nofollow", ou un simple aria-label. Exiger les trois à la
+            // fois (ancienne règle) revenait à ne jamais trouver la page 2.
+            .selectFirst(
+                "a[rel=next][href], a[rel~=(?i)next][href], " +
+                    "a[aria-label*='Suivant'][href], a[aria-label*='Next'][href]"
+            )
             ?.attr("abs:href")
             ?.takeIf { it.isNotBlank() }
             ?: return null
@@ -279,10 +371,10 @@ class DashboardHttpScraper(
 
     private fun findLastPageNumber(html: String, currentUrl: HttpUrl): Int? {
         val pageNumbers = Jsoup.parse(html, currentUrl.toString())
-            .select("a.page-link[href], a[rel=last][href]")
+            .select("a.page-link[href], a.page-numbers[href], a[rel=last][href], a[href*='page=']")
             .mapNotNull { element ->
                 element.attr("abs:href").toHttpUrlOrNull()
-                    ?.takeIf { sameOrigin(it) && it.encodedPath == currentUrl.encodedPath }
+                    ?.takeIf { sameOrigin(it) && samePath(it, currentUrl) }
                     ?.queryParameter("page")
                     ?.toIntOrNull()
             }
@@ -290,6 +382,10 @@ class DashboardHttpScraper(
         // Un simple lien « suivant » vers la page 2 ne prouve pas qu'elle est la dernière.
         return maximum.takeIf { it > 2 }
     }
+
+    /** Compare les chemins en ignorant un « / » final, que le serveur ajoute parfois. */
+    private fun samePath(candidate: HttpUrl, current: HttpUrl): Boolean =
+        candidate.encodedPath.trimEnd('/') == current.encodedPath.trimEnd('/')
 
     private fun sameOrigin(url: HttpUrl): Boolean =
         url.scheme == baseUrl.scheme && url.host == baseUrl.host && url.port == baseUrl.port
@@ -313,6 +409,9 @@ class DashboardHttpScraper(
 
     companion object {
         private val RETRYABLE_CODES = setOf(429, 500, 502, 503, 504)
+
+        /** Garde-fou du sondage : au-delà, on considère la pagination aberrante. */
+        private const val MAX_PROBED_PAGES = 500
 
         private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .followRedirects(true)

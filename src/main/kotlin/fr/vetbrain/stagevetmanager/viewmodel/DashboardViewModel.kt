@@ -319,8 +319,20 @@ class DashboardViewModel {
 
                 when (result) {
                     is ScraperResult.Success -> {
-                        val (fromDb, count) = withContext(Dispatchers.IO) {
-                            LocalDatabase.instance.loadAll() to LocalDatabase.instance.count()
+                        val (fromDb, count, pdfCache) = withContext(Dispatchers.IO) {
+                            val db = LocalDatabase.instance
+                            val cache = db.loadAllPdfData()
+                            val loaded = db.loadAll()
+                            // Une convention finalisée en cache suffit à renseigner la date école
+                            // si le tableau de bord ne l'avait pas encore fournie.
+                            val updated = loaded.sumOf { internship ->
+                                val pdf = cache[internship.conventionPdfUrl]
+                                val schoolDate = pdf?.takeIf { it.allSignaturesDone }?.schoolSigningDate
+                                if (internship.signingDate == null && schoolDate != null) {
+                                    db.updateSchoolSignatureFromPdf(internship.conventionPdfUrl, schoolDate)
+                                } else 0
+                            }
+                            Triple(if (updated > 0) db.loadAll() else loaded, db.count(), cache)
                         }
                         allInternships.value = fromDb
                         dbCount.value = count
@@ -330,7 +342,6 @@ class DashboardViewModel {
                             append(" — base : $count au total")
                             if (logPath.isNotBlank()) append(" | log : $logPath")
                         }
-                        val pdfCache = withContext(Dispatchers.IO) { LocalDatabase.instance.loadAllPdfData() }
                         _pdfDataCache.value = pdfCache
                         val urlsToAutoParse = fromDb
                             .mapNotNull { internship ->
@@ -344,9 +355,7 @@ class DashboardViewModel {
                         }
                         if (conventionDir.isNotBlank()) {
                             val toDownload = fromDb.filter { s ->
-                                s.signingDate != null &&
-                                s.conventionPdfUrl.isNotEmpty() &&
-                                s.localPdfPath.isBlank()
+                                shouldAutoDownloadSignedPdfAfterImport(s, pdfCache[s.conventionPdfUrl])
                             }
                             if (toDownload.isNotEmpty()) {
                                 launch { autoDownloadSignedPdfs(toDownload, conventionDir) }
@@ -491,16 +500,6 @@ class DashboardViewModel {
                 }
             }
         }
-    }
-
-    private fun shouldAutoParsePdfAfterImport(internship: Internship, cached: ConventionPdfData?): Boolean {
-        if (internship.needsSignatureRefresh()) return true
-        if (cached == null) return true
-        if (internship.signingDate != null && cached.signingDateSchool.isBlank()) return true
-        if (internship.conventionSignUrl.isNotBlank()) {
-            return !cached.allPreSignaturesDone || cached.signingDateSchool.isBlank()
-        }
-        return false
     }
 
     private suspend fun autoDownloadSignedPdfs(internships: List<Internship>, conventionDir: String) {
@@ -796,6 +795,23 @@ class DashboardViewModel {
         scope.cancel()
     }
 }
+
+internal fun shouldAutoParsePdfAfterImport(internship: Internship, cached: ConventionPdfData?): Boolean {
+    // Une convention avec ses quatre dates de signature en base est terminée,
+    // même si le tableau de bord conserve encore un lien de signature.
+    if (cached?.allSignaturesDone == true) return false
+    if (internship.needsSignatureRefresh()) return true
+    if (cached == null) return true
+    if (internship.signingDate != null && cached.signingDateSchool.isBlank()) return true
+    if (internship.conventionSignUrl.isNotBlank()) {
+        return !cached.allPreSignaturesDone || cached.signingDateSchool.isBlank()
+    }
+    return false
+}
+
+internal fun shouldAutoDownloadSignedPdfAfterImport(internship: Internship, cached: ConventionPdfData?): Boolean =
+    internship.signingDate != null && internship.conventionPdfUrl.isNotBlank() &&
+        internship.localPdfPath.isBlank() && cached?.allSignaturesDone != true
 
 private fun ScrapeFilters.checkpointKey(): String = listOf(
     periode, anneeEtude, theme, status, order,

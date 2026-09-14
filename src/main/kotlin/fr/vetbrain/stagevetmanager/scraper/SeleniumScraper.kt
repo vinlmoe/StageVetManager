@@ -5,6 +5,7 @@ import fr.vetbrain.stagevetmanager.model.ScrapeFilters
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.openqa.selenium.By
+import org.openqa.selenium.JavascriptExecutor
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.chrome.ChromeDriver
@@ -170,14 +171,28 @@ class SeleniumScraper(
 
             var totalCount = 0
             var pageCount = 0
+            // Un numéro de page hors limites peut renvoyer une page déjà extraite :
+            // on mémorise toutes les signatures vues, pas seulement la précédente.
+            val seenSignatures = mutableSetOf<String>()
+            // Reste faux tant qu'aucun bouton « Suivant » n'a été reconnu : son
+            // absence ne suffit alors pas à conclure que la pagination est finie.
+            var sawPagination = false
 
-            while (true) {
+            while (pageCount < MAX_PAGES) {
                 log("sleep(1500) — stabilisation page ${ pageCount + 1}…")
                 Thread.sleep(1500)
                 // getPageSource() est @Nullable côté Selenium : le parser recevait un
                 // String non-null par inférence, d'où un NPE possible en fin de session.
                 val html = d.pageSource ?: ""
                 val pageInternships = DashboardParser.parse(html)
+                // Page sondée au-delà de la dernière : stagevet.fr renvoie soit une
+                // page sans carte, soit une page déjà vue. Ne pas la compter deux fois.
+                val isNewPage = seenSignatures.add(pageSignature(pageInternships))
+                if (pageCount > 0 && (pageInternships.isEmpty() || !isNewPage)) {
+                    log("Page ${pageCount + 1} vide ou déjà extraite — fin de pagination.")
+                    break
+                }
+
                 pageCount++
                 totalCount += pageInternships.size
 
@@ -185,20 +200,47 @@ class SeleniumScraper(
                 log("Page $pageCount : ${pageInternships.size} stage(s) (total : $totalCount)")
 
                 val nextBtn = findNextButton(d)
-                if (nextBtn == null) { log("Bouton Suivant absent — fin de pagination."); break }
+                if (nextBtn != null) {
+                    sawPagination = true
+                } else if (sawPagination) {
+                    log("Bouton Suivant absent — fin de pagination.")
+                    break
+                }
 
-                val firstCard = try { d.findElement(By.cssSelector("div.card")) } catch (_: Exception) { null }
-                log("Clic Suivant → page ${pageCount + 1}…")
-                nextBtn.click()
+                if (nextBtn == null) {
+                    // Aucun marqueur de pagination depuis le début : le gabarit du
+                    // dashboard peut ne pas exposer de bouton « Suivant » exploitable.
+                    // On demandait alors une seule page et l'extraction s'arrêtait aux
+                    // dix premiers stages sans erreur. On tente donc ?page=N.
+                    val probeUrl = pageUrl(url, pageCount + 1)
+                    log("Aucun lien de pagination — vérification de $probeUrl")
+                    d.get(probeUrl)
+                    continue
+                }
 
-                if (firstCard != null) {
-                    try {
-                        WebDriverWait(d, Duration.ofSeconds(10))
-                            .until(ExpectedConditions.stalenessOf(firstCard))
-                        log("Page suivante chargée (staleness OK)")
-                    } catch (_: Exception) {
-                        log("stalenessOf timeout — sleep(2000) de secours…")
-                        Thread.sleep(2000)
+                // Naviguer par URL plutôt que cliquer : un clic Selenium échoue dès
+                // qu'un en-tête/pied collant recouvre le lien (fréquent sur Windows
+                // avec la mise à l'échelle d'affichage), et faisait échouer toute
+                // l'extraction après la première page.
+                val href = runCatching { nextBtn.getAttribute("href") }.getOrNull()
+                    ?.takeIf { it.startsWith("http") }
+                if (href != null) {
+                    log("Navigation → $href (page ${pageCount + 1})")
+                    d.get(href)
+                } else {
+                    val firstCard = try { d.findElement(By.cssSelector("div.card")) } catch (_: Exception) { null }
+                    log("Clic Suivant → page ${pageCount + 1}…")
+                    clickSafely(d, nextBtn)
+
+                    if (firstCard != null) {
+                        try {
+                            WebDriverWait(d, Duration.ofSeconds(10))
+                                .until(ExpectedConditions.stalenessOf(firstCard))
+                            log("Page suivante chargée (staleness OK)")
+                        } catch (_: Exception) {
+                            log("stalenessOf timeout — sleep(2000) de secours…")
+                            Thread.sleep(2000)
+                        }
                     }
                 }
             }
@@ -586,11 +628,55 @@ class SeleniumScraper(
         return "https://www.stagevet.fr/dashboard$qs"
     }
 
+    /**
+     * Cherche le lien « page suivante ».
+     *
+     * L'ancienne expression XPath exigeait *simultanément* `class="page-link"` exact,
+     * `rel="next"` et un `aria-label` contenant « Suivant » : le moindre écart de
+     * gabarit (rel="next nofollow", classe supplémentaire, libellé anglais) la rendait
+     * aveugle et la pagination s'arrêtait à la première page.
+     */
     private fun findNextButton(d: WebDriver): WebElement? = runCatching {
         d.findElements(
-            By.xpath("//a[@class='page-link' and @rel='next' and contains(@aria-label,'Suivant')]")
-        ).firstOrNull()?.takeIf { it.isEnabled && it.isDisplayed }
+            By.cssSelector(
+                "a[rel~='next'][href], " +
+                    "a[aria-label*='Suivant'][href], " +
+                    "a[aria-label*='suivant'][href], " +
+                    "a[aria-label*='Next'][href]"
+            )
+        ).firstOrNull { it.isEnabled && it.isDisplayed }
     }.getOrNull()
+
+    /** Ajoute/remplace `page=N` sur l'URL filtrée du dashboard. */
+    private fun pageUrl(dashboardUrl: String, page: Int): String {
+        val separator = if (dashboardUrl.contains('?')) "&" else "?"
+        return "$dashboardUrl${separator}page=$page"
+    }
+
+    /**
+     * Clique en ramenant d'abord le lien dans la fenêtre, puis via JavaScript si le
+     * clic natif est intercepté (bandeau collant, zoom d'affichage Windows).
+     */
+    private fun clickSafely(d: WebDriver, element: WebElement) {
+        val js = d as? JavascriptExecutor
+        runCatching {
+            js?.executeScript("arguments[0].scrollIntoView({block:'center'});", element)
+        }
+        try {
+            element.click()
+        } catch (e: Exception) {
+            log("Clic natif refusé (${e.javaClass.simpleName}) — repli sur un clic JavaScript")
+            if (js == null) throw e
+            js.executeScript("arguments[0].click();", element)
+        }
+    }
+
+    /** Identité du contenu d'une page, pour détecter une page rejouée. */
+    private fun pageSignature(internships: List<Internship>): String =
+        internships
+            .map { "${it.studentName}|${it.organization}|${it.rawDateStage}" }
+            .sorted()
+            .joinToString("\n")
 
     // ── Helpers de détection ─────────────────────────────────────────────────────
 
@@ -609,6 +695,9 @@ class SeleniumScraper(
 
     companion object {
         private const val GECKO_VERSION = "0.37.1"
+
+        /** Garde-fou du sondage de pagination : au-delà, on considère l'état aberrant. */
+        private const val MAX_PAGES = 500
 
         fun findBestCachedChromeDriver(): File? {
             val os   = System.getProperty("os.name").lowercase()

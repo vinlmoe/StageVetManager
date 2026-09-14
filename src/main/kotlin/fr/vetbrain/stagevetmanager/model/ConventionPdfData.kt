@@ -77,6 +77,9 @@ data class ConventionPdfData(
     val allPreSignaturesDone: Boolean get() =
         signingDateTutor.isNotBlank() && signingDateStudent.isNotBlank() && signingDateHost.isNotBlank()
 
+    /** Les quatre dates de signature sont déjà connues : le PDF est finalisé. */
+    val allSignaturesDone: Boolean get() = allPreSignaturesDone && schoolSigningDate != null
+
     val schoolSigningDate: LocalDate? get() = runCatching {
         LocalDate.parse(signingDateSchool.substringBefore(' ').trim(), DateTimeFormatter.ofPattern("dd-MM-uuuu"))
     }.getOrNull()
