@@ -2,6 +2,7 @@ package fr.vetbrain.stagevetmanager.viewmodel
 
 import fr.vetbrain.stagevetmanager.model.Internship
 import fr.vetbrain.stagevetmanager.model.LocalFilters
+import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -10,6 +11,32 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class DashboardViewModelHelpersTest {
+
+    @Test
+    fun `a fully signed convention already in the database is not downloaded again`() {
+        val stage = stage(studyYear = "5").copy(
+            conventionPdfUrl = "https://stagevet.fr/convention/1.pdf",
+            conventionSignUrl = "https://stagevet.fr/signature/1",
+            endDate = LocalDate.now().plusDays(5),
+        )
+        val complete = ConventionPdfData(
+            rawText = "",
+            signingDateTutor = "10-09-2026",
+            signingDateStudent = "11-09-2026",
+            signingDateHost = "12-09-2026",
+            signingDateSchool = "13-09-2026",
+        )
+
+        assertTrue(stage.needsSignatureRefresh())
+        assertFalse(shouldAutoParsePdfAfterImport(stage, complete))
+        assertFalse(shouldAutoParsePdfAfterImport(stage.copy(signingDate = LocalDate.of(2026, 9, 13)), complete))
+        assertFalse(shouldAutoDownloadSignedPdfAfterImport(stage.copy(signingDate = LocalDate.of(2026, 9, 13)), complete))
+        assertTrue(shouldAutoParsePdfAfterImport(stage, complete.copy(signingDateHost = "")))
+        assertTrue(shouldAutoParsePdfAfterImport(stage, complete.copy(signingDateSchool = "")))
+        assertTrue(shouldAutoDownloadSignedPdfAfterImport(
+            stage.copy(signingDate = LocalDate.of(2026, 9, 13)), complete.copy(signingDateSchool = ""),
+        ))
+    }
 
     @Test
     fun `an invalid periode does not disable the other local filters`() {

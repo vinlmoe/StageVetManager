@@ -166,6 +166,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("org.slf4j:slf4j-simple:2.0.16")
+    implementation("org.apache.logging.log4j:log4j-to-slf4j:2.23.1")
 
     implementation("org.apache.pdfbox:pdfbox:3.0.3")
 
