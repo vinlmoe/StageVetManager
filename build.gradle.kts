@@ -199,7 +199,8 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Exe)
             packageName = "StageVetManager"
-            packageVersion = "1.0.3"
+            // jpackage inclut cette version dans le nom des installeurs générés.
+            packageVersion = project.version.toString()
             description = "Gestion des stages vétérinaires - VetAgro Sup"
             vendor = "VetBrain"
             // Selenium 4.x et OkHttp utilisent java.net.http (HttpClient + WebSocket)

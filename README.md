@@ -75,6 +75,8 @@ cd StageVetManager
 
 Produit un `.msi`/`.exe` (Windows), `.dmg` (macOS) ou `.deb` (Linux) dans
 `build/compose/binaries/`.
+Le nom des installeurs inclut automatiquement la version définie par `version`
+dans `build.gradle.kts` (par exemple `StageVetManager-1.0.3.dmg`).
 
 ---
 
