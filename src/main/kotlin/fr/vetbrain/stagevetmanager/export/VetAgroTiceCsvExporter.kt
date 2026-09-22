@@ -79,5 +79,19 @@ object VetAgroTiceCsvExporter {
         null -> ""
     }
 
-    private fun csv(value: String): String = "\"${value.replace("\"", "\"\"")}\""
+    /**
+     * Encode une valeur : guillemets doublés, champ toujours encadré (RFC 4180).
+     *
+     * Un antislash collé au guillemet fermant demande un traitement de plus. Le lecteur CSV de
+     * Moodle, côté StageCompagnon, appelle `fgetcsv()` sans désactiver l'échappement, et PHP y
+     * prend l'antislash comme caractère d'échappement par défaut : ce guillemet-là ne fermerait
+     * pas le champ, et toute la ligne serait décalée. Le cas se présente avec un chemin Windows
+     * (« Chemin PDF local ») ou le texte brut d'une convention. On retire donc un antislash, et
+     * seulement lorsqu'ils sont en nombre impair — le strict nécessaire pour que le guillemet
+     * ferme, sans toucher aux valeurs qui se relisent déjà correctement.
+     */
+    private fun csv(value: String): String {
+        val safe = if (value.takeLastWhile { it == '\\' }.length % 2 == 1) value.dropLast(1) else value
+        return "\"${safe.replace("\"", "\"\"")}\""
+    }
 }

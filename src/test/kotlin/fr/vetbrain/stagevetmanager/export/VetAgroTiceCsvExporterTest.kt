@@ -51,4 +51,29 @@ class VetAgroTiceCsvExporterTest {
         assertTrue(csv.contains("\"Clinique \"\"Test\"\"\""))
         assertTrue(csv.contains("\"Texte\nsur deux lignes\""))
     }
+
+    @Test
+    fun `an odd trailing backslash never swallows the closing quote`() {
+        // Le lecteur CSV de Moodle prend l'antislash comme caractère d'échappement : collé au
+        // guillemet fermant, il empêcherait ce guillemet de fermer le champ et décalerait toute
+        // la ligne à l'import StageCompagnon.
+        val signed = stage("SIGNE", LocalDate.of(2026, 1, 20)).copy(
+            localPdfPath = "C:\\Conventions\\",
+            address = "Lyon\\\\",
+        )
+        val cache = mapOf(
+            signed.conventionPdfUrl to ConventionPdfData(rawText = "Fin de convention\\")
+        )
+        val file = Files.createTempFile("vetagrotice-backslash-", ".csv")
+
+        VetAgroTiceCsvExporter.export(listOf(signed), file, cache)
+        val csv = Files.readString(file)
+
+        // Nombre impair : un antislash est retiré, juste assez pour que le guillemet ferme. Le
+        // point-virgule qui suit prouve que le champ s'est bien terminé là.
+        assertTrue(csv.contains("\"C:\\Conventions\";"))
+        assertTrue(csv.contains("\"Lyon\\\\\";"))
+        // Dernière colonne du fichier : le champ se referme en fin de ligne.
+        assertTrue(csv.trimEnd().endsWith("\"Fin de convention\""))
+    }
 }
