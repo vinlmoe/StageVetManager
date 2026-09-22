@@ -217,6 +217,18 @@ row.createCell(15).setCellValue(s.monNouveauChamp)
 Ajouter l'intitulé dans `HEADERS` **et** la valeur à la même position dans
 `values()` — les deux listes sont positionnelles et doivent rester alignées.
 
+> Ce fichier est relu par le module Moodle StageCompagnon (`mod/stage`,
+> `import_stagevet.php`), qui reconnaît les colonnes **par leur intitulé** :
+> renommer un en-tête déjà mappé côté StageCompagnon y casse silencieusement
+> l'import de cette colonne. Les intitulés lus figurent dans le `$columnmap` de
+> `mod/stage/classes/local/csv_importer.php`.
+>
+> Ne pas simplifier `csv()` en une simple mise entre guillemets : Moodle lit le
+> fichier avec `fgetcsv()` sans désactiver l'échappement, et PHP y prend
+> l'antislash comme caractère d'échappement. Un antislash collé au guillemet
+> fermant (chemin Windows de « Chemin PDF local », texte brut d'une convention)
+> empêcherait ce guillemet de fermer le champ et décalerait toute la ligne.
+
 ---
 
 ## Mise à jour des tests après ajout
