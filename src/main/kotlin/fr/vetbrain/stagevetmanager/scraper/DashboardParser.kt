@@ -76,8 +76,15 @@ object DashboardParser {
             conventionSignUrl = conventionSignUrl,
             conventionCancelUrl = conventionCancelUrl,
             durationLabel = durationLabel,
+            supervisorEvaluationUrl = evaluationUrl(card, "1"),
+            studentEvaluationUrl = evaluationUrl(card, "2"),
         )
     }
+
+    private fun evaluationUrl(card: Element, evaluator: String): String =
+        card.select("a[href]").firstOrNull {
+            Regex("/evaluation/[^/]+/results/$evaluator/?$").containsMatchIn(it.attr("href"))
+        }?.attr("href").orEmpty()
 
     private fun parseDate(s: String): LocalDate? {
         val cleaned = s.trim()

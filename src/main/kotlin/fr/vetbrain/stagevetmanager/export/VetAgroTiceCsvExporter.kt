@@ -3,7 +3,7 @@ package fr.vetbrain.stagevetmanager.export
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.security.MessageDigest
 import java.nio.file.Path
 import java.time.format.DateTimeFormatter
 
@@ -29,6 +29,7 @@ object VetAgroTiceCsvExporter {
         "Montant gratification", "Cohérence gratification", "Gratification",
         "Signature tuteur", "Signature étudiant", "Signature maître de stage", "Signature école",
         "URL source des données", "Texte brut de la convention",
+        "Évaluation par le maître de stage", "Évaluation par l’étudiant",
     )
 
     /** Exporte uniquement les stages dont la signature finale est renseignée. */
@@ -38,14 +39,25 @@ object VetAgroTiceCsvExporter {
         pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     ): Int {
         val signed = internships.filter { it.signingDate != null }
-        Files.newBufferedWriter(path, StandardCharsets.UTF_8).use { writer ->
+        SafeFileWrite.replace(path.toFile()) { out ->
+            val writer = out.bufferedWriter(StandardCharsets.UTF_8)
             writer.write('\uFEFF'.code)
             writer.appendLine(HEADERS.joinToString(";") { csv(it) })
             signed.forEach { stage ->
                 writer.appendLine(values(stage, pdfDataCache[stage.conventionPdfUrl]).joinToString(";") { csv(it) })
             }
+            writer.flush()
         }
         return signed.size
+    }
+
+    /** Hash the actual CSV payload, including headers, rather than scrape timestamps. */
+    fun fingerprint(stage: Internship, pdf: ConventionPdfData?): String {
+        val payload = HEADERS.joinToString(";") { csv(it) } + "\n" +
+            values(stage, pdf).joinToString(";") { csv(it) }
+        return MessageDigest.getInstance("SHA-256")
+            .digest(payload.toByteArray(StandardCharsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
     }
 
     private fun values(stage: Internship, pdf: ConventionPdfData?): List<String> = listOf(
@@ -71,6 +83,7 @@ object VetAgroTiceCsvExporter {
         pdf?.signingDateTutor.orEmpty(), pdf?.signingDateStudent.orEmpty(),
         pdf?.signingDateHost.orEmpty(), pdf?.signingDateSchool.orEmpty(),
         pdf?.sourceUrl.orEmpty(), pdf?.rawText.orEmpty(),
+        stage.supervisorEvaluation.orEmpty(), stage.studentEvaluation.orEmpty(),
     )
 
     private fun bool(value: Boolean?): String = when (value) {

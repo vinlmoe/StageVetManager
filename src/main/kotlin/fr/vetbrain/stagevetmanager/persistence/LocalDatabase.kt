@@ -3,6 +3,7 @@ package fr.vetbrain.stagevetmanager.persistence
 import fr.vetbrain.stagevetmanager.model.ClinicStatus
 import fr.vetbrain.stagevetmanager.model.ConventionPdfData
 import fr.vetbrain.stagevetmanager.model.Internship
+import fr.vetbrain.stagevetmanager.model.VetAgroTiceExport
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -84,6 +85,23 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
 
     fun init() {
         connect().use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS vetagrotice_exports (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        exported_at TEXT NOT NULL, study_year TEXT NOT NULL,
+                        full_export INTEGER NOT NULL, stage_count INTEGER NOT NULL,
+                        file_path TEXT NOT NULL
+                    )
+                """.trimIndent())
+                stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS vetagrotice_export_state (
+                        internship_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL,
+                        export_id INTEGER NOT NULL REFERENCES vetagrotice_exports(id)
+                    )
+                """.trimIndent())
+            }
+
             conn.createStatement().execute("""
                 CREATE TABLE IF NOT EXISTS internships (
                     id                   TEXT PRIMARY KEY,
@@ -108,6 +126,16 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     last_seen            TEXT NOT NULL
                 )
             """.trimIndent())
+            for (column in listOf("supervisor_evaluation_url", "student_evaluation_url", "supervisor_evaluation", "student_evaluation")) {
+                val columns = conn.createStatement().use { stmt ->
+                    stmt.executeQuery("PRAGMA table_info(internships)").use { rs ->
+                        buildSet { while (rs.next()) add(rs.getString("name")) }
+                    }
+                }
+                if (column !in columns) conn.createStatement().use {
+                    it.execute("ALTER TABLE internships ADD COLUMN $column TEXT")
+                }
+            }
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN convention_pdf_url TEXT"
@@ -333,6 +361,67 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
         }
     }
 
+    fun loadVetAgroTiceFingerprints(): Map<String, String> = connect().use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT internship_id, fingerprint FROM vetagrotice_export_state").use { rs ->
+                buildMap { while (rs.next()) put(rs.getString(1), rs.getString(2)) }
+            }
+        }
+    }
+
+    fun loadVetAgroTiceExports(): List<VetAgroTiceExport> = connect().use { conn ->
+        conn.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT * FROM vetagrotice_exports ORDER BY id DESC LIMIT 20").use { rs ->
+                buildList {
+                    while (rs.next()) add(VetAgroTiceExport(
+                        rs.getString("exported_at"), rs.getString("study_year"),
+                        rs.getInt("full_export") != 0, rs.getInt("stage_count"), rs.getString("file_path"),
+                    ))
+                }
+            }
+        }
+    }
+
+    /** Called only after the CSV has been successfully replaced on disk. */
+    fun recordVetAgroTiceExport(export: VetAgroTiceExport, fingerprints: Map<String, String>) {
+        require(fingerprints.isNotEmpty() && export.stageCount == fingerprints.size)
+        connect().use { conn ->
+            conn.autoCommit = false
+            try {
+                conn.prepareStatement("""
+                    INSERT INTO vetagrotice_exports
+                        (exported_at, study_year, full_export, stage_count, file_path) VALUES (?,?,?,?,?)
+                """.trimIndent()).use {
+                    it.setString(1, export.exportedAt)
+                    it.setString(2, export.studyYear)
+                    it.setInt(3, if (export.fullExport) 1 else 0)
+                    it.setInt(4, export.stageCount)
+                    it.setString(5, export.filePath)
+                    it.executeUpdate()
+                }
+                val exportId = conn.createStatement().use { stmt ->
+                    stmt.executeQuery("SELECT last_insert_rowid()").use { it.next(); it.getLong(1) }
+                }
+                conn.prepareStatement("""
+                    INSERT INTO vetagrotice_export_state (internship_id, fingerprint, export_id)
+                    VALUES (?,?,?) ON CONFLICT(internship_id) DO UPDATE SET
+                        fingerprint=excluded.fingerprint, export_id=excluded.export_id
+                """.trimIndent()).use { stmt ->
+                    fingerprints.forEach { (id, hash) ->
+                        stmt.setString(1, id)
+                        stmt.setString(2, hash)
+                        stmt.setLong(3, exportId)
+                        stmt.executeUpdate()
+                    }
+                }
+                conn.commit()
+            } catch (e: Exception) {
+                conn.rollback()
+                throw e
+            }
+        }
+    }
+
     fun updateSchoolSignatureFromPdf(url: String, date: LocalDate): Int = connect().use { conn ->
         conn.prepareStatement("""
             UPDATE internships SET signing_date=?, convention_sign_url=''
@@ -427,6 +516,20 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                         added++
                     }
                 }
+                conn.prepareStatement("""
+                    UPDATE internships SET supervisor_evaluation_url=?, student_evaluation_url=?,
+                        supervisor_evaluation=COALESCE(?, supervisor_evaluation),
+                        student_evaluation=COALESCE(?, student_evaluation) WHERE id=?
+                """.trimIndent()).use { stmt ->
+                    for (stage in internships) {
+                        stmt.setString(1, stage.supervisorEvaluationUrl)
+                        stmt.setString(2, stage.studentEvaluationUrl)
+                        stmt.setString(3, stage.supervisorEvaluation)
+                        stmt.setString(4, stage.studentEvaluation)
+                        stmt.setString(5, stage.localId())
+                        stmt.executeUpdate()
+                    }
+                }
                 conn.commit()
             } catch (e: Exception) {
                 conn.rollback()
@@ -462,6 +565,10 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                         conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
                         durationLabel    = rs.getString("duration_label") ?: "",
                         inSuiviTable     = rs.getInt("in_suivi_table") == 1,
+                        supervisorEvaluationUrl = rs.getString("supervisor_evaluation_url").orEmpty(),
+                        studentEvaluationUrl = rs.getString("student_evaluation_url").orEmpty(),
+                        supervisorEvaluation = rs.getString("supervisor_evaluation"),
+                        studentEvaluation = rs.getString("student_evaluation"),
                         localPdfPath     = rs.getString("local_pdf_path") ?: "",
                     ))
                 }
@@ -547,6 +654,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                 conn.createStatement().use { stmt ->
                     // Un DELETE partiel laissait une base incohérente (stages effacés
                     // mais checkpoints conservés → reprise d'extraction erronée).
+                    stmt.execute("DELETE FROM vetagrotice_export_state")
                     stmt.execute("DELETE FROM internships")
                     stmt.execute("DELETE FROM pdf_data")
                     stmt.execute("DELETE FROM scrape_pages")

@@ -11,7 +11,7 @@ import fr.vetbrain.stagevetmanager.model.TrackingTarget
 import fr.vetbrain.stagevetmanager.model.ViewFilter
 import fr.vetbrain.stagevetmanager.export.LocalExcelUpdater
 import fr.vetbrain.stagevetmanager.export.LocalTrackingUpdater
-import fr.vetbrain.stagevetmanager.export.VetAgroTiceCsvExporter
+import fr.vetbrain.stagevetmanager.export.VetAgroTiceExportService
 import fr.vetbrain.stagevetmanager.persistence.LocalDatabase
 import fr.vetbrain.stagevetmanager.persistence.UpsertStats
 import fr.vetbrain.stagevetmanager.persistence.localId
@@ -64,6 +64,16 @@ class DashboardViewModel {
     val sortColumn      = MutableStateFlow(SortColumn.STUDENT)
     val sortAscending   = MutableStateFlow(true)
     val dbCount         = MutableStateFlow(0)
+    val vetAgroTiceExports = MutableStateFlow<List<fr.vetbrain.stagevetmanager.model.VetAgroTiceExport>>(emptyList())
+
+    fun refreshVetAgroTiceHistory() {
+        scope.launch {
+            vetAgroTiceExports.value = withContext(Dispatchers.IO) {
+                LocalDatabase.instance.loadVetAgroTiceExports()
+            }
+        }
+    }
+
     val trackingWarnings = MutableStateFlow<List<String>>(emptyList())
 
     // — Statuts cliniques —————————————————————————————————————————————————
@@ -211,6 +221,7 @@ class DashboardViewModel {
             allInternships.value = emptyList()
             statusMessage.value = "Connexion en cours…"
 
+            var evaluationFailures = 0
             var totalAdded = 0
             var totalUpdated = 0
             var logPath = ""
@@ -232,7 +243,13 @@ class DashboardViewModel {
                             ScraperResult.Failure("Identifiants incorrects ou timeout de connexion")
                         } else {
                             sessionCookies = scraper.getSessionCookies()
-                            val persistPage: (List<Internship>) -> Unit = { pageInternships ->
+                            val evaluationScraper = fr.vetbrain.stagevetmanager.scraper.EvaluationScraper(sessionCookies) {
+                                evaluationFailures++
+                                scraper.logHttpProgress(it)
+                            }
+                            val persistPage: (List<Internship>) -> Unit = { scrapedInternships ->
+                                scope.launch(Dispatchers.Main) { statusMessage.value = "Extraction des évaluations…" }
+                                val pageInternships = scrapedInternships.map(evaluationScraper::enrich)
                                 val stats: UpsertStats = LocalDatabase.instance.upsertAll(pageInternships)
                                 totalAdded += stats.added
                                 totalUpdated += stats.updated
@@ -251,7 +268,7 @@ class DashboardViewModel {
                             // mémorisés évitent de la rejouer si Selenium doit reprendre la pagination.
                             val activeFilters = scrapeFilters.value
                             val checkpoint = LocalDatabase.instance.beginOrResumeScrape(
-                                activeFilters.checkpointKey()
+                                activeFilters.checkpointKey() + "|evaluations-v1"
                             )
                             if (checkpoint.resumed && checkpoint.completedPages.isNotEmpty()) {
                                 scraper.logHttpProgress(
@@ -340,6 +357,7 @@ class DashboardViewModel {
                             append("${result.totalCount} stage(s) extraits — ")
                             append("$totalAdded nouveau(x), $totalUpdated mis à jour")
                             append(" — base : $count au total")
+                            if (evaluationFailures > 0) append(" — $evaluationFailures évaluation(s) non récupérée(s)")
                             if (logPath.isNotBlank()) append(" | log : $logPath")
                         }
                         _pdfDataCache.value = pdfCache
@@ -666,7 +684,8 @@ class DashboardViewModel {
         }
     }
 
-    fun exportVetAgroTiceCsv(path: Path, studyYear: String) {
+    fun exportVetAgroTiceCsv(path: Path, studyYear: String, fullExport: Boolean = false) {
+        if (isLoading.value) return
         scope.launch {
             isLoading.value = true
             statusMessage.value = "Export CSV VetAgroTice — $studyYear en cours…"
@@ -675,10 +694,13 @@ class DashboardViewModel {
                     val selectedInternships = allInternships.value.filter {
                         it.studyYear.trim() == studyYear.trim()
                     }
-                    VetAgroTiceCsvExporter.export(selectedInternships, path, _pdfDataCache.value)
+                    VetAgroTiceExportService.export(LocalDatabase.instance, selectedInternships, path, studyYear,
+                        _pdfDataCache.value, fullExport)
                 }
-                statusMessage.value =
-                    "Export CSV réussi : $exportedCount stage(s) signé(s) en $studyYear — ${path.fileName}"
+                refreshVetAgroTiceHistory()
+                statusMessage.value = if (exportedCount == 0)
+                    "Aucun stage à exporter en $studyYear — aucun fichier modifié"
+                else "Export CSV réussi : $exportedCount stage(s) en $studyYear — ${path.fileName}"
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -1,0 +1,531 @@
+﻿"Étudiant";"Année d'étude";"Organisme";"Adresse organisme";"N° convention";"Convention générée le";"Date signature finale";"Début stage";"Fin stage";"Dates brutes";"Thème";"Durée";"URL convention PDF";"URL signature";"Chemin PDF local";"Contact école";"Nom tuteur";"Fonction tuteur";"Téléphone tuteur";"Email tuteur";"Organisme (convention)";"Adresse organisme (convention)";"Représentant organisme";"Qualité maître de stage";"Téléphone organisme";"Email organisme";"Nom maître de stage";"Fonction maître de stage";"Nom étudiant";"Prénom étudiant";"Date de naissance étudiant";"Année étudiant (convention)";"Adresse étudiant";"Téléphone étudiant";"Email étudiant";"Année universitaire";"Début (convention)";"Fin (convention)";"Durée (convention)";"Jours déclarés";"Jours effectifs";"Cohérence jours";"Présence de nuit";"Présence dimanche";"Présence jour férié";"Présence à domicile";"Repos hebdomadaire";"Thème (convention)";"Statut gratification";"Montant gratification";"Cohérence gratification";"Gratification";"Signature tuteur";"Signature étudiant";"Signature maître de stage";"Signature école";"URL source des données";"Texte brut de la convention";"Évaluation par le maître de stage";"Évaluation par l’étudiant"
+"Mathis Leleu";"5ème année";"Clinique vétérinaire des trois paumes";"13 Fbg de Péronne, 62450 Bapaume, France";"";"Convention générée le 21-11-2025";"27/11/2025";"01/12/2025";"05/12/2025";"du 01-12-2025 au 05-12-2025";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/44ada84d2f9d07c490d76723f79eedc7925edfc4";"";"Mathis_Leleu_5ème_année_2025-12-01.pdf";"Hélène Aguesse";"Sébastien LEFEBVRE";"";"04 78 87 25 25";"";"Clinique vétérinaire des trois paumes";"13 Fbg de Péronne, 62450 Bapaume, France";"Aurore Cadinot";"Tel : 0321071114";"0321071114";"vet.des3paumes@orange.fr";"Aurore Cadinot";"Vétérinaire";"Leleu";"Mathis";"26/07/2000";"5";"6 Rue du Guillot, 69290 Saint-Genis-les-Ollières, France";"0782480219";"stagetest_etu01@example.invalid";"2025-2026";"01/12/2025";"05/12/2025";"5  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"";"25-11-2025 à 12:51";"25-11-2025 à 12:56";"25-11-2025 à 16:57";"27-11-2025 à 17:14";"https://www.stagevet.fr/convention/pdf/44ada84d2f9d07c490d76723f79eedc7925edfc4";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 2/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 3/5
+Respect du bien-être des animaux : 4/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 5/5
+Respect du matériel mis à disposition et des locaux : 2/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 3/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 4/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 5/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 2/5
+Capacité à comprendre et suivre les directives : 3/5
+Capacité à demander de l'aide en cas de besoin : 4/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 5/5
+Capacité à s'adapter en toutes circonstances : 2/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 3/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 4/5
+Capacité à communiquer à l'oral : 5/5
+Capacité à communiquer à l'écrit : 2/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 3/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 4/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 5/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 2/5
+Avis global : 3/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 1 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 2/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 3/5
+Mon intégration dans l'équipe a été facile et rapide : 4/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 5/5
+La structure vétérinaire était bien équipée : 2/5
+Les locaux étaient propres : 3/5
+Le bien-être animal était respecté au sein de la structure : 4/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 5/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 2/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 3/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 4/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 5/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 2/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 3/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 4/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 5/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 2/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 3/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 4/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 5/5
+Avis global : 2/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 3/5
+Commentaire
+TEST V2 — Stage 1 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Mathis Leleu";"5ème année";"Clinique vétérinaire des trois paumes";"13 Fbg de Péronne, 62450 Bapaume, France";"";"Convention générée le 03-12-2025";"04/12/2025";"08/12/2025";"12/12/2025";"du 08-12-2025 au 12-12-2025";"CLINIQUE RURALE / A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/5b65315b6ad9ba136c4fb073e7e965a3e2030b9b";"";"Mathis_Leleu_5ème_année_2025-12-08.pdf";"Hélène Aguesse";"Sébastien LEFEBVRE";"Enseignant référent";"04 78 87 25 25";"";"Clinique vétérinaire des trois paumes";"13 Fbg de Péronne, 62450 Bapaume, France";"Aurore Cadinot";"Tel : 0321071114";"0321071114";"vet.des3paumes@orange.fr";"Aurore Cadinot";"Vétérinaire";"Leleu";"Mathis";"26/07/2000";"5";"6 Rue du Guillot, 69290 Saint-Genis-les-Ollières, France";"0782480219";"stagetest_etu01@example.invalid";"2025-2026";"08/12/2025";"12/12/2025";"5  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"CLINIQUE RURALE / A3, A4, A5";"";"";"";"0 € (en chiffre)";"03-12-2025 à 18:17";"03-12-2025 à 18:12";"03-12-2025 à 18:12";"04-12-2025 à 10:01";"https://www.stagevet.fr/convention/pdf/5b65315b6ad9ba136c4fb073e7e965a3e2030b9b";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 3/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 4/5
+Respect du bien-être des animaux : 5/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 2/5
+Respect du matériel mis à disposition et des locaux : 3/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 4/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 5/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 2/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 3/5
+Capacité à comprendre et suivre les directives : 4/5
+Capacité à demander de l'aide en cas de besoin : 5/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 2/5
+Capacité à s'adapter en toutes circonstances : 3/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 4/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 5/5
+Capacité à communiquer à l'oral : 2/5
+Capacité à communiquer à l'écrit : 3/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 4/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 5/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 2/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 3/5
+Avis global : 4/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 5/5
+Commentaire
+TEST V2 — Stage 2 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 3/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 4/5
+Mon intégration dans l'équipe a été facile et rapide : 5/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 2/5
+La structure vétérinaire était bien équipée : 3/5
+Les locaux étaient propres : 4/5
+Le bien-être animal était respecté au sein de la structure : 5/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 2/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 3/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 4/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 5/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 2/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 3/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 4/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 5/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 2/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 3/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 4/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 5/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 2/5
+Avis global : 3/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 2 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Baptiste Faure";"5ème année";"ONLYVET PRALVET";"7 Rue Jean Zay, 69800 Saint-Priest, France";"";"Convention générée le 11-12-2025";"15/12/2025";"15/12/2025";"15/12/2025";"du 15-12-2025 au 15-12-2025";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/8be98d7acee71d90a767f6edcfa1618fdd62b864";"";"Baptiste_Faure_5ème_année_2025-12-15.pdf";"Hélène Aguesse";"Fanny Storck";"Professeur de physiologe & thérapeutique";"0670223472";"";"ONLYVET PRALVET";"7 Rue Jean Zay, 69800 Saint-Priest, France";"PABLO RIVIER";"Tel : 04 81 09 18 40";"04 81 09 18 40";"stagiaires@onlyvet.fr";"PABLO RIVIER";"VETERINAIRE";"Faure";"Baptiste";"21/05/2002";"5";"393 Av. Bourgelat, 69280 Marcy-l'Étoile, France";"0646101719";"stagetest_etu02@example.invalid";"2025-2026";"15/12/2025";"15/12/2025";"1  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"0 € (en chiffre)";"12-12-2025 à 16:41";"12-12-2025 à 16:55";"13-12-2025 à 16:08";"15-12-2025 à 09:22";"https://www.stagevet.fr/convention/pdf/8be98d7acee71d90a767f6edcfa1618fdd62b864";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 4/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 5/5
+Respect du bien-être des animaux : 2/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 3/5
+Respect du matériel mis à disposition et des locaux : 4/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 5/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 2/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 3/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 4/5
+Capacité à comprendre et suivre les directives : 5/5
+Capacité à demander de l'aide en cas de besoin : 2/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 3/5
+Capacité à s'adapter en toutes circonstances : 4/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 5/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 2/5
+Capacité à communiquer à l'oral : 3/5
+Capacité à communiquer à l'écrit : 4/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 5/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 2/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 3/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 4/5
+Avis global : 5/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 2/5
+Commentaire
+TEST V2 — Stage 3 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 4/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 5/5
+Mon intégration dans l'équipe a été facile et rapide : 2/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 3/5
+La structure vétérinaire était bien équipée : 4/5
+Les locaux étaient propres : 5/5
+Le bien-être animal était respecté au sein de la structure : 2/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 3/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 4/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 5/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 2/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 3/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 4/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 5/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 2/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 3/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 4/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 5/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 2/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 3/5
+Avis global : 4/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 5/5
+Commentaire
+TEST V2 — Stage 3 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Baptiste Faure";"5ème année";"Vet&Al Brindas";"2 Chemin de la Grande Pierre, Brindas, France";"";"Convention générée le 23-11-2025";"08/12/2025";"05/01/2026";"23/01/2026";"du 05-01-2026 au 23-01-2026";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/76a307b896e6219990caa1f26d9d49cc7005a1aa";"";"Baptiste_Faure_5ème_année_2026-01-05.pdf";"Hélène Aguesse";"Anne JOSSON SCHRAMME";"Enseignant référent";"04 78 87 25 25";"";"Vet&Al Brindas";"2 Chemin de la Grande Pierre, Brindas, France";"EMILIE DONAS";"Tel : 04 78 59 69 10";"04 78 59 69 10";"edonas@vet-al.fr";"EMILIE DONAS";"vétérinaire animaux de compagnie";"Faure";"Baptiste";"21/05/2002";"4";"393 Av. Bourgelat, 69280 Marcy-l'Étoile, France";"0646101719";"stagetest_etu02@example.invalid";"2025-2026";"05/01/2026";"23/01/2026";"15  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"0 € (en chiffre)";"24-11-2025 à 10:49";"08-12-2025 à 10:52";"24-11-2025 à 13:11";"08-12-2025 à 11:32";"https://www.stagevet.fr/convention/pdf/76a307b896e6219990caa1f26d9d49cc7005a1aa";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 5/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 2/5
+Respect du bien-être des animaux : 3/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 4/5
+Respect du matériel mis à disposition et des locaux : 5/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 2/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 3/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 4/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 5/5
+Capacité à comprendre et suivre les directives : 2/5
+Capacité à demander de l'aide en cas de besoin : 3/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 4/5
+Capacité à s'adapter en toutes circonstances : 5/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 2/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 3/5
+Capacité à communiquer à l'oral : 4/5
+Capacité à communiquer à l'écrit : 5/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 2/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 3/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 4/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 5/5
+Avis global : 2/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 3/5
+Commentaire
+TEST V2 — Stage 4 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 5/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 2/5
+Mon intégration dans l'équipe a été facile et rapide : 3/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 4/5
+La structure vétérinaire était bien équipée : 5/5
+Les locaux étaient propres : 2/5
+Le bien-être animal était respecté au sein de la structure : 3/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 4/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 5/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 2/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 3/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 4/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 5/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 2/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 3/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 4/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 5/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 2/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 3/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 4/5
+Avis global : 5/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 2/5
+Commentaire
+TEST V2 — Stage 4 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Matéo Rodrigues";"5ème année";"Anicura Tilleuls";"3 Rue De L Innovation, 67720 Hœrdt, France";"";"Convention générée le 06-03-2026";"16/03/2026";"06/04/2026";"10/04/2026";"du 06-04-2026 au 10-04-2026";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/f4ab3e539f665ed40dc716388fa78e0900cc8cfd";"";"Matéo_Rodrigues_5ème_année_2026-04-06.pdf";"Hélène Aguesse";"Emilie ROSSET";"Enseignant référent";"04 78 87 25 25";"";"Anicura Tilleuls";"3 Rue De L Innovation, 67720 Hœrdt, France";"Tanguy Cullet";"Tel : 0388692726";"0388692726";"clinique.tilleuls@anicura.fr";"Tanguy Cullet";"Veterinaire";"Rodrigues";"Matéo";"03/11/2002";"5";"20 Imp. Marcel Mérieux, 69280 Marcy-l'Étoile, France";"0768067922";"stagetest_etu03@example.invalid";"2025-2026";"06/04/2026";"10/04/2026";"5  jours effectifs";"";"";"";"Non";"Non";"Oui";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"0 € (en chiffre)";"09-03-2026 à 09:49";"13-03-2026 à 14:25";"09-03-2026 à 17:34";"16-03-2026 à 11:51";"https://www.stagevet.fr/convention/pdf/f4ab3e539f665ed40dc716388fa78e0900cc8cfd";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 2/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 3/5
+Respect du bien-être des animaux : 4/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 5/5
+Respect du matériel mis à disposition et des locaux : 2/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 3/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 4/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 5/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 2/5
+Capacité à comprendre et suivre les directives : 3/5
+Capacité à demander de l'aide en cas de besoin : 4/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 5/5
+Capacité à s'adapter en toutes circonstances : 2/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 3/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 4/5
+Capacité à communiquer à l'oral : 5/5
+Capacité à communiquer à l'écrit : 2/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 3/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 4/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 5/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 2/5
+Avis global : 3/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 5 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 2/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 3/5
+Mon intégration dans l'équipe a été facile et rapide : 4/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 5/5
+La structure vétérinaire était bien équipée : 2/5
+Les locaux étaient propres : 3/5
+Le bien-être animal était respecté au sein de la structure : 4/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 5/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 2/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 3/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 4/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 5/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 2/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 3/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 4/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 5/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 2/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 3/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 4/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 5/5
+Avis global : 2/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 3/5
+Commentaire
+TEST V2 — Stage 5 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Matéo Rodrigues";"5ème année";"Clinique vétérinaire MermozVet";"76 Rue Marius Berliet, 69008 Lyon, France";"";"Convention générée le 05-03-2026";"24/03/2026";"27/04/2026";"09/05/2026";"du 27-04-2026 au 09-05-2026";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/2f0f051d447a0326cb2b0fd7902a15326b61279f";"";"Matéo_Rodrigues_5ème_année_2026-04-27.pdf";"Hélène Aguesse";"Emilie ROSSET";"Enseignant référent";"04 78 87 25 25";"";"Clinique vétérinaire MermozVet";"76 Rue Marius Berliet, 69008 Lyon, France";"Romain DURBEC";"Tel : 0478742961";"0478742961";"romain.durbec@orange.fr";"Romain DURBEC";"Vétérinaire";"Rodrigues";"Matéo";"03/11/2002";"5";"20 Imp. Marcel Mérieux, 69280 Marcy-l'Étoile, France";"0768067922";"stagetest_etu03@example.invalid";"2025-2026";"27/04/2026";"09/05/2026";"10  jours effectifs";"";"";"";"Non";"Non";"Oui";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"0 € (en chiffre)";"06-03-2026 à 09:38";"06-03-2026 à 10:47";"24-03-2026 à 15:30";"24-03-2026 à 16:17";"https://www.stagevet.fr/convention/pdf/2f0f051d447a0326cb2b0fd7902a15326b61279f";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 3/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 4/5
+Respect du bien-être des animaux : 5/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 2/5
+Respect du matériel mis à disposition et des locaux : 3/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 4/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 5/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 2/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 3/5
+Capacité à comprendre et suivre les directives : 4/5
+Capacité à demander de l'aide en cas de besoin : 5/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 2/5
+Capacité à s'adapter en toutes circonstances : 3/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 4/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 5/5
+Capacité à communiquer à l'oral : 2/5
+Capacité à communiquer à l'écrit : 3/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 4/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 5/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 2/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 3/5
+Avis global : 4/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 5/5
+Commentaire
+TEST V2 — Stage 6 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 3/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 4/5
+Mon intégration dans l'équipe a été facile et rapide : 5/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 2/5
+La structure vétérinaire était bien équipée : 3/5
+Les locaux étaient propres : 4/5
+Le bien-être animal était respecté au sein de la structure : 5/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 2/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 3/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 4/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 5/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 2/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 3/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 4/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 5/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 2/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 3/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 4/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 5/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 2/5
+Avis global : 3/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 6 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Jean Macherel";"5ème année";"DDETSPP";"Pl. Varillas, 23000 Guéret, France";"";"Convention générée le 11-03-2026";"20/03/2026";"06/04/2026";"10/04/2026";"du 06-04-2026 au 10-04-2026";"SANTE PUBLIQUE VETERINAIRE / A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/8110d20c524193a78802f33c0287f8a9dffcb77a";"";"Jean_Macherel_5ème_année_2026-04-06.pdf";"Hélène Aguesse";"Thierry MARCHAL";"Enseignant référent";"04 78 87 25 25";"";"DDETSPP";"Pl. Varillas, 23000 Guéret, France";"Emmanuelle Thill";"Tel : 0788764750";"0788764750";"emmanuelle.thill@creuse.gouv.fr";"Emmanuelle Thill";"Directeur";"Macherel";"Jean";"09/08/2001";"5";"342 Chem. du Dom. de Mercruy, 69210 Lentilly, France";"0695308367";"stagetest_etu04@example.invalid";"2025-2026";"06/04/2026";"10/04/2026";"5  jours effectifs";"";"";"";"Non";"Non";"Oui";"Non";"Oui";"SANTE PUBLIQUE VETERINAIRE / A3, A4, A5";"";"";"";"0 € (en chiffre)";"20-03-2026 à 09:27";"16-03-2026 à 09:41";"16-03-2026 à 10:02";"20-03-2026 à 12:10";"https://www.stagevet.fr/convention/pdf/8110d20c524193a78802f33c0287f8a9dffcb77a";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 4/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 5/5
+Respect du bien-être des animaux : 2/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 3/5
+Respect du matériel mis à disposition et des locaux : 4/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 5/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 2/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 3/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 4/5
+Capacité à comprendre et suivre les directives : 5/5
+Capacité à demander de l'aide en cas de besoin : 2/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 3/5
+Capacité à s'adapter en toutes circonstances : 4/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 5/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 2/5
+Capacité à communiquer à l'oral : 3/5
+Capacité à communiquer à l'écrit : 4/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 5/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 2/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 3/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 4/5
+Avis global : 5/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 2/5
+Commentaire
+TEST V2 — Stage 7 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 4/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 5/5
+Mon intégration dans l'équipe a été facile et rapide : 2/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 3/5
+La structure vétérinaire était bien équipée : 4/5
+Les locaux étaient propres : 5/5
+Le bien-être animal était respecté au sein de la structure : 2/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 3/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 4/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 5/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 2/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 3/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 4/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 5/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 2/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 3/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 4/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 5/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 2/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 3/5
+Avis global : 4/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 5/5
+Commentaire
+TEST V2 — Stage 7 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Jean Macherel";"5ème année";"clinique heiligenmatt";"67600 Sélestat, France";"";"Convention générée le 16-03-2026";"20/03/2026";"13/04/2026";"25/04/2026";"du 13-04-2026 au 25-04-2026";"THEME LIBRE / A2, A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/36c49436b8f751cf7b47d8f4cce86a8edb4ba11d";"";"Jean_Macherel_5ème_année_2026-04-13.pdf";"Hélène Aguesse";"Thierry MARCHAL";"Enseignant référent";"04 78 87 25 25";"";"clinique heiligenmatt";"67600 Sélestat, France";"Arnaud Arnaud Kirch";"Tel : 0388822811";"0388822811";"cliniqueheiligenmatt@gmail.com";"Arnaud Arnaud Kirch";"veterinaire";"Macherel";"Jean";"09/08/2001";"5";"342 Chem. du Dom. de Mercruy, 69210 Lentilly, France";"0695308367";"stagetest_etu04@example.invalid";"2025-2026";"13/04/2026";"25/04/2026";"12  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"THEME LIBRE / A2, A3, A4, A5";"";"";"";"0 € (en chiffre)";"20-03-2026 à 09:24";"20-03-2026 à 10:28";"20-03-2026 à 09:27";"20-03-2026 à 12:09";"https://www.stagevet.fr/convention/pdf/36c49436b8f751cf7b47d8f4cce86a8edb4ba11d";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 5/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 2/5
+Respect du bien-être des animaux : 3/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 4/5
+Respect du matériel mis à disposition et des locaux : 5/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 2/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 3/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 4/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 5/5
+Capacité à comprendre et suivre les directives : 2/5
+Capacité à demander de l'aide en cas de besoin : 3/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 4/5
+Capacité à s'adapter en toutes circonstances : 5/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 2/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 3/5
+Capacité à communiquer à l'oral : 4/5
+Capacité à communiquer à l'écrit : 5/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 2/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 3/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 4/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 5/5
+Avis global : 2/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 3/5
+Commentaire
+TEST V2 — Stage 8 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 5/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 2/5
+Mon intégration dans l'équipe a été facile et rapide : 3/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 4/5
+La structure vétérinaire était bien équipée : 5/5
+Les locaux étaient propres : 2/5
+Le bien-être animal était respecté au sein de la structure : 3/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 4/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 5/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 2/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 3/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 4/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 5/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 2/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 3/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 4/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 5/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 2/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 3/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 4/5
+Avis global : 5/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 2/5
+Commentaire
+TEST V2 — Stage 8 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Joannes Alberto-Jacquemont";"5ème année";"SELARL DU VAL DE RHINS";"47 La Croix de Fer, 42470 Saint-Symphorien-de-Lay, France";"";"Convention générée le 24-11-2025";"01/12/2025";"01/12/2025";"12/12/2025";"du 01-12-2025 au 12-12-2025";"CLINIQUE ANIMAUX DE COMPAGNIE, DE SPORT ET DE LOISIRS / A3, A4, A5";"";"https://www.stagevet.fr/convention/pdf/24250502f590e7b656e578dcbacc265d638e3ef0";"";"Joannes_Alberto-Jacquemont_5ème_année_2025-12-01.pdf";"Hélène Aguesse";"Marie ABITBOL";"Enseignant référent";"04 78 87 25 25";"";"SELARL DU VAL DE RHINS";"47 La Croix de Fer, 42470 Saint-Symphorien-de-Lay, France";"Jean-Baptiste GENOUVRIER";"Tel : 0679814741";"0679814741";"cliniquestsym@vetovdr.fr";"Jean-Baptiste GENOUVRIER";"Vétérinaire";"Alberto-Jacquemont";"Joannes";"15/03/2002";"5";"393 Av. Bourgelat, 69280 Marcy-l'Étoile, France";"0768639310";"stagetest_etu05@example.invalid";"2025-2026";"01/12/2025";"12/12/2025";"10  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"CLINIQUE ANIMAUX DE COMPAGNIE, DE SPORT ET DE";"";"";"";"";"24-11-2025 à 13:38";"24-11-2025 à 14:44";"26-11-2025 à 12:59";"01-12-2025 à 10:09";"https://www.stagevet.fr/convention/pdf/24250502f590e7b656e578dcbacc265d638e3ef0";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 2/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 3/5
+Respect du bien-être des animaux : 4/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 5/5
+Respect du matériel mis à disposition et des locaux : 2/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 3/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 4/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 5/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 2/5
+Capacité à comprendre et suivre les directives : 3/5
+Capacité à demander de l'aide en cas de besoin : 4/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 5/5
+Capacité à s'adapter en toutes circonstances : 2/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 3/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 4/5
+Capacité à communiquer à l'oral : 5/5
+Capacité à communiquer à l'écrit : 2/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 3/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 4/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 5/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 2/5
+Avis global : 3/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 9 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 2/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 3/5
+Mon intégration dans l'équipe a été facile et rapide : 4/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 5/5
+La structure vétérinaire était bien équipée : 2/5
+Les locaux étaient propres : 3/5
+Le bien-être animal était respecté au sein de la structure : 4/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 5/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 2/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 3/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 4/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 5/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 2/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 3/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 4/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 5/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 2/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 3/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 4/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 5/5
+Avis global : 2/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 3/5
+Commentaire
+TEST V2 — Stage 9 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."
+"Joannes Alberto-Jacquemont";"5ème année";"AzurVet";"769 Av. Pierre et Marie Curie, 06700 Saint-Laurent-du-Var, France";"";"Convention générée le 19-01-2026";"23/01/2026";"26/01/2026";"30/01/2026";"du 26-01-2026 au 30-01-2026";"CLINIQUE / A2, A3, A4";"";"https://www.stagevet.fr/convention/pdf/b1706278056ed06614f58bdf09f8929a00b08317";"";"Joannes_Alberto-Jacquemont_5ème_année_2026-01-26.pdf";"Hélène Aguesse";"Marie ABITBOL";"Enseignant référent";"04 78 87 25 25";"";"AzurVet";"769 Av. Pierre et Marie Curie, 06700 Saint-Laurent-du-Var, France";"Benoit RANNOU";"Tel : 0497100710";"0497100710";"brannou0@gmail.com";"Benoit RANNOU";"Vétérinaire";"Alberto-Jacquemont";"Joannes";"15/03/2002";"5";"393 Av. Bourgelat, 69280 Marcy-l'Étoile, France";"0768639310";"stagetest_etu05@example.invalid";"2025-2026";"26/01/2026";"30/01/2026";"5  jours effectifs";"";"";"";"Non";"Non";"Non";"Non";"Oui";"CLINIQUE / A2, A3, A4";"";"";"";"0 € (en chiffre)";"19-01-2026 à 15:36";"21-01-2026 à 11:04";"19-01-2026 à 21:31";"23-01-2026 à 13:42";"https://www.stagevet.fr/convention/pdf/b1706278056ed06614f58bdf09f8929a00b08317";"";"Évaluation simulée pour test d’import
+Respect des horaires de travail : ponctualité et assiduité : 3/5
+Respect des interlocuteurs (clients, personnels, encadrants,...) : 4/5
+Respect du bien-être des animaux : 5/5
+Respect des consignes vestimentaires, d'hygiène et de biosécurité : 2/5
+Respect du matériel mis à disposition et des locaux : 3/5
+Motivation à apprendre (chercher à approfondir et à discuter des cas, à améliorer ses compétences techniques) : 4/5
+Capacité à faire preuve d'une autonomie et à prendre des initiatives (raisonnées et responsables) : 5/5
+Capacité à tenir compte des suggestions en vue de s'améliorer : 2/5
+Capacité à travailler en équipe et à contribuer, par sa collaboration à l'efficacité d'un collectif : 3/5
+Capacité à comprendre et suivre les directives : 4/5
+Capacité à demander de l'aide en cas de besoin : 5/5
+Capacité à optimiser ses temps libres et à rechercher du travail : 2/5
+Capacité à s'adapter en toutes circonstances : 3/5
+Clairvoyance sur son niveau et sur ses compétences restant à acquérir : 4/5
+Capacité à utiliser la terminologie scientifique et clinique appropriée : 5/5
+Capacité à communiquer à l'oral : 2/5
+Capacité à communiquer à l'écrit : 3/5
+Capacité à mobiliser ses connaissances théoriques et à analyser et valoriser les situations professionnelles rencontrées : 4/5
+Capacité à comprendre, discuter et argumenter la démarche clinique pour les cas vus et suivis : 5/5
+Capacité à réaliser des gestes techniques correspondant à son niveau, en respectant les bonnes pratiques et avec une habileté technique suffisante : 2/5
+Capacité à s'intéresser aux sciences de l'entreprise (gestion, management, etc.) : 3/5
+Avis global : 4/5
+L'étudiant a répondu aux objectifs pédagogiques qui lui étaient fixés : 5/5
+Commentaire
+TEST V2 — Stage 10 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.";"Évaluation simulée pour test d’import
+Les objectifs pédagogiques définis en début de stage ont été pris en compte et réévalués au cours du stage : 3/5
+Les aspects logistiques (hébergement, transport, repas) ne m'ont pas posé de problème particulier : 4/5
+Mon intégration dans l'équipe a été facile et rapide : 5/5
+La communication avec l'ensemble de l'équipe était fluide et bienveillante : 2/5
+La structure vétérinaire était bien équipée : 3/5
+Les locaux étaient propres : 4/5
+Le bien-être animal était respecté au sein de la structure : 5/5
+La structure correspondait à la description qui en était faite sur le site StageVet : 2/5
+Mon maître de stage m'a proposé un entretien en début de stage pendant lequel nous avons pu discuter clairement des objectifs du stage : 3/5
+Mon maître de stage m'a proposé un entretien en fin de stage pendant lequel nous avons pu faire le point sur mes apprentissages et sur les points à travailler : 4/5
+Mon maître de stage a été disponible tout au long du stage et les échanges ont été facile : 5/5
+Mon maître de stage a été pédagogue et m'a proposé de discuter des cas rencontrés : 2/5
+Mon maître de stage m'a transmis de nouvelles connaissances et appris de nouveaux gestes techniques : 3/5
+Mon maître de stage m'a fait confiance et m'a confié des tâches à la hauteur de mes capacités : 4/5
+J'ai pu examiner des animaux et le stage m'a permis de progresser dans la démarche sémiologique : 5/5
+J'ai pu réfléchir et échanger sur des cas cliniques et le stage m'a permis de progresser sur la démarche clinique : 2/5
+J'ai pu effectuer des gestes techniques et le stage m'a permis de progresser dans mes savoir-faire : 3/5
+J'ai pu discuter de l'organisation administrative de la clinique et le stage m'a permis de progresser sur la compréhension des problématiques de gestion et de ressources humaines : 4/5
+J'ai pu appréhender les relations avec la clientèle et les modalités de sa gestion : 5/5
+J'ai pu discuter de mon projet professionnel et le stage m'a permis de mieux appréhender l'écosystème vétérinaire : 2/5
+Avis global : 3/5
+L'étudiant pense avoir atteint les objectifs qui lui étaient fixés : 4/5
+Commentaire
+TEST V2 — Stage 10 : appréciation mise à jour après le bilan complémentaire ; progression confirmée.
+Commentaire sur la réalisation des objectifs : TEST V2 — Objectifs atteints après réévaluation.
+Gestes techniques et actes pratiqués : TEST V2 — Observation, assistance et réalisation de gestes sous supervision."

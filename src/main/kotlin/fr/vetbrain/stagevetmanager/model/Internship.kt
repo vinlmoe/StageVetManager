@@ -20,6 +20,10 @@ data class Internship(
     val durationLabel: String = "",
     val inSuiviTable: Boolean = false,
     val localPdfPath: String = "",
+    val supervisorEvaluationUrl: String = "",
+    val studentEvaluationUrl: String = "",
+    val supervisorEvaluation: String? = null,
+    val studentEvaluation: String? = null,
 ) {
     /** Convention non signée dont le stage n'est pas terminé. */
     fun needsSignatureRefresh(today: LocalDate = LocalDate.now()): Boolean =

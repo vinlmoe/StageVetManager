@@ -1,0 +1,13 @@
+﻿"Étudiant";"Année d'étude";"Organisme";"Adresse organisme";"N° convention";"Convention générée le";"Date signature finale";"Début stage";"Fin stage";"Dates brutes";"Thème";"Durée";"URL convention PDF";"URL signature";"Chemin PDF local";"Contact école";"Nom tuteur";"Fonction tuteur";"Téléphone tuteur";"Email tuteur";"Organisme (convention)";"Adresse organisme (convention)";"Représentant organisme";"Qualité maître de stage";"Téléphone organisme";"Email organisme";"Nom maître de stage";"Fonction maître de stage";"Nom étudiant";"Prénom étudiant";"Date de naissance étudiant";"Année étudiant (convention)";"Adresse étudiant";"Téléphone étudiant";"Email étudiant";"Année universitaire";"Début (convention)";"Fin (convention)";"Durée (convention)";"Jours déclarés";"Jours effectifs";"Cohérence jours";"Présence de nuit";"Présence dimanche";"Présence jour férié";"Présence à domicile";"Repos hebdomadaire";"Thème (convention)";"Statut gratification";"Montant gratification";"Cohérence gratification";"Gratification";"Signature tuteur";"Signature étudiant";"Signature maître de stage";"Signature école";"URL source des données";"Texte brut de la convention";"Évaluation par le maître de stage";"Évaluation par l’étudiant"
+"EXEMPLE Camille";"3e";"Clinique ""Exemple"" ; site A";"";"DEMO-0001";"";"20/01/2026";"01/02/2026";"05/02/2026";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"camille@example.test";"";"";"";"";"5";"5";"Oui";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"";"Convention fictive.
+Texte sur deux lignes.";"Savoir-être
+Ponctualité : 4/5
+Avis global : 4/5
+Commentaire
+Bonne progression ; attitude ""attentive"".";"Accueil
+Présentation de l’équipe : 0/5
+Disponibilité : Non renseigné
+Avis global : 3/5
+Commentaire
+Exemple fictif de commentaire.
+Gestes techniques et actes pratiqués : Suture sur modèle."

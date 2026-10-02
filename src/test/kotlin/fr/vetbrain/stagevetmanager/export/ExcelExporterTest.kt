@@ -33,6 +33,16 @@ class ExcelExporterTest {
         XSSFWorkbook(ByteArrayInputStream(ExcelExporter.exportToBytes(internships)))
 
     @Test
+    fun `evaluation details are exported without losing comments`() {
+        val stage = internship().copy(supervisorEvaluation = "Ponctualité : 0/5\nCommentaire : À améliorer",
+            studentEvaluation = "Accueil : 5/5\nTrès bon stage")
+        workbook(listOf(stage)).use { wb ->
+            assertEquals(stage.supervisorEvaluation, wb.getSheetAt(0).getRow(1).getCell(15).stringCellValue)
+            assertEquals(stage.studentEvaluation, wb.getSheetAt(0).getRow(1).getCell(16).stringCellValue)
+        }
+    }
+
+    @Test
     fun `exportToBytes returns non-empty bytes for empty list`() {
         assertTrue(ExcelExporter.exportToBytes(emptyList()).isNotEmpty())
     }
@@ -53,12 +63,13 @@ class ExcelExporterTest {
     }
 
     @Test
-    fun `header row has 15 columns with correct labels`() {
+    fun `header row has 17 columns with correct labels`() {
         val expectedHeaders = listOf(
             "Étudiant", "Année", "Organisme", "Adresse",
             "Convention n°", "Conv. générée le", "Date signature",
             "Début stage", "Fin stage", "Dates brutes", "Thème",
-            "URL Convention PDF", "URL Signature", "Durée", "Email étudiant"
+            "URL Convention PDF", "URL Signature", "Durée", "Email étudiant",
+            "Évaluation par le maître de stage", "Évaluation par l’étudiant"
         )
         workbook(emptyList()).use { wb ->
             val header = wb.getSheetAt(0).getRow(0)

@@ -213,6 +213,15 @@ fun InternshipDetailView(
             }
         }
 
+        listOf(
+            "Évaluation par le maître de stage" to internship.supervisorEvaluation,
+            "Évaluation par l’étudiant" to internship.studentEvaluation,
+        ).forEach { (title, evaluation) ->
+            DetailCard(title = title) {
+                Text(evaluation ?: "Évaluation non disponible", fontSize = 12.sp)
+            }
+        }
+
         // ── Suivi administratif ───────────────────────────────────────────
         DetailCard(title = "Suivi administratif") {
             Row(

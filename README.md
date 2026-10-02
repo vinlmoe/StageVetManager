@@ -26,6 +26,9 @@ conventions PDF et produit les exports attendus par l'administration.
   (moins de 24 h, mêmes filtres)
 - Filtres serveur : période, année d'étude, thème, statut
 
+- Évaluations par le maître de stage et par l’étudiant : items notés sur 5, avis global,
+  commentaires, objectifs et actes pratiqués, enregistrés localement lors de l’extraction
+
 **Consultation**
 - Vue **liste** : table triable, recherche plein texte, filtres locaux
 - Vue **bilan** : regroupement par étudiant avec détail dépliable
@@ -46,7 +49,20 @@ conventions PDF et produit les exports attendus par l'administration.
   signés à 15 jours, cliniques)
 - Complétion d'un classeur existant sans le réécrire
 - Tableau de suivi ER : écriture des colonnes Lieu / Durée par groupe de thème
-- CSV VetAgroTice des stages signés, un champ par colonne
+- CSV VetAgroTice des stages signés : par défaut, seulement les stages nouveaux ou
+  dont les données exportées ont changé (évaluations et données PDF comprises)
+- Historique local des exports CSV (date, année, nombre de stages et fichier),
+  avec option de réexport complet ; aucun fichier remplacé si rien n’a changé
+- Deux colonnes d’évaluation dans les exports Excel et CSV (libellés, notes en chiffres
+  et commentaires), également consultables dans le détail du stage
+
+---
+
+## Documentation de l’import CSV
+
+La [spécification du CSV VetAgroTice](docs/import-csv-vetagrotice.md) décrit les
+60 colonnes, les formats, les évaluations et les règles de correspondance pour
+l’importation. Un [exemple fictif](docs/exemple-vetagrotice.csv) permet de tester le lecteur CSV.
 
 ---
 

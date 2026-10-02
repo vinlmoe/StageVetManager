@@ -16,7 +16,8 @@ object ExcelExporter {
         "Étudiant", "Année", "Organisme", "Adresse",
         "Convention n°", "Conv. générée le", "Date signature",
         "Début stage", "Fin stage", "Dates brutes", "Thème",
-        "URL Convention PDF", "URL Signature", "Durée", "Email étudiant"
+        "URL Convention PDF", "URL Signature", "Durée", "Email étudiant",
+        "Évaluation par le maître de stage", "Évaluation par l’étudiant"
     )
 
     val CLINIC_HEADERS = listOf(
@@ -106,9 +107,21 @@ object ExcelExporter {
             row.createCell(12).setCellValue(s.conventionSignUrl)
             row.createCell(13).setCellValue(s.durationLabel)
             row.createCell(14).setCellValue(pdfDataCache[s.conventionPdfUrl]?.studentEmail.orEmpty())
+            row.createCell(15).setCellValue(s.supervisorEvaluation.orEmpty())
+            row.createCell(16).setCellValue(s.studentEvaluation.orEmpty())
         }
 
         headers.indices.forEach { sheet.autoSizeColumn(it) }
+        val evaluationStyle = wb.createCellStyle().apply {
+            wrapText = true
+            verticalAlignment = VerticalAlignment.TOP
+        }
+        for (column in 15..16) {
+            sheet.setColumnWidth(column, 80 * 256)
+            for (rowIndex in 1..sheet.lastRowNum) {
+                sheet.getRow(rowIndex)?.getCell(column)?.cellStyle = evaluationStyle
+            }
+        }
     }
 
     private fun writeClinicSheet(

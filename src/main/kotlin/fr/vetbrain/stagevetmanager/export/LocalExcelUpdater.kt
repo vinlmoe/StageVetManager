@@ -73,6 +73,12 @@ object LocalExcelUpdater {
             val row = sheet.getRow(rowIdx) ?: return@forEach
             val pdfUrl = cellText(row.getCell(11))
             row.createCell(14).setCellValue(pdfDataCache[pdfUrl]?.studentEmail.orEmpty())
+            val convention = cellText(row.getCell(4))
+            val stage = internships.singleOrNull {
+                convention.isNotBlank() && normalizeKey(it.conventionNumber) == convention
+            }
+            stage?.supervisorEvaluation?.let { row.createCell(15).setCellValue(it) }
+            stage?.studentEvaluation?.let { row.createCell(16).setCellValue(it) }
         }
         val existing = (1..sheet.lastRowNum).mapNotNull { rowIdx ->
             cellText(sheet.getRow(rowIdx)?.getCell(4)).ifBlank { null }
@@ -144,5 +150,7 @@ object LocalExcelUpdater {
         row.createCell(12).setCellValue(s.conventionSignUrl)
         row.createCell(13).setCellValue(s.durationLabel)
         row.createCell(14).setCellValue(pdfDataCache[s.conventionPdfUrl]?.studentEmail.orEmpty())
+            row.createCell(15).setCellValue(s.supervisorEvaluation.orEmpty())
+            row.createCell(16).setCellValue(s.studentEvaluation.orEmpty())
     }
 }

@@ -46,6 +46,23 @@ class LocalDatabaseTest {
         theme = "Chirurgie",
     )
 
+    @Test
+    fun `evaluations survive reload and failed refresh and can be updated`() {
+        val stage = internship().copy(
+            supervisorEvaluationUrl = "https://www.stagevet.fr/evaluation/test/results/1",
+            supervisorEvaluation = "Ponctualité : 0/5\nCommentaire : À améliorer",
+            studentEvaluation = "Accueil : 5/5",
+        )
+        db.upsertAll(listOf(stage))
+        assertEquals(stage.supervisorEvaluation, db.loadAll().single().supervisorEvaluation)
+        assertEquals(stage.studentEvaluation, db.loadAll().single().studentEvaluation)
+        assertEquals(stage.supervisorEvaluationUrl, db.loadAll().single().supervisorEvaluationUrl)
+        db.upsertAll(listOf(stage.copy(supervisorEvaluation = null, studentEvaluation = null)))
+        assertEquals(stage.supervisorEvaluation, db.loadAll().single().supervisorEvaluation)
+        db.upsertAll(listOf(stage.copy(supervisorEvaluation = "Ponctualité : 4/5")))
+        assertEquals("Ponctualité : 4/5", db.loadAll().single().supervisorEvaluation)
+    }
+
     // ── localId ───────────────────────────────────────────────────────────────
 
     @Test

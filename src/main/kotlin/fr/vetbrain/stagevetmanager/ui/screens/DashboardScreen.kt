@@ -90,6 +90,8 @@ fun DashboardScreen(
     val allInternships     by vm.allInternships.collectAsState()
     var previousMode       by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
     var showVetAgroTiceYearDialog by remember { mutableStateOf(false) }
+    val vetAgroTiceExports by vm.vetAgroTiceExports.collectAsState()
+    var fullVetAgroTiceExport by remember { mutableStateOf(false) }
     var selectedVetAgroTiceYear by remember { mutableStateOf<String?>(null) }
 
     var displayMode by remember { mutableStateOf(DisplayMode.INTERNSHIPS) }
@@ -104,7 +106,7 @@ fun DashboardScreen(
 
     fun saveVetAgroTiceCsv(studyYear: String) {
         val safeYear = studyYear.replace(Regex("[^a-zA-Z0-9_-]+"), "_").trim('_')
-        val filename = "vetagrotice_${safeYear}_${java.time.LocalDate.now()}.csv"
+        val filename = "vetagrotice_${safeYear}_${java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss"))}.csv"
         val dir = exportDir.ifBlank { System.getProperty("user.home") }
         try {
             val dialog = FileDialog(null as Frame?, "Enregistrer l'export CSV VetAgroTice", FileDialog.SAVE)
@@ -114,10 +116,10 @@ fun DashboardScreen(
             val chosen = dialog.file
             val chosenDir = dialog.directory
             if (chosen != null && chosenDir != null) {
-                vm.exportVetAgroTiceCsv(Paths.get(chosenDir, chosen), studyYear)
+                vm.exportVetAgroTiceCsv(Paths.get(chosenDir, chosen), studyYear, fullVetAgroTiceExport)
             }
         } catch (_: Exception) {
-            vm.exportVetAgroTiceCsv(Paths.get(dir, filename), studyYear)
+            vm.exportVetAgroTiceCsv(Paths.get(dir, filename), studyYear, fullVetAgroTiceExport)
         }
     }
 
@@ -131,6 +133,12 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text("Choisissez l’année d’étude à exporter.")
+                    Text("Par défaut : stages signés nouveaux ou modifiés depuis leur dernier export.")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = fullVetAgroTiceExport, onCheckedChange = { fullVetAgroTiceExport = it })
+                        Text("Tout réexporter pour cette année")
+                    }
+
                     Spacer(Modifier.height(8.dp))
                     signedStudyYears.forEach { year ->
                         Row(
@@ -143,6 +151,18 @@ fun DashboardScreen(
                             )
                             Text(year)
                         }
+                    }
+                    HorizontalDivider()
+                    Text("Historique des exports (20 derniers)", style = MaterialTheme.typography.titleSmall)
+                    Text("Ce suivi confirme la création du CSV, pas son import dans VetAgroTice.")
+                    if (vetAgroTiceExports.isEmpty()) Text("Aucun export enregistré. Le premier export inclura tous les stages signés de l’année choisie.")
+                    vetAgroTiceExports.forEach { export ->
+                        val date = java.time.LocalDateTime.parse(export.exportedAt)
+                            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                        Text("$date — ${export.studyYear} — ${export.stageCount} stage(s) — " +
+                            if (export.fullExport) "Complet" else "Nouveaux / modifiés")
+                        Text(export.filePath, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(4.dp))
                     }
                     if (signedStudyYears.isEmpty()) {
                         Text("Aucun stage signé avec une année d’étude renseignée.")
@@ -280,6 +300,8 @@ fun DashboardScreen(
                         }
                     },
                     onExportVetAgroTice = {
+                        fullVetAgroTiceExport = false
+                        vm.refreshVetAgroTiceHistory()
                         selectedVetAgroTiceYear = signedStudyYears.firstOrNull()
                         showVetAgroTiceYearDialog = true
                     },

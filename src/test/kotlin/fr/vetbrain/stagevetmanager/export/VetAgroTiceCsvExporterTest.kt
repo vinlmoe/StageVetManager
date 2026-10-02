@@ -73,7 +73,7 @@ class VetAgroTiceCsvExporterTest {
         // point-virgule qui suit prouve que le champ s'est bien terminé là.
         assertTrue(csv.contains("\"C:\\Conventions\";"))
         assertTrue(csv.contains("\"Lyon\\\\\";"))
-        // Dernière colonne du fichier : le champ se referme en fin de ligne.
-        assertTrue(csv.trimEnd().endsWith("\"Fin de convention\""))
+        // Le texte brut est suivi des deux colonnes d’évaluation.
+        assertTrue(csv.contains("\"Fin de convention\";"))
     }
 }
