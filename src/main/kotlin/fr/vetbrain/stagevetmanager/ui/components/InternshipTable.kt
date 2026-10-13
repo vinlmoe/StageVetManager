@@ -209,7 +209,25 @@ fun InternshipTable(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         COLUMNS.forEach { col ->
-                            if (col.sortCol == SortColumn.ORGANIZATION) {
+                            if (col.sortCol == SortColumn.STUDENT && internship.isCancelled) {
+                                Column(
+                                    modifier = Modifier.weight(col.weight).padding(horizontal = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                                ) {
+                                    Text(
+                                        col.value(internship),
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        "Annulé / refusé",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
+                            } else if (col.sortCol == SortColumn.ORGANIZATION) {
                                 // Colonne organisme : dot statut + texte
                                 Row(
                                     modifier = Modifier.weight(col.weight).padding(horizontal = 4.dp),
@@ -256,7 +274,7 @@ fun InternshipTable(
                                 pdf.allPreSignaturesDone && pdf.signingDateSchool.isBlank()
                             else
                                 internship.conventionSignUrl.isNotEmpty()
-                            if (schoolNotSigned && preSignaturesDone) {
+                            if (!internship.isCancelled && schoolNotSigned && preSignaturesDone) {
                                 val hasInconsistency = pdf != null &&
                                     (pdf.sundayPresence || pdf.holidayPresence || pdf.hasWeeklyRestDay == false)
                                 TipIcon(
@@ -284,7 +302,7 @@ fun InternshipTable(
                                 )
                                 SignUrgencyBadge(internship.startDate, iconSize = 13)
                             }
-                            if (internship.conventionCancelUrl.isNotEmpty()) {
+                            if (!internship.isCancelled && internship.conventionCancelUrl.isNotEmpty()) {
                                 TipIcon(
                                     "Annuler la convention", Icons.Default.Cancel,
                                     MaterialTheme.colorScheme.error,

@@ -53,6 +53,17 @@ class VetAgroTiceCsvExporterTest {
     }
 
     @Test
+    fun `does not export a signed cancelled stage`() {
+        val cancelled = stage("ANNULE", LocalDate.of(2026, 1, 20)).copy(isCancelled = true)
+        val file = Files.createTempFile("vetagrotice-cancelled-", ".csv")
+
+        val count = VetAgroTiceCsvExporter.export(listOf(cancelled), file)
+
+        assertEquals(0, count)
+        assertFalse(Files.readString(file).contains("\"ANNULE\""))
+    }
+
+    @Test
     fun `an odd trailing backslash never swallows the closing quote`() {
         // Le lecteur CSV de Moodle prend l'antislash comme caractère d'échappement : collé au
         // guillemet fermant, il empêcherait ce guillemet de fermer le champ et décalerait toute

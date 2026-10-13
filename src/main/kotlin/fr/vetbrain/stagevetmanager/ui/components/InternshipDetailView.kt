@@ -93,6 +93,9 @@ fun InternshipDetailView(
                 DetailField("Organisme",     internship.organization)
                 DetailField("Adresse",       internship.address)
                 DetailField("Thème",         internship.theme)
+                if (internship.isCancelled) {
+                    DetailField("Statut", "Annulé ou refusé")
+                }
                 DetailField("Début",         internship.startDate?.format(DATE_FMT) ?: "—")
                 DetailField("Fin",           internship.endDate?.format(DATE_FMT) ?: "—")
                 DetailField("Convention n°", internship.conventionNumber)
@@ -161,7 +164,7 @@ fun InternshipDetailView(
                     pdfData.allPreSignaturesDone && pdfData.signingDateSchool.isBlank()
                 else
                     internship.conventionSignUrl.isNotEmpty()
-                if (schoolNotSigned && preSignaturesDone) {
+                if (!internship.isCancelled && schoolNotSigned && preSignaturesDone) {
                     val hasInconsistency = pdfData != null &&
                         (pdfData.sundayPresence || pdfData.holidayPresence || pdfData.hasWeeklyRestDay == false)
                     val signColor = if (hasInconsistency) Color(0xFFB71C1C) else Color(0xFFE65100)
@@ -199,7 +202,7 @@ fun InternshipDetailView(
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     Text("Téléchargement…", fontSize = 12.sp, color = Color.Gray)
                 }
-                if (internship.conventionCancelUrl.isNotEmpty()) {
+                if (!internship.isCancelled && internship.conventionCancelUrl.isNotEmpty()) {
                     OutlinedButton(
                         onClick = { showCancelAlert = true },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),

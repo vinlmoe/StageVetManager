@@ -819,6 +819,7 @@ class DashboardViewModel {
 }
 
 internal fun shouldAutoParsePdfAfterImport(internship: Internship, cached: ConventionPdfData?): Boolean {
+    if (internship.isCancelled) return false
     // Une convention avec ses quatre dates de signature en base est terminée,
     // même si le tableau de bord conserve encore un lien de signature.
     if (cached?.allSignaturesDone == true) return false
@@ -832,7 +833,7 @@ internal fun shouldAutoParsePdfAfterImport(internship: Internship, cached: Conve
 }
 
 internal fun shouldAutoDownloadSignedPdfAfterImport(internship: Internship, cached: ConventionPdfData?): Boolean =
-    internship.signingDate != null && internship.conventionPdfUrl.isNotBlank() &&
+    !internship.isCancelled && internship.signingDate != null && internship.conventionPdfUrl.isNotBlank() &&
         internship.localPdfPath.isBlank() && cached?.allSignaturesDone != true
 
 private fun ScrapeFilters.checkpointKey(): String = listOf(

@@ -56,6 +56,12 @@ object DashboardParser {
         val conventionCancelUrl = if (cancelStageId.isNotEmpty())
             "https://www.stagevet.fr/profil/ecole/cancelstage/$cancelStageId"
         else ""
+        // Le bouton « Annuler le stage » est présent même sur des stages actifs :
+        // seul ce bandeau du tableau de bord confirme l'annulation ou le refus.
+        val isCancelled = card.select(".bg-danger").any { banner ->
+            banner.text().contains("stage annul", ignoreCase = true) ||
+                banner.text().contains("stage refus", ignoreCase = true)
+        }
 
         val signingDate = signingDateStr?.let { parseDate(it) }
         val (startDate, endDate) = parseDateRange(rawDateStage)
@@ -75,6 +81,7 @@ object DashboardParser {
             conventionPdfUrl = conventionPdfUrl,
             conventionSignUrl = conventionSignUrl,
             conventionCancelUrl = conventionCancelUrl,
+            isCancelled = isCancelled,
             durationLabel = durationLabel,
             supervisorEvaluationUrl = evaluationUrl(card, "1"),
             studentEvaluationUrl = evaluationUrl(card, "2"),

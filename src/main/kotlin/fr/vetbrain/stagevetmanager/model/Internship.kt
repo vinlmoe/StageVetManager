@@ -17,6 +17,8 @@ data class Internship(
     val conventionPdfUrl: String = "",
     val conventionSignUrl: String = "",
     val conventionCancelUrl: String = "",
+    /** Le tableau de bord StageVet indique « Stage annulé ou refusé ». */
+    val isCancelled: Boolean = false,
     val durationLabel: String = "",
     val inSuiviTable: Boolean = false,
     val localPdfPath: String = "",
@@ -27,7 +29,7 @@ data class Internship(
 ) {
     /** Convention non signée dont le stage n'est pas terminé. */
     fun needsSignatureRefresh(today: LocalDate = LocalDate.now()): Boolean =
-        signingDate == null && (conventionPdfUrl.isNotBlank() || conventionSignUrl.isNotBlank()) &&
+        !isCancelled && signingDate == null && (conventionPdfUrl.isNotBlank() || conventionSignUrl.isNotBlank()) &&
             (endDate ?: startDate)?.let { !it.isBefore(today) } == true
 
     fun matchesText(query: String): Boolean {
@@ -43,28 +45,29 @@ data class Internship(
 
 enum class ViewFilter(val label: String, val predicate: (Internship) -> Boolean) {
     ALL("Tous les stages", { true }),
+    CANCELLED("Annulés / refusés", { it.isCancelled }),
     STARTING_SOON("Débuts dans 15 j", {
         val now = LocalDate.now()
-        it.startDate != null && !it.startDate.isBefore(now) && !it.startDate.isAfter(now.plusDays(15))
+        !it.isCancelled && it.startDate != null && !it.startDate.isBefore(now) && !it.startDate.isAfter(now.plusDays(15))
     }),
     UNSIGNED_STARTING_SOON("Non signées — début dans 15 j", {
         val now = LocalDate.now()
-        it.signingDate == null &&
+        !it.isCancelled && it.signingDate == null &&
             it.startDate != null &&
             !it.startDate.isBefore(now) &&
             !it.startDate.isAfter(now.plusDays(15))
     }),
     RECENTLY_SIGNED("Signés 15 derniers j", {
         val now = LocalDate.now()
-        it.signingDate != null && !it.signingDate.isBefore(now.minusDays(15)) && !it.signingDate.isAfter(now)
+        !it.isCancelled && it.signingDate != null && !it.signingDate.isBefore(now.minusDays(15)) && !it.signingDate.isAfter(now)
     }),
     PENDING_SCHOOL_SIGNATURE("À signer (école)", {
         // conventionSignUrl présent = stagiaire + maître ont signé, il reste la signature école
-        it.conventionSignUrl.isNotEmpty() &&
+        !it.isCancelled && it.conventionSignUrl.isNotEmpty() &&
             it.signingDate == null &&
             (it.startDate == null || !it.startDate.isBefore(LocalDate.now().minusDays(30)))
     }),
     COMPLETED_NOT_IN_TRACKING("Terminés non sélectionnés", {
-        it.endDate != null && it.endDate.isBefore(LocalDate.now()) && !it.inSuiviTable
+        !it.isCancelled && it.endDate != null && it.endDate.isBefore(LocalDate.now()) && !it.inSuiviTable
     }),
 }

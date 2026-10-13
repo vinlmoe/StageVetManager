@@ -138,4 +138,15 @@ class DashboardParserTest {
             results[0].conventionPdfUrl
         )
     }
+
+    @Test
+    fun `cancelled banner marks a stage as cancelled`() {
+        val html = fixtureHtml.replace(
+            "<div class=\"card-body\">",
+            "<div class=\"card-body\"><div class=\"bg-danger\">Stage annulé ou refusé</div>",
+        )
+
+        assertTrue(DashboardParser.parse(html).single().isCancelled)
+        assertFalse(DashboardParser.parse(fixtureHtml).single().isCancelled)
+    }
 }

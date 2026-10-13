@@ -98,7 +98,7 @@ fun DashboardScreen(
 
     val signedStudyYears = remember(allInternships) {
         allInternships
-            .filter { it.signingDate != null && it.studyYear.isNotBlank() }
+            .filter { it.signingDate != null && !it.isCancelled && it.studyYear.isNotBlank() }
             .map { it.studyYear.trim() }
             .distinct()
             .sorted()

@@ -21,7 +21,7 @@ object VetAgroTiceExportService {
     ): Int {
         val previous = db.loadVetAgroTiceFingerprints()
         val candidates = internships.filter {
-            it.signingDate != null && it.studyYear.trim() == studyYear.trim()
+            it.signingDate != null && !it.isCancelled && it.studyYear.trim() == studyYear.trim()
         }.distinctBy { it.localId() }
         val hashes = candidates.associate { stage ->
             stage.localId() to VetAgroTiceCsvExporter.fingerprint(stage, pdfDataCache[stage.conventionPdfUrl])

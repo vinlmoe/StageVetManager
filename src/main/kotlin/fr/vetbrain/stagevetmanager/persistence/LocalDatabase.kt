@@ -119,6 +119,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                     convention_pdf_url    TEXT,
                     convention_sign_url  TEXT,
                     convention_cancel_url TEXT,
+                    is_cancelled          INTEGER NOT NULL DEFAULT 0,
                     duration_label       TEXT,
                     in_suivi_table       INTEGER DEFAULT 0,
                     local_pdf_path       TEXT DEFAULT '',
@@ -149,6 +150,11 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
             runCatching {
                 conn.createStatement().execute(
                     "ALTER TABLE internships ADD COLUMN convention_cancel_url TEXT"
+                )
+            }
+            runCatching {
+                conn.createStatement().execute(
+                    "ALTER TABLE internships ADD COLUMN is_cancelled INTEGER NOT NULL DEFAULT 0"
                 )
             }
             runCatching {
@@ -448,8 +454,8 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                          convention_number, convention_gen_date, signing_date,
                          start_date, end_date, raw_date_stage, theme,
                          convention_pdf_url, convention_sign_url, convention_cancel_url,
-                         duration_label, in_suivi_table, created_at, last_seen)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         is_cancelled, duration_label, in_suivi_table, created_at, last_seen)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """.trimIndent())
                 val updateStmt = conn.prepareStatement("""
                     UPDATE internships
@@ -457,7 +463,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                         convention_number=?, convention_gen_date=?, signing_date=COALESCE(?, signing_date),
                         start_date=?, end_date=?, raw_date_stage=?, theme=?,
                         convention_pdf_url=?, convention_sign_url=?, convention_cancel_url=?,
-                        duration_label=?, last_seen=?
+                        is_cancelled=?, duration_label=?, last_seen=?
                     WHERE id=?
                 """.trimIndent())
 
@@ -482,11 +488,12 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                             setString(12, s.conventionPdfUrl)
                             setString(13, s.conventionSignUrl)
                             setString(14, s.conventionCancelUrl)
-                            setString(15, s.durationLabel)
+                            setInt(15, if (s.isCancelled) 1 else 0)
+                            setString(16, s.durationLabel)
                             // in_suivi_table intentionnellement absent : annotation locale,
                             // jamais écrasée par le scraper
-                            setString(16, now)
-                            setString(17, id)
+                            setString(17, now)
+                            setString(18, id)
                             executeUpdate()
                         }
                         updated++
@@ -507,10 +514,11 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                             setString(13, s.conventionPdfUrl)
                             setString(14, s.conventionSignUrl)
                             setString(15, s.conventionCancelUrl)
-                            setString(16, s.durationLabel)
-                            setInt(17, 0) // in_suivi_table = false pour les nouveaux stages
-                            setString(18, now)
+                            setInt(16, if (s.isCancelled) 1 else 0)
+                            setString(17, s.durationLabel)
+                            setInt(18, 0) // in_suivi_table = false pour les nouveaux stages
                             setString(19, now)
+                            setString(20, now)
                             executeUpdate()
                         }
                         added++
@@ -563,6 +571,7 @@ class LocalDatabase(val dbPath: Path = defaultDbPath) {
                         conventionPdfUrl  = rs.getString("convention_pdf_url") ?: "",
                         conventionSignUrl = rs.getString("convention_sign_url") ?: "",
                         conventionCancelUrl = rs.getString("convention_cancel_url") ?: "",
+                        isCancelled       = rs.getInt("is_cancelled") == 1,
                         durationLabel    = rs.getString("duration_label") ?: "",
                         inSuiviTable     = rs.getInt("in_suivi_table") == 1,
                         supervisorEvaluationUrl = rs.getString("supervisor_evaluation_url").orEmpty(),

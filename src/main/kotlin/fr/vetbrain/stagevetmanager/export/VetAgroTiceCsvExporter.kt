@@ -32,13 +32,13 @@ object VetAgroTiceCsvExporter {
         "Évaluation par le maître de stage", "Évaluation par l’étudiant",
     )
 
-    /** Exporte uniquement les stages dont la signature finale est renseignée. */
+    /** Exporte uniquement les stages signés qui ne sont ni annulés ni refusés. */
     fun export(
         internships: List<Internship>,
         path: Path,
         pdfDataCache: Map<String, ConventionPdfData> = emptyMap(),
     ): Int {
-        val signed = internships.filter { it.signingDate != null }
+        val signed = internships.filter { it.signingDate != null && !it.isCancelled }
         SafeFileWrite.replace(path.toFile()) { out ->
             val writer = out.bufferedWriter(StandardCharsets.UTF_8)
             writer.write('\uFEFF'.code)

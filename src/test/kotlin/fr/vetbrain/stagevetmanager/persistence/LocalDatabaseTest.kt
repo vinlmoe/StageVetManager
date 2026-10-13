@@ -177,6 +177,13 @@ class LocalDatabaseTest {
     }
 
     @Test
+    fun `upsertAll persists cancelled status`() {
+        db.upsertAll(listOf(internship().copy(isCancelled = true)))
+
+        assertTrue(db.loadAll().single().isCancelled)
+    }
+
+    @Test
     fun `clear empties the database and count returns zero`() {
         db.upsertAll(listOf(internship()))
         assertEquals(1, db.count())
